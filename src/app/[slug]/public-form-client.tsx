@@ -1041,6 +1041,23 @@ function QuestionBlock({
           />
         )
 
+      case 'phone':
+        return (
+          <input
+            type="tel"
+            placeholder={block.attributes.placeholder || '+33 6 12 34 56 78'}
+            value={answer || ''}
+            onChange={(e) => onAnswer(e.target.value)}
+            autoFocus
+            className="mt-4 w-full bg-transparent border-2 py-2 px-3 text-lg outline-none transition-colors focus:border-opacity-100"
+            style={{
+              color: themeProps.answersColor,
+              borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+              ...inputStyle,
+            }}
+          />
+        )
+
       case 'long-text':
         return (
           <textarea
@@ -1058,8 +1075,44 @@ function QuestionBlock({
           />
         )
 
-      case 'multiple-choice':
       case 'dropdown':
+        const dropdownChoicesMain = block.attributes.choices || []
+        return (
+          <div className="mt-4 relative">
+            <select
+              value={answer || ''}
+              onChange={(e) => {
+                onAnswer(e.target.value)
+                if (e.target.value) {
+                  setTimeout(() => onNext(true), 300)
+                }
+              }}
+              className="w-full bg-transparent border-2 py-3 px-4 text-lg outline-none appearance-none cursor-pointer transition-colors"
+              style={{
+                color: themeProps.answersColor,
+                borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+                borderRadius: inputBorderRadius,
+                ...inputStyle,
+              }}
+            >
+              <option value="" style={{ color: '#999' }}>
+                {block.attributes.placeholder || 'Sélectionnez une option...'}
+              </option>
+              {dropdownChoicesMain.map((choice: any) => (
+                <option key={choice.id || choice.value} value={choice.value} style={{ color: '#333' }}>
+                  {choice.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown 
+              className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" 
+              style={{ color: themeProps.answersColor }}
+              size={20}
+            />
+          </div>
+        )
+
+      case 'multiple-choice':
         const choices = block.attributes.choices || []
         const allowMultiple = block.attributes.allowMultiple || block.attributes.multiple
         return (
@@ -2395,6 +2448,23 @@ function InnerBlockInput({
         />
       )
 
+    case 'phone':
+      return (
+        <input
+          type="tel"
+          placeholder={block.attributes.placeholder || '+33 6 12 34 56 78'}
+          value={answer || ''}
+          onChange={(e) => onAnswer(e.target.value)}
+          autoFocus
+          className="mt-4 w-full bg-transparent border-2 py-2 px-3 text-lg outline-none transition-colors focus:border-opacity-100"
+          style={{
+            color: themeProps.answersColor,
+            borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+            ...inputStyle,
+          }}
+        />
+      )
+
     case 'long-text':
       return (
         <textarea
@@ -2412,8 +2482,44 @@ function InnerBlockInput({
         />
       )
 
-    case 'multiple-choice':
     case 'dropdown':
+      const innerDropdownChoices = block.attributes.choices || []
+      return (
+        <div className="mt-4 relative">
+          <select
+            value={answer || ''}
+            onChange={(e) => {
+              onAnswer(e.target.value)
+              if (e.target.value) {
+                setTimeout(() => onNext(true), 300)
+              }
+            }}
+            className="w-full bg-transparent border-2 py-3 px-4 text-lg outline-none appearance-none cursor-pointer transition-colors"
+            style={{
+              color: themeProps.answersColor,
+              borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+              borderRadius: buttonBorderRadius,
+              ...inputStyle,
+            }}
+          >
+            <option value="" style={{ color: '#999' }}>
+              {block.attributes.placeholder || 'Sélectionnez une option...'}
+            </option>
+            {innerDropdownChoices.map((choice: any) => (
+              <option key={choice.id || choice.value} value={choice.value} style={{ color: '#333' }}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown 
+            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" 
+            style={{ color: themeProps.answersColor }}
+            size={20}
+          />
+        </div>
+      )
+
+    case 'multiple-choice':
       const innerChoices = block.attributes.choices || []
       const innerAllowMultiple = block.attributes.allowMultiple || block.attributes.multiple
       return (

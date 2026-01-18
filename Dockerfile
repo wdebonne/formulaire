@@ -3,6 +3,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Variable d'environnement nécessaire pour Prisma au moment du build
+ENV DATABASE_URL="file:./dev.db"
+
 # Copier les fichiers de dépendances
 COPY package.json ./
 

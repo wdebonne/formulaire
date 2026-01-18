@@ -84,7 +84,31 @@ Voir le bloc "Heure" dans l'éditeur pour toutes les options.
   - ⚪ **Gris** : Pas encore envoyé
 - Le statut se met à jour automatiquement après chaque envoi/renvoi
 
-## �🚀 Installation
+## 👥 Gestion des droits et partage (NOUVEAU)
+
+### Niveaux de permissions
+
+| Permission | Description |
+|------------|-------------|
+| **Lecture** | Peut voir les réponses du formulaire |
+| **Édition** | Peut modifier le formulaire et voir les réponses |
+| **Administrateur** | Peut tout faire, y compris gérer les partages |
+
+### Fonctionnalités
+
+- **Partage avec utilisateurs** : Partagez vos formulaires avec d'autres utilisateurs de la plateforme
+- **Modification des droits** : Changez le niveau de permission d'un utilisateur à tout moment
+- **Niveau Administrateur** : Les utilisateurs avec ce droit peuvent eux-mêmes partager le formulaire
+- **Notification par email** : Les utilisateurs reçoivent un email lors du partage
+
+### Options de partage
+
+- **Lien direct** : URL publique du formulaire
+- **Shortcode** : Code personnalisable pour intégration
+- **Embed** : Code iframe pour sites externes
+- **QR Code** : Code QR téléchargeable
+
+## 🚀 Installation
 
 ### Prérequis
 

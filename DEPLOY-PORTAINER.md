@@ -1,6 +1,10 @@
 # Déploiement sur Portainer
 
-> Nouvelle fonctionnalité : partage de formulaire (lien direct, shortcode, embed, QR code) accessible via le bouton "Partager" dans l'éditeur visuel. Le slug (URL) du formulaire est modifiable dans les paramètres du formulaire.
+> **Nouveautés** :
+> - Partage de formulaire (lien direct, shortcode, embed, QR code) accessible via le bouton "Partager"
+> - Gestion avancée des droits : 3 niveaux (Lecture, Édition, Administrateur)
+> - Les utilisateurs Administrateur d'un formulaire peuvent gérer les partages
+> - Le slug (URL) du formulaire est modifiable dans les paramètres
 
 Ce guide explique comment déployer FormBuilder Standalone sur Portainer avec Docker Compose.
 

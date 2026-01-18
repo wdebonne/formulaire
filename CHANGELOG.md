@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-01-18 (soir)
+
+### Ajouts
+- **Gestion avancée des droits de partage** :
+  - 3 niveaux de permissions : Lecture, Édition, Administrateur
+  - Les administrateurs de formulaire peuvent gérer les partages
+  - Modification des permissions en direct via menu déroulant
+  - Descriptions des niveaux de droits dans l'interface
+- **Chargement dynamique des polices** sur les formulaires publics :
+  - Les polices Google Fonts sont maintenant chargées automatiquement
+  - Correction de l'affichage des polices personnalisées
+- **Amélioration de la duplication** :
+  - Le formulaire dupliqué apparaît immédiatement dans la liste sans rafraîchissement
+
+### Corrections
+- Correction du script d'initialisation pour ajouter automatiquement la colonne `webhookStatus` si manquante
+
+---
+
 ## 2026-01-18 (après-midi)
 
 ### Ajouts

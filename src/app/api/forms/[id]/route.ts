@@ -7,6 +7,40 @@ interface RouteParams {
   params: { id: string }
 }
 
+// Fonction utilitaire pour vérifier les permissions d'accès au formulaire
+async function checkFormAccess(formId: string, userId: string, requiredPermissions: string[] = ['view', 'edit', 'admin']) {
+  // Vérifier si l'utilisateur est le propriétaire
+  const form = await prisma.form.findUnique({
+    where: { id: formId },
+    include: { theme: true }
+  })
+
+  if (!form) {
+    return { form: null, permission: null, hasAccess: false }
+  }
+
+  if (form.userId === userId) {
+    return { form, permission: 'owner', hasAccess: true }
+  }
+
+  // Vérifier si l'utilisateur est admin système
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (user?.role === 'admin') {
+    return { form, permission: 'admin', hasAccess: true }
+  }
+
+  // Vérifier si le formulaire est partagé avec l'utilisateur
+  const share = await prisma.formShare.findFirst({
+    where: { formId, userId }
+  })
+
+  if (share && requiredPermissions.includes(share.permission)) {
+    return { form, permission: share.permission, hasAccess: true }
+  }
+
+  return { form: null, permission: null, hasAccess: false }
+}
+
 // GET single form
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -15,17 +49,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const form = await prisma.form.findFirst({
-      where: {
-        id: params.id,
-        userId: session.userId
-      },
-      include: {
-        theme: true
-      }
-    })
+    const { form, hasAccess } = await checkFormAccess(params.id, session.userId, ['view', 'edit', 'admin'])
 
-    if (!form) {
+    if (!hasAccess || !form) {
       return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
     }
 
@@ -54,12 +80,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const existingForm = await prisma.form.findFirst({
-      where: { id: params.id, userId: session.userId }
-    })
+    const { form: existingForm, hasAccess } = await checkFormAccess(params.id, session.userId, ['edit', 'admin'])
 
-    if (!existingForm) {
-      return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+    if (!hasAccess || !existingForm) {
+      return NextResponse.json({ error: 'Formulaire non trouvé ou accès refusé' }, { status: 404 })
     }
 
     const body = await request.json()
@@ -98,7 +122,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE form
+// DELETE form (seul le propriétaire peut supprimer)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getSession()
@@ -106,12 +130,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
+    // Seul le propriétaire peut supprimer
     const form = await prisma.form.findFirst({
       where: { id: params.id, userId: session.userId }
     })
 
     if (!form) {
-      return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+      return NextResponse.json({ error: 'Formulaire non trouvé ou accès refusé' }, { status: 404 })
     }
 
     await prisma.form.delete({ where: { id: params.id } })

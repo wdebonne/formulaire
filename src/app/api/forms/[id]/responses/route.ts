@@ -2,6 +2,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 
+// Fonction utilitaire pour vérifier les permissions d'accès au formulaire
+async function checkFormAccess(formId: string, userId: string, requiredPermissions: string[] = ['view', 'edit', 'admin']) {
+  // Vérifier si le formulaire existe
+  const form = await prisma.form.findUnique({
+    where: { id: formId }
+  })
+
+  if (!form) {
+    return { form: null, permission: null, hasAccess: false }
+  }
+
+  // Propriétaire
+  if (form.userId === userId) {
+    return { form, permission: 'owner', hasAccess: true }
+  }
+
+  // Admin système
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (user?.role === 'admin') {
+    return { form, permission: 'admin', hasAccess: true }
+  }
+
+  // Partage
+  const share = await prisma.formShare.findFirst({
+    where: { formId, userId }
+  })
+
+  if (share && requiredPermissions.includes(share.permission)) {
+    return { form, permission: share.permission, hasAccess: true }
+  }
+
+  return { form: null, permission: null, hasAccess: false }
+}
+
 // GET /api/forms/[id]/responses - Liste toutes les réponses d'un formulaire
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,16 +46,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
 
-    // Vérifier que le formulaire appartient à l'utilisateur
-    const form = await prisma.form.findFirst({
-      where: {
-        id,
-        userId: session.userId,
-      },
-    })
+    // Vérifier que l'utilisateur a accès au formulaire (view, edit ou admin)
+    const { hasAccess } = await checkFormAccess(id, session.userId, ['view', 'edit', 'admin'])
 
-    if (!form) {
-      return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Formulaire non trouvé ou accès refusé' }, { status: 404 })
     }
 
     const responses = await prisma.response.findMany({
@@ -59,16 +88,11 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Vérifier que le formulaire appartient à l'utilisateur
-    const form = await prisma.form.findFirst({
-      where: {
-        id,
-        userId: session.userId,
-      },
-    })
+    // Seuls le propriétaire et les admins peuvent supprimer les réponses
+    const { hasAccess, permission } = await checkFormAccess(id, session.userId, ['edit', 'admin'])
 
-    if (!form) {
-      return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+    if (!hasAccess || (permission !== 'owner' && permission !== 'admin')) {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
     await prisma.response.deleteMany({

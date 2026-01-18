@@ -397,9 +397,15 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                         {form.status === 'published' ? 'Publié' : 'Brouillon'}
                       </span>
                       {form.isShared && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          form.sharePermission === 'admin' 
+                            ? 'bg-purple-100 text-purple-800'
+                            : form.sharePermission === 'edit'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-gray-100 text-gray-800'
+                        }`}>
                           <Share2 className="w-3 h-3 mr-1" />
-                          Partagé {form.sharePermission === 'edit' ? '(édition)' : '(lecture)'}
+                          Partagé ({form.sharePermission === 'admin' ? 'admin' : form.sharePermission === 'edit' ? 'édition' : 'lecture'})
                         </span>
                       )}
                     </div>
@@ -416,7 +422,7 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {(!form.isShared || form.sharePermission === 'edit') && (
+                      {(!form.isShared || form.sharePermission === 'edit' || form.sharePermission === 'admin') && (
                         <DropdownMenuItem onClick={() => router.push(`/builder/${form.id}`)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Modifier
@@ -432,13 +438,17 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                           Voir le formulaire
                         </DropdownMenuItem>
                       )}
-                      {!form.isShared && (
+                      {(!form.isShared || form.sharePermission === 'admin') && (
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleOpenShareDialog(form)}>
                             <Users className="w-4 h-4 mr-2" />
                             Gérer les droits
                           </DropdownMenuItem>
+                        </>
+                      )}
+                      {!form.isShared && (
+                        <>
                           <DropdownMenuItem onClick={() => handleDuplicateForm(form.id)}>
                             <Copy className="w-4 h-4 mr-2" />
                             Dupliquer

@@ -106,12 +106,21 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
 
       if (!res.ok) throw new Error(data.error)
 
+      // Ajouter le nouveau formulaire à la liste locale
+      const newForm: FormData = {
+        id: data.id,
+        title: data.title,
+        slug: data.slug,
+        status: data.status,
+        responsesCount: 0,
+        updatedAt: data.updatedAt,
+      }
+      setForms([newForm, ...forms])
+
       toast({
         title: 'Formulaire dupliqué',
         description: 'Le formulaire a été dupliqué avec succès',
       })
-
-      router.refresh()
     } catch (error: any) {
       toast({
         title: 'Erreur',

@@ -43,6 +43,12 @@ interface FormShare {
 
 type ShareTab = 'link' | 'users' | 'shortcode' | 'embed' | 'qrcode'
 
+const PERMISSIONS = [
+  { value: 'view', label: 'Lecture', description: 'Peut voir les réponses' },
+  { value: 'edit', label: 'Édition', description: 'Peut modifier le formulaire' },
+  { value: 'admin', label: 'Administrateur', description: 'Peut tout faire, y compris gérer les partages' },
+]
+
 export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialogProps) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<ShareTab>('link')
@@ -146,6 +152,34 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
       toast({
         title: 'Partage supprimé',
         description: 'L\'accès a été révoqué',
+      })
+
+      fetchShares()
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.message,
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleUpdatePermission = async (shareId: string, newPermission: string) => {
+    try {
+      const res = await fetch(`/api/forms/${formId}/share`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareId, permission: newPermission }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Erreur lors de la mise à jour')
+      }
+
+      toast({
+        title: 'Permission mise à jour',
+        description: 'Les droits ont été modifiés',
       })
 
       fetchShares()
@@ -267,6 +301,16 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
                 Partagez ce formulaire avec d'autres utilisateurs de la plateforme.
               </p>
 
+              {/* Permissions info */}
+              <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                <p className="text-xs font-medium text-gray-700">Niveaux de droits :</p>
+                {PERMISSIONS.map((perm) => (
+                  <p key={perm.value} className="text-xs text-gray-500">
+                    <span className="font-medium">{perm.label}</span> : {perm.description}
+                  </p>
+                ))}
+              </div>
+
               {/* Add share form */}
               <div className="flex gap-2">
                 <Input
@@ -281,8 +325,9 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
                   onChange={(e) => setSharePermission(e.target.value)}
                   className="px-3 py-2 border rounded-md text-sm"
                 >
-                  <option value="view">Lecture</option>
-                  <option value="edit">Édition</option>
+                  {PERMISSIONS.map((perm) => (
+                    <option key={perm.value} value={perm.value}>{perm.label}</option>
+                  ))}
                 </select>
                 <Button onClick={handleAddShare} disabled={addingShare || !shareEmail}>
                   {addingShare ? (
@@ -312,13 +357,21 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
                         <p className="text-xs text-gray-500">{share.user.email}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          share.permission === 'edit' 
-                            ? 'bg-blue-100 text-blue-700' 
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {share.permission === 'edit' ? 'Édition' : 'Lecture'}
-                        </span>
+                        <select
+                          value={share.permission}
+                          onChange={(e) => handleUpdatePermission(share.id, e.target.value)}
+                          className={`text-xs px-2 py-1 rounded border-0 cursor-pointer ${
+                            share.permission === 'admin'
+                              ? 'bg-purple-100 text-purple-700'
+                              : share.permission === 'edit' 
+                                ? 'bg-blue-100 text-blue-700' 
+                                : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {PERMISSIONS.map((perm) => (
+                            <option key={perm.value} value={perm.value}>{perm.label}</option>
+                          ))}
+                        </select>
                         <Button
                           variant="ghost"
                           size="sm"

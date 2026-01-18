@@ -16,7 +16,7 @@ export async function GET(
 
     const { id } = await params
 
-    // Vérifier que l'utilisateur est le propriétaire du formulaire ou admin
+    // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
     const form = await prisma.form.findUnique({
       where: { id },
       include: { user: { select: { id: true, role: true } } }
@@ -27,7 +27,15 @@ export async function GET(
     }
 
     const user = await prisma.user.findUnique({ where: { id: session.userId } })
-    if (form.userId !== session.userId && user?.role !== 'admin') {
+    const userShare = await prisma.formShare.findFirst({
+      where: { formId: id, userId: session.userId }
+    })
+    
+    const isOwner = form.userId === session.userId
+    const isSystemAdmin = user?.role === 'admin'
+    const isFormAdmin = userShare?.permission === 'admin'
+    
+    if (!isOwner && !isSystemAdmin && !isFormAdmin) {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
     }
 
@@ -65,7 +73,11 @@ export async function POST(
       return NextResponse.json({ error: 'Email requis' }, { status: 400 })
     }
 
-    // Vérifier que l'utilisateur est le propriétaire du formulaire ou admin
+    if (!['view', 'edit', 'admin'].includes(permission)) {
+      return NextResponse.json({ error: 'Permission invalide' }, { status: 400 })
+    }
+
+    // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
     const form = await prisma.form.findUnique({
       where: { id },
       include: { user: { select: { id: true, name: true, role: true } } }
@@ -76,7 +88,15 @@ export async function POST(
     }
 
     const currentUser = await prisma.user.findUnique({ where: { id: session.userId } })
-    if (form.userId !== session.userId && currentUser?.role !== 'admin') {
+    const userShare = await prisma.formShare.findFirst({
+      where: { formId: id, userId: session.userId }
+    })
+    
+    const isOwner = form.userId === session.userId
+    const isSystemAdmin = currentUser?.role === 'admin'
+    const isFormAdmin = userShare?.permission === 'admin'
+    
+    if (!isOwner && !isSystemAdmin && !isFormAdmin) {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
     }
 
@@ -163,7 +183,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'ID du partage requis' }, { status: 400 })
     }
 
-    // Vérifier que l'utilisateur est le propriétaire du formulaire ou admin
+    // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
     const form = await prisma.form.findUnique({ where: { id } })
 
     if (!form) {
@@ -171,7 +191,15 @@ export async function DELETE(
     }
 
     const user = await prisma.user.findUnique({ where: { id: session.userId } })
-    if (form.userId !== session.userId && user?.role !== 'admin') {
+    const userShare = await prisma.formShare.findFirst({
+      where: { formId: id, userId: session.userId }
+    })
+    
+    const isOwner = form.userId === session.userId
+    const isSystemAdmin = user?.role === 'admin'
+    const isFormAdmin = userShare?.permission === 'admin'
+    
+    if (!isOwner && !isSystemAdmin && !isFormAdmin) {
       return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
     }
 
@@ -180,6 +208,63 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete share error:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}
+
+// PATCH update share permission
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    }
+
+    const { id } = await params
+    const { shareId, permission } = await request.json()
+
+    if (!shareId || !permission) {
+      return NextResponse.json({ error: 'ID du partage et permission requis' }, { status: 400 })
+    }
+
+    if (!['view', 'edit', 'admin'].includes(permission)) {
+      return NextResponse.json({ error: 'Permission invalide' }, { status: 400 })
+    }
+
+    // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
+    const form = await prisma.form.findUnique({ where: { id } })
+
+    if (!form) {
+      return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId } })
+    const userShare = await prisma.formShare.findFirst({
+      where: { formId: id, userId: session.userId }
+    })
+    
+    const isOwner = form.userId === session.userId
+    const isSystemAdmin = user?.role === 'admin'
+    const isFormAdmin = userShare?.permission === 'admin'
+    
+    if (!isOwner && !isSystemAdmin && !isFormAdmin) {
+      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
+    }
+
+    const updatedShare = await prisma.formShare.update({
+      where: { id: shareId },
+      data: { permission },
+      include: {
+        user: { select: { id: true, email: true, name: true } }
+      }
+    })
+
+    return NextResponse.json(updatedShare)
+  } catch (error) {
+    console.error('Update share error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }

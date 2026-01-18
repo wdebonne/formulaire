@@ -10,6 +10,24 @@ async function init() {
   console.log('🔧 Initializing database...')
 
   try {
+    // Vérifier et ajouter les colonnes manquantes dans Response
+    try {
+      // Vérifier si la colonne webhookStatus existe
+      await prisma.$queryRaw`SELECT webhookStatus FROM Response LIMIT 1`
+    } catch (columnError) {
+      // La colonne n'existe pas, on l'ajoute
+      console.log('⚠️  Adding missing column webhookStatus to Response table...')
+      try {
+        await prisma.$executeRaw`ALTER TABLE "Response" ADD COLUMN "webhookStatus" TEXT DEFAULT '{}'`
+        console.log('✅ Column webhookStatus added to Response table')
+      } catch (alterError) {
+        // Ignorer si la colonne existe déjà (autre type d'erreur)
+        if (!alterError.message?.includes('duplicate column')) {
+          console.log('⚠️  Could not add webhookStatus column:', alterError.message)
+        }
+      }
+    }
+
     // Créer les paramètres système si nécessaires
     const existingSettings = await prisma.systemSettings.findUnique({
       where: { id: 'system' }

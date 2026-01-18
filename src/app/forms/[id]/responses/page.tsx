@@ -11,10 +11,21 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
 
   const { id } = await params
 
+  // Vérifier si l'utilisateur est propriétaire OU a une permission de partage (view, edit, admin)
   const form = await prisma.form.findFirst({
     where: {
       id,
-      userId: session.userId,
+      OR: [
+        { userId: session.userId }, // Propriétaire
+        {
+          shares: {
+            some: {
+              userId: session.userId,
+              permission: { in: ['view', 'edit', 'admin'] }
+            }
+          }
+        }
+      ]
     },
   })
 

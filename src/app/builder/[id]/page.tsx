@@ -15,11 +15,22 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
     redirect('/login')
   }
 
+  // Vérifier si l'utilisateur est propriétaire OU a une permission d'édition/admin
   const [form, themes] = await Promise.all([
     prisma.form.findFirst({
       where: {
         id,
-        userId: session.userId
+        OR: [
+          { userId: session.userId }, // Propriétaire
+          {
+            shares: {
+              some: {
+                userId: session.userId,
+                permission: { in: ['edit', 'admin'] } // Permission d'édition ou admin
+              }
+            }
+          }
+        ]
       },
       include: { theme: true }
     }),

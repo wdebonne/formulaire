@@ -9,7 +9,7 @@ interface FontRecord {
   source: string
   url: string | null
   weights: string
-  isDefault: boolean
+  isDefault: boolean | number
   createdAt: Date
   updatedAt: Date
 }
@@ -22,13 +22,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    const fonts = await (prisma as any).font.findMany({
-      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-    }) as FontRecord[]
+    // Utiliser une requête SQL brute pour contourner le problème de régénération du client
+    const fonts = await prisma.$queryRaw<FontRecord[]>`
+      SELECT * FROM Font ORDER BY isDefault DESC, name ASC
+    `
 
     return NextResponse.json(fonts.map((font: FontRecord) => ({
       ...font,
       weights: JSON.parse(font.weights),
+      isDefault: Boolean(font.isDefault),
     })))
   } catch (error) {
     console.error('Erreur lors de la récupération des polices:', error)
@@ -55,32 +57,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier si la police existe déjà
-    const existingFont = await (prisma as any).font.findUnique({
-      where: { family },
-    })
+    const existingFont = await prisma.$queryRaw<FontRecord[]>`
+      SELECT * FROM Font WHERE family = ${family}
+    `
 
-    if (existingFont) {
+    if (existingFont.length > 0) {
       return NextResponse.json(
         { error: 'Cette police existe déjà' },
         { status: 400 }
       )
     }
 
-    const font = await (prisma as any).font.create({
-      data: {
-        name,
-        family,
-        source,
-        url,
-        weights: JSON.stringify(weights),
-        isDefault: false,
-      },
-    }) as FontRecord
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const weightsJson = JSON.stringify(weights)
 
-    return NextResponse.json({
-      ...font,
-      weights: JSON.parse(font.weights),
-    }, { status: 201 })
+    await prisma.$executeRaw`
+      INSERT INTO Font (id, name, family, source, url, weights, isDefault, createdAt, updatedAt)
+      VALUES (${id}, ${name}, ${family}, ${source}, ${url || null}, ${weightsJson}, 0, ${now}, ${now})
+    `
+
+    const font = {
+      id,
+      name,
+      family,
+      source,
+      url: url || null,
+      weights,
+      isDefault: false,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    return NextResponse.json(font, { status: 201 })
   } catch (error) {
     console.error('Erreur lors de la création de la police:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

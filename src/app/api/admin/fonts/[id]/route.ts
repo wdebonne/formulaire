@@ -9,7 +9,7 @@ interface FontRecord {
   source: string
   url: string | null
   weights: string
-  isDefault: boolean
+  isDefault: boolean | number
   createdAt: Date
   updatedAt: Date
 }
@@ -28,13 +28,15 @@ export async function DELETE(
     const { id } = await params
 
     // Vérifier si la police existe
-    const font = await (prisma as any).font.findUnique({
-      where: { id },
-    }) as FontRecord | null
+    const fonts = await prisma.$queryRaw<FontRecord[]>`
+      SELECT * FROM Font WHERE id = ${id}
+    `
 
-    if (!font) {
+    if (fonts.length === 0) {
       return NextResponse.json({ error: 'Police non trouvée' }, { status: 404 })
     }
+
+    const font = fonts[0]
 
     // Ne pas permettre la suppression des polices par défaut
     if (font.isDefault) {
@@ -44,9 +46,7 @@ export async function DELETE(
       )
     }
 
-    await (prisma as any).font.delete({
-      where: { id },
-    })
+    await prisma.$executeRaw`DELETE FROM Font WHERE id = ${id}`
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -70,13 +70,15 @@ export async function PUT(
     const body = await request.json()
     const { name, family, source, url, weights } = body
 
-    const font = await (prisma as any).font.findUnique({
-      where: { id },
-    }) as FontRecord | null
+    const fonts = await prisma.$queryRaw<FontRecord[]>`
+      SELECT * FROM Font WHERE id = ${id}
+    `
 
-    if (!font) {
+    if (fonts.length === 0) {
       return NextResponse.json({ error: 'Police non trouvée' }, { status: 404 })
     }
+
+    const font = fonts[0]
 
     // Ne pas permettre la modification des polices par défaut
     if (font.isDefault) {
@@ -86,20 +88,30 @@ export async function PUT(
       )
     }
 
-    const updatedFont = await (prisma as any).font.update({
-      where: { id },
-      data: {
-        name: name || font.name,
-        family: family || font.family,
-        source: source || font.source,
-        url: url !== undefined ? url : font.url,
-        weights: weights ? JSON.stringify(weights) : font.weights,
-      },
-    }) as FontRecord
+    const now = new Date().toISOString()
+    const newName = name || font.name
+    const newFamily = family || font.family
+    const newSource = source || font.source
+    const newUrl = url !== undefined ? url : font.url
+    const newWeights = weights ? JSON.stringify(weights) : font.weights
+
+    await prisma.$executeRaw`
+      UPDATE Font 
+      SET name = ${newName}, family = ${newFamily}, source = ${newSource}, 
+          url = ${newUrl}, weights = ${newWeights}, updatedAt = ${now}
+      WHERE id = ${id}
+    `
 
     return NextResponse.json({
-      ...updatedFont,
-      weights: JSON.parse(updatedFont.weights),
+      id,
+      name: newName,
+      family: newFamily,
+      source: newSource,
+      url: newUrl,
+      weights: typeof newWeights === 'string' ? JSON.parse(newWeights) : newWeights,
+      isDefault: Boolean(font.isDefault),
+      createdAt: font.createdAt,
+      updatedAt: now,
     })
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la police:', error)

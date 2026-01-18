@@ -7,5 +7,5 @@ services:
       - ./:/app
     command: sh -c "npm install && npm run build && npm run start"
     ports:
-      - "3000:3000"
+      - "3110:3000"
     restart: unless-stopped

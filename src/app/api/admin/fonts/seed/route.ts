@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSessionWithUser } from '@/lib/auth'
 
+interface FontRecord {
+  id: string
+  family: string
+}
+
 // Polices Google Fonts par défaut
 const defaultFonts = [
   { name: 'Inter', family: 'Inter', weights: [400, 500, 600, 700] },
@@ -38,20 +43,19 @@ export async function POST() {
     let skipped = 0
 
     for (const font of defaultFonts) {
-      const existing = await (prisma as any).font.findUnique({
-        where: { family: font.family },
-      })
+      const existing = await prisma.$queryRaw<FontRecord[]>`
+        SELECT id, family FROM Font WHERE family = ${font.family}
+      `
 
-      if (!existing) {
-        await (prisma as any).font.create({
-          data: {
-            name: font.name,
-            family: font.family,
-            source: 'google',
-            weights: JSON.stringify(font.weights),
-            isDefault: true,
-          },
-        })
+      if (existing.length === 0) {
+        const id = crypto.randomUUID()
+        const now = new Date().toISOString()
+        const weightsJson = JSON.stringify(font.weights)
+
+        await prisma.$executeRaw`
+          INSERT INTO Font (id, name, family, source, url, weights, isDefault, createdAt, updatedAt)
+          VALUES (${id}, ${font.name}, ${font.family}, 'google', NULL, ${weightsJson}, 1, ${now}, ${now})
+        `
         created++
       } else {
         skipped++

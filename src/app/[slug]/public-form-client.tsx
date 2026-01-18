@@ -805,6 +805,48 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     )
   }
 
+  // Configuration de la barre de progression
+  const progressBarPosition = form.settings.progressBarPosition ?? 'top'
+  const progressBarSize = form.settings.progressBarSize ?? 'small'
+  const showProgressBar = form.settings.showProgressBar !== false && currentBlock?.type !== 'welcome-screen'
+  
+  const barSizes: Record<string, string> = {
+    small: 'h-1',
+    medium: 'h-2',
+    large: 'h-3',
+  }
+  
+  const barSizesVertical: Record<string, string> = {
+    small: 'w-1',
+    medium: 'w-2',
+    large: 'w-3',
+  }
+
+  const isVerticalBar = progressBarPosition === 'left' || progressBarPosition === 'right'
+
+  // Composant barre de progression horizontale
+  const HorizontalProgressBar = () => (
+    <div className={`${barSizes[progressBarSize]} bg-gray-200 w-full shrink-0`}>
+      <div
+        className="h-full transition-all duration-300"
+        style={{ width: `${progress}%`, backgroundColor: themeProps.buttonsBgColor }}
+      />
+    </div>
+  )
+
+  // Composant barre de progression verticale
+  const VerticalProgressBar = () => (
+    <div 
+      className={`${barSizesVertical[progressBarSize]} bg-gray-200 h-full shrink-0`}
+      style={{ position: 'fixed', top: 0, bottom: 0, [progressBarPosition]: 0 }}
+    >
+      <div
+        className="w-full transition-all duration-300"
+        style={{ height: `${progress}%`, backgroundColor: themeProps.buttonsBgColor }}
+      />
+    </div>
+  )
+
   return (
     <div
       className="min-h-screen flex flex-col transition-colors duration-300"
@@ -813,18 +855,20 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         fontFamily: themeProps.font || 'Inter',
       }}
     >
-      {/* Progress bar */}
-      {form.settings.showProgressBar !== false && (
-        <div className="h-1 bg-gray-200">
-          <div
-            className="h-full transition-all duration-300"
-            style={{ width: `${progress}%`, backgroundColor: themeProps.buttonsBgColor }}
-          />
-        </div>
-      )}
+      {/* Progress bar - Top */}
+      {showProgressBar && progressBarPosition === 'top' && <HorizontalProgressBar />}
+      
+      {/* Progress bar - Left */}
+      {showProgressBar && progressBarPosition === 'left' && <VerticalProgressBar />}
 
       {/* Question area */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div 
+        className="flex-1 flex items-center justify-center px-4 py-6 sm:p-8"
+        style={{
+          paddingLeft: progressBarPosition === 'left' && showProgressBar ? '24px' : undefined,
+          paddingRight: progressBarPosition === 'right' && showProgressBar ? '24px' : undefined,
+        }}
+      >
         <div
           className={`max-w-xl w-full transition-opacity duration-300 ${
             isAnimating ? 'opacity-0' : 'opacity-100'
@@ -890,28 +934,34 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       </div>
 
       {/* Navigation */}
-      <div className="p-4 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
+      <div className="p-3 sm:p-4 flex justify-between items-center safe-area-inset-bottom">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <button
             onClick={goToPrev}
             disabled={currentIndex === 0}
-            className="p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 transition-colors"
+            className="p-2 sm:p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 active:bg-black/10 transition-colors"
             style={{ color: themeProps.questionsColor }}
           >
-            <ChevronUp className="w-5 h-5" />
+            <ChevronUp className="w-6 h-6 sm:w-5 sm:h-5" />
           </button>
           <button
             onClick={() => goToNext()}
-            className="p-2 rounded-md hover:bg-black/5 transition-colors"
+            className="p-2 sm:p-2 rounded-md hover:bg-black/5 active:bg-black/10 transition-colors"
             style={{ color: themeProps.questionsColor }}
           >
-            <ChevronDown className="w-5 h-5" />
+            <ChevronDown className="w-6 h-6 sm:w-5 sm:h-5" />
           </button>
         </div>
         <span className="text-sm" style={{ color: themeProps.answersColor }}>
           {currentIndex + 1} / {visibleBlocks.length}
         </span>
       </div>
+
+      {/* Progress bar - Bottom */}
+      {showProgressBar && progressBarPosition === 'bottom' && <HorizontalProgressBar />}
+      
+      {/* Progress bar - Right */}
+      {showProgressBar && progressBarPosition === 'right' && <VerticalProgressBar />}
     </div>
   )
 }
@@ -1035,10 +1085,11 @@ function QuestionBlock({
             value={answer || ''}
             onChange={(e) => onAnswer(e.target.value)}
             autoFocus
-            className="mt-4 w-full bg-transparent border-2 py-2 px-3 text-lg outline-none transition-colors focus:border-opacity-100"
+            className="mt-4 w-full bg-transparent border-2 py-3 px-4 text-base sm:text-lg outline-none transition-colors focus:border-opacity-100"
             style={{
               color: themeProps.answersColor,
               borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+              fontSize: '16px', // Empêche le zoom auto sur iOS
               ...inputStyle,
             }}
           />
@@ -1052,10 +1103,11 @@ function QuestionBlock({
             value={answer || ''}
             onChange={(e) => onAnswer(e.target.value)}
             autoFocus
-            className="mt-4 w-full bg-transparent border-2 py-2 px-3 text-lg outline-none transition-colors focus:border-opacity-100"
+            className="mt-4 w-full bg-transparent border-2 py-3 px-4 text-base sm:text-lg outline-none transition-colors focus:border-opacity-100"
             style={{
               color: themeProps.answersColor,
               borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+              fontSize: '16px', // Empêche le zoom auto sur iOS
               ...inputStyle,
             }}
           />
@@ -1069,10 +1121,11 @@ function QuestionBlock({
             onChange={(e) => onAnswer(e.target.value)}
             rows={4}
             autoFocus
-            className="mt-4 w-full bg-transparent border-2 py-2 px-3 text-lg outline-none resize-none transition-colors focus:border-opacity-100"
+            className="mt-4 w-full bg-transparent border-2 py-3 px-4 text-base sm:text-lg outline-none resize-none transition-colors focus:border-opacity-100"
             style={{
               color: themeProps.answersColor,
               borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+              fontSize: '16px', // Empêche le zoom auto sur iOS
               ...inputStyle,
             }}
           />
@@ -1119,7 +1172,7 @@ function QuestionBlock({
         const choices = block.attributes.choices || []
         const allowMultiple = block.attributes.allowMultiple || block.attributes.multiple
         return (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-2 sm:space-y-3">
             {choices.map((choice: any, idx: number) => {
               const isSelected = allowMultiple
                 ? (answer || []).includes(choice.value)
@@ -1141,7 +1194,7 @@ function QuestionBlock({
                       setTimeout(() => onNext(true), 300)
                     }
                   }}
-                  className="w-full flex items-center px-4 py-3 rounded-md border-2 transition-all hover:scale-[1.02]"
+                  className="w-full flex items-center px-4 py-3 sm:py-4 rounded-md border-2 transition-all active:scale-[0.98] hover:scale-[1.01]"
                   style={{
                     borderColor: isSelected
                       ? themeProps.buttonsBgColor
@@ -1480,7 +1533,7 @@ function QuestionBlock({
       {/* Question text */}
       {!block.attributes.hideLabel && (
         <h2
-          className="text-2xl md:text-3xl font-medium leading-tight"
+          className="text-xl sm:text-2xl md:text-3xl font-medium leading-tight"
           style={{ color: themeProps.questionsColor }}
         >
           {replaceVariables(block.attributes.label || 'Question sans titre', allBlocks, allAnswers, index)}
@@ -1489,7 +1542,7 @@ function QuestionBlock({
 
       {/* Description */}
       {block.attributes.description && (
-        <p className="mt-2 text-lg" style={{ color: themeProps.answersColor }}>
+        <p className="mt-2 text-base sm:text-lg" style={{ color: themeProps.answersColor }}>
           {replaceVariables(block.attributes.description, allBlocks, allAnswers, index)}
         </p>
       )}
@@ -1501,14 +1554,14 @@ function QuestionBlock({
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
       {/* OK/Submit button for text inputs */}
-      {['short-text', 'long-text', 'email', 'number', 'website', 'date', 'advanced-date', 'time', 'slider'].includes(
+      {['short-text', 'long-text', 'email', 'number', 'website', 'phone', 'date', 'advanced-date', 'time', 'slider'].includes(
         block.type
       ) && (
-        <div className="mt-4">
+        <div className="mt-4 sm:mt-6">
           <button
             onClick={() => onNext()}
             disabled={isSubmitting || (block.attributes.required && !answer)}
-            className="px-6 py-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            className="px-6 py-3 sm:py-2 font-medium transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-base"
             style={{
               backgroundColor: themeProps.buttonsBgColor,
               color: themeProps.buttonsFontColor,
@@ -1523,7 +1576,7 @@ function QuestionBlock({
             ) : (
               <>
                 {isLast ? 'Envoyer' : 'OK'}
-                <span className="ml-2 text-xs opacity-70">Entrée ↵</span>
+                <span className="ml-2 text-xs opacity-70 hidden sm:inline">Entrée ↵</span>
               </>
             )}
           </button>
@@ -1534,11 +1587,11 @@ function QuestionBlock({
       {['multiple-choice', 'dropdown'].includes(block.type) &&
         (block.attributes.allowMultiple || block.attributes.multiple) &&
         (answer || []).length > 0 && (
-          <div className="mt-4">
+          <div className="mt-4 sm:mt-6">
             <button
               onClick={() => onNext()}
               disabled={isSubmitting}
-              className="px-6 py-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center"
+              className="px-6 py-3 sm:py-2 font-medium transition-opacity hover:opacity-90 active:opacity-80 disabled:opacity-50 flex items-center text-base"
               style={{
                 backgroundColor: themeProps.buttonsBgColor,
                 color: themeProps.buttonsFontColor,
@@ -1553,7 +1606,7 @@ function QuestionBlock({
               ) : (
                 <>
                   {isLast ? 'Envoyer' : 'OK'}
-                  <span className="ml-2 text-xs opacity-70">Entrée ↵</span>
+                  <span className="ml-2 text-xs opacity-70 hidden sm:inline">Entrée ↵</span>
                 </>
               )}
             </button>

@@ -14,6 +14,7 @@ const RESERVED_PATHS = [
   'forgot-password',
   'reset-password',
   'f', // Ancienne route, rediriger vers la nouvelle
+  'uploads', // Fichiers uploadés, redirigés vers l'API
   '_next',
   'favicon.ico',
 ]
@@ -24,6 +25,16 @@ export function middleware(request: NextRequest) {
   // Ignorer les routes réservées et les fichiers statiques
   const firstSegment = pathname.split('/')[1]
   
+  // Rediriger /uploads/* vers /api/uploads/* pour compatibilité avec le mode standalone
+  if (firstSegment === 'uploads') {
+    const filename = pathname.split('/')[2]
+    if (filename) {
+      const url = request.nextUrl.clone()
+      url.pathname = `/api/uploads/${filename}`
+      return NextResponse.rewrite(url)
+    }
+  }
+
   // Si c'est l'ancienne route /f/[slug], rediriger vers /[slug]
   if (firstSegment === 'f') {
     const slug = pathname.split('/')[2]
@@ -44,8 +55,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (public folder)
+     * - public files (public folder) EXCEPT /uploads/*
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*$).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/uploads/:path*',
   ],
 }

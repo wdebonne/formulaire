@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
     // Écrire le fichier
     await writeFile(filepath, buffer)
 
-    // Retourner l'URL publique
-    const url = `/uploads/${filename}`
+    // Retourner l'URL via l'API (pour compatibilité avec le mode standalone de Next.js)
+    const url = `/api/uploads/${filename}`
     
     return NextResponse.json({ url, filename })
   } catch (error) {

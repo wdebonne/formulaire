@@ -4,10 +4,10 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copier les fichiers de dépendances
-COPY package*.json ./
+COPY package.json ./
 
 # Installer les dépendances
-RUN npm ci
+RUN npm install
 
 # Copier le reste du code source
 COPY . .

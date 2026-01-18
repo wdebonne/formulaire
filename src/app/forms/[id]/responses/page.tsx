@@ -41,7 +41,7 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
   const parsedResponses = responses.map((r) => ({
     ...r,
     data: JSON.parse(r.data),
-    webhookStatus: JSON.parse(r.webhookStatus || '{}'),
+    webhookStatus: JSON.parse((r as any).webhookStatus || '{}'),
   }))
 
   return <ResponsesClient form={parsedForm} responses={parsedResponses} />

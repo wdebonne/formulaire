@@ -48,6 +48,19 @@ Le docker-compose configure automatiquement :
 
 - Rendez-vous sur `http://[votre-serveur]:3110`
 
+## 5. Premier accès
+
+Après le déploiement, vous pouvez vous connecter avec :
+
+| Champ | Valeur |
+|-------|--------|
+| **Email** | `admin@formbuilder.local` |
+| **Mot de passe** | `admin123` |
+
+⚠️ **Changez ce mot de passe immédiatement !**
+
+Ou créez un nouveau compte via `/register`.
+
 ## 🚀 Accès public des formulaires
 
 Depuis janvier 2026, les liens publics des formulaires sont accessibles directement à la racine du site :

@@ -197,6 +197,17 @@ Depuis janvier 2026, les liens publics des formulaires sont accessibles directem
 - Les anciennes URLs `/f/[slug]` sont automatiquement redirigées vers la nouvelle structure.
 - Le lien de partage et l'URL affichée dans l'administration ont été mis à jour.
 
-Champ	Valeur
-Email	admin@formbuilder.local
-Mot de passe	admin123
+## 👤 Compte administrateur par défaut
+
+Après le premier déploiement, un compte administrateur est créé automatiquement :
+
+| Champ | Valeur |
+|-------|--------|
+| **Email** | `admin@formbuilder.local` |
+| **Mot de passe** | `admin123` |
+
+⚠️ **Important** : Changez ce mot de passe immédiatement après la première connexion !
+
+### Créer un nouveau compte
+
+Vous pouvez également créer un nouveau compte via la page d'inscription : `/register`

@@ -45,9 +45,11 @@ export async function POST(request: NextRequest) {
     })
 
     // Set the auth cookie on the response
+    // secure: true only if using HTTPS (check APP_URL)
+    const isHttps = process.env.APP_URL?.startsWith('https')
     response.cookies.set('auth-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',

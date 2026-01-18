@@ -79,14 +79,15 @@ model Theme {
 }
 
 model Response {
-  id          String   @id @default(uuid())
-  formId      String
-  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  data        String   @default("{}") // JSON string for response data
-  status      String   @default("completed") // completed, partial
-  metadata    String   @default("{}") // JSON for ip, user agent, etc.
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid())
+  formId        String
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  data          String   @default("{}") // JSON string for response data
+  status        String   @default("completed") // completed, partial
+  metadata      String   @default("{}") // JSON for ip, user agent, etc.
+  webhookStatus String   @default("{}") // JSON for webhook results {webhookId: {success: boolean, lastSent: date}}
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([formId])
 }

@@ -38,14 +38,34 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       (w) => w.enabled && (w.triggerOn === 'submission' || !w.triggerOn)
     )
 
+    // Stocker les résultats des webhooks
+    const webhookStatus: Record<string, { success: boolean; lastSent: string; error?: string }> = {}
+
     // Exécuter les webhooks en arrière-plan
     for (const webhook of enabledWebhooks) {
       try {
         await triggerWebhook(webhook, data, form, response.id)
-      } catch (webhookError) {
+        webhookStatus[webhook.id] = {
+          success: true,
+          lastSent: new Date().toISOString(),
+        }
+      } catch (webhookError: any) {
         console.error(`Erreur webhook ${webhook.name}:`, webhookError)
+        webhookStatus[webhook.id] = {
+          success: false,
+          lastSent: new Date().toISOString(),
+          error: webhookError.message || 'Erreur inconnue',
+        }
         // On continue même si un webhook échoue
       }
+    }
+
+    // Mettre à jour le statut webhook de la réponse
+    if (enabledWebhooks.length > 0) {
+      await prisma.response.update({
+        where: { id: response.id },
+        data: { webhookStatus: JSON.stringify(webhookStatus) },
+      })
     }
 
     return NextResponse.json({

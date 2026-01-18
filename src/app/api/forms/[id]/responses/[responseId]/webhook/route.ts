@@ -241,6 +241,23 @@ export async function POST(
 
     const allSuccess = results.every((r) => r.success)
 
+    // Mettre à jour le statut webhook de la réponse
+    const existingStatus = JSON.parse(response.webhookStatus || '{}')
+    const updatedStatus: Record<string, { success: boolean; lastSent: string; error?: string }> = { ...existingStatus }
+    
+    for (const result of results) {
+      updatedStatus[result.webhookId] = {
+        success: result.success,
+        lastSent: new Date().toISOString(),
+        ...(result.error && { error: result.error }),
+      }
+    }
+
+    await prisma.response.update({
+      where: { id: responseId },
+      data: { webhookStatus: JSON.stringify(updatedStatus) },
+    })
+
     return NextResponse.json({
       success: allSuccess,
       results,

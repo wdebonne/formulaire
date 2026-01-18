@@ -56,6 +56,7 @@ interface FormResponse {
   formId: string
   data: Record<string, any>
   metadata: string | null
+  webhookStatus?: Record<string, { success: boolean; lastSent: string; error?: string }>
   createdAt: Date
 }
 
@@ -81,6 +82,25 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const { toast } = useToast()
 
   const hasActiveWebhooks = form.webhooks?.some((w) => w.enabled) ?? false
+  const activeWebhookIds = form.webhooks?.filter((w) => w.enabled).map((w) => w.id) ?? []
+
+  // Fonction pour déterminer le statut global des webhooks pour une réponse
+  const getWebhookStatusForResponse = (response: FormResponse): 'success' | 'error' | 'partial' | 'none' => {
+    if (!hasActiveWebhooks || !response.webhookStatus) return 'none'
+    
+    const statuses = activeWebhookIds
+      .map((id) => response.webhookStatus?.[id])
+      .filter(Boolean)
+    
+    if (statuses.length === 0) return 'none'
+    
+    const allSuccess = statuses.every((s) => s?.success)
+    const allFailed = statuses.every((s) => !s?.success)
+    
+    if (allSuccess) return 'success'
+    if (allFailed) return 'error'
+    return 'partial'
+  }
 
   const itemsPerPage = 20
   const questionBlocks = form.blocks.filter(
@@ -437,6 +457,24 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
 
       setWebhookResults(data.results)
 
+      // Mettre à jour le statut webhook dans le state local
+      const updatedStatus: Record<string, { success: boolean; lastSent: string; error?: string }> = {}
+      for (const result of data.results) {
+        updatedStatus[result.webhookId] = {
+          success: result.success,
+          lastSent: new Date().toISOString(),
+          ...(result.error && { error: result.error }),
+        }
+      }
+      
+      setResponses((prev) =>
+        prev.map((r) =>
+          r.id === responseId
+            ? { ...r, webhookStatus: { ...r.webhookStatus, ...updatedStatus } }
+            : r
+        )
+      )
+
       if (data.success) {
         toast({
           title: 'Webhook envoyé',
@@ -579,8 +617,34 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                               <button
                                 onClick={() => handleSendWebhook(response.id)}
                                 disabled={sendingWebhook === response.id}
-                                className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-50"
-                                title="Renvoyer le webhook"
+                                className={`p-1 disabled:opacity-50 ${
+                                  (() => {
+                                    const status = getWebhookStatusForResponse(response)
+                                    switch (status) {
+                                      case 'success':
+                                        return 'text-green-500 hover:text-green-600'
+                                      case 'error':
+                                        return 'text-red-500 hover:text-red-600'
+                                      case 'partial':
+                                        return 'text-orange-500 hover:text-orange-600'
+                                      default:
+                                        return 'text-gray-400 hover:text-blue-600'
+                                    }
+                                  })()
+                                }`}
+                                title={(() => {
+                                  const status = getWebhookStatusForResponse(response)
+                                  switch (status) {
+                                    case 'success':
+                                      return 'Webhook envoyé avec succès - Cliquer pour renvoyer'
+                                    case 'error':
+                                      return 'Webhook échoué - Cliquer pour réessayer'
+                                    case 'partial':
+                                      return 'Certains webhooks ont échoué - Cliquer pour renvoyer'
+                                    default:
+                                      return 'Renvoyer le webhook'
+                                  }
+                                })()}
                               >
                                 {sendingWebhook === response.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />

@@ -883,6 +883,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
               allAnswers={answers}
               inputStyle={inputStyle}
               buttonBorderRadius={buttonBorderRadius}
+              inputBorderRadius={inputBorderRadius}
             />
           ) : null}
         </div>
@@ -931,6 +932,7 @@ interface QuestionBlockProps {
   allAnswers: Record<string, any>
   inputStyle?: React.CSSProperties
   buttonBorderRadius?: string
+  inputBorderRadius?: string
 }
 
 function QuestionBlock({
@@ -949,6 +951,7 @@ function QuestionBlock({
   allAnswers,
   inputStyle = {},
   buttonBorderRadius = '8px',
+  inputBorderRadius = '8px',
 }: QuestionBlockProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 

@@ -5,6 +5,45 @@ import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from 
 import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 
+// Liste des polices système qui n'ont pas besoin d'être chargées
+const SYSTEM_FONTS = [
+  'Inter',
+  'Arial',
+  'Helvetica',
+  'Times New Roman',
+  'Georgia',
+  'Verdana',
+  'Courier New',
+  'system-ui',
+  'sans-serif',
+  'serif',
+  'monospace',
+]
+
+// Helper pour charger une police Google Fonts
+function loadGoogleFont(fontFamily: string): void {
+  // Ne pas charger si c'est une police système
+  if (SYSTEM_FONTS.some(f => f.toLowerCase() === fontFamily.toLowerCase())) {
+    return
+  }
+
+  // Vérifier si la police est déjà chargée
+  const existingLink = document.getElementById('public-form-font') as HTMLLinkElement
+  const fontUrl = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap`
+
+  if (existingLink) {
+    if (existingLink.href !== fontUrl) {
+      existingLink.href = fontUrl
+    }
+  } else {
+    const link = document.createElement('link')
+    link.id = 'public-form-font'
+    link.rel = 'stylesheet'
+    link.href = fontUrl
+    document.head.appendChild(link)
+  }
+}
+
 // Helper pour extraire l'ID de vidéo YouTube
 function getYouTubeVideoId(url: string): string | null {
   if (!url) return null
@@ -52,6 +91,13 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   const themeProps = theme.properties
   const allBlocks = form.blocks
   const thankyouBlock = allBlocks.find((b) => b.type === 'thankyou-screen')
+
+  // Charger la police du thème
+  useEffect(() => {
+    if (themeProps.font) {
+      loadGoogleFont(themeProps.font)
+    }
+  }, [themeProps.font])
 
   // Convertir les valeurs de borderRadius en pixels CSS
   const borderRadiusMap: Record<string, string> = {

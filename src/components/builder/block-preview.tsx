@@ -1,0 +1,357 @@
+'use client'
+
+import type { FormBlock, Theme } from '@/types/form'
+import { Check, ChevronDown } from 'lucide-react'
+
+interface BlockPreviewProps {
+  block: FormBlock
+  theme?: Theme | null
+}
+
+export function BlockPreview({ block, theme }: BlockPreviewProps) {
+  const themeProps = theme?.properties || {
+    backgroundColor: '#ffffff',
+    questionsColor: '#000000',
+    answersColor: '#4a4a4a',
+    buttonsBgColor: '#7c3aed',
+    buttonsFontColor: '#ffffff',
+    font: 'Inter',
+  }
+
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+  const renderInput = () => {
+    switch (block.type) {
+      case 'welcome-screen':
+        return (
+          <div className="mt-3">
+            <button
+              className="px-4 py-2 rounded-md text-sm font-medium transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: themeProps.buttonsBgColor,
+                color: themeProps.buttonsFontColor,
+              }}
+            >
+              {block.attributes.buttonText || 'Commencer'}
+            </button>
+          </div>
+        )
+
+      case 'thankyou-screen':
+        return (
+          <div className="mt-2">
+            <p className="text-xs" style={{ color: themeProps.answersColor }}>
+              ✓ Formulaire terminé
+            </p>
+          </div>
+        )
+
+      case 'short-text':
+      case 'email':
+      case 'number':
+      case 'phone':
+        return (
+          <input
+            type="text"
+            readOnly
+            placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
+            className="mt-2 w-full bg-transparent border-b py-1 text-sm outline-none"
+            style={{
+              color: themeProps.answersColor,
+              borderColor: themeProps.buttonsBgColor + '60',
+            }}
+          />
+        )
+
+      case 'long-text':
+        return (
+          <textarea
+            readOnly
+            placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
+            rows={2}
+            className="mt-2 w-full bg-transparent border-b py-1 text-sm outline-none resize-none"
+            style={{
+              color: themeProps.answersColor,
+              borderColor: themeProps.buttonsBgColor + '60',
+            }}
+          />
+        )
+
+      case 'multiple-choice':
+      case 'dropdown':
+        const choices = (block.attributes.choices || []).slice(0, 4) // Show max 4 choices in preview
+        const hasMore = (block.attributes.choices || []).length > 4
+        return (
+          <div className="mt-2 space-y-1">
+            {choices.map((choice: any, idx: number) => (
+              <div
+                key={choice.id || idx}
+                className="flex items-center px-2 py-1.5 rounded border text-xs"
+                style={{
+                  borderColor: themeProps.answersColor + '30',
+                }}
+              >
+                <span
+                  className="w-4 h-4 rounded flex items-center justify-center text-[10px] font-medium mr-2"
+                  style={{
+                    backgroundColor: themeProps.answersColor + '20',
+                    color: themeProps.answersColor,
+                  }}
+                >
+                  {letters[idx]}
+                </span>
+                <span style={{ color: themeProps.answersColor }}>{choice.label}</span>
+              </div>
+            ))}
+            {hasMore && (
+              <p className="text-[10px] text-center" style={{ color: themeProps.answersColor + '80' }}>
+                + {(block.attributes.choices || []).length - 4} autres options
+              </p>
+            )}
+          </div>
+        )
+
+      case 'date':
+        return (
+          <div className="mt-2 flex items-center">
+            <input
+              type="text"
+              readOnly
+              placeholder={block.attributes.format || 'DD/MM/YYYY'}
+              className="w-full bg-transparent border-b py-1 text-sm outline-none"
+              style={{
+                color: themeProps.answersColor,
+                borderColor: themeProps.buttonsBgColor + '60',
+              }}
+            />
+          </div>
+        )
+
+      case 'slider':
+        const min = block.attributes.min || 0
+        const max = block.attributes.max || 10
+        const defaultValue = block.attributes.defaultValue || min
+        return (
+          <div className="mt-2">
+            <input
+              type="range"
+              readOnly
+              min={min}
+              max={max}
+              value={defaultValue}
+              className="w-full h-1"
+              style={{ accentColor: themeProps.buttonsBgColor }}
+            />
+            <div className="flex justify-between mt-1 text-[10px]" style={{ color: themeProps.answersColor }}>
+              <span>{min}</span>
+              <span className="font-medium">{defaultValue}</span>
+              <span>{max}</span>
+            </div>
+          </div>
+        )
+
+      case 'legal':
+        return (
+          <div className="mt-2">
+            <label className="flex items-start">
+              <input
+                type="checkbox"
+                readOnly
+                className="mt-0.5 mr-2 w-3 h-3 rounded"
+                style={{ accentColor: themeProps.buttonsBgColor }}
+              />
+              <span className="text-[10px]" style={{ color: themeProps.answersColor }}>
+                {block.attributes.checkboxLabel || "J'accepte les conditions"}
+              </span>
+            </label>
+          </div>
+        )
+
+      case 'statement':
+        return (
+          <div className="mt-3">
+            <button
+              className="px-4 py-2 rounded-md text-sm font-medium"
+              style={{
+                backgroundColor: themeProps.buttonsBgColor,
+                color: themeProps.buttonsFontColor,
+              }}
+            >
+              {block.attributes.buttonText || 'Continuer'}
+            </button>
+          </div>
+        )
+
+      case 'file':
+        return (
+          <div 
+            className="mt-2 border-2 border-dashed rounded-lg p-3 text-center"
+            style={{ borderColor: themeProps.buttonsBgColor + '40' }}
+          >
+            <p className="text-xs" style={{ color: themeProps.answersColor }}>
+              📎 Glissez un fichier ou cliquez
+            </p>
+          </div>
+        )
+
+      case 'signature':
+        return (
+          <div 
+            className="mt-2 border-2 border-dashed rounded-lg p-4 text-center"
+            style={{ borderColor: themeProps.buttonsBgColor + '40' }}
+          >
+            <p className="text-xs" style={{ color: themeProps.answersColor }}>
+              ✍️ Signez ici
+            </p>
+          </div>
+        )
+
+      case 'group':
+        return (
+          <div className="mt-2 space-y-2">
+            {(block.innerBlocks || []).slice(0, 3).map((innerBlock, idx) => (
+              <div key={innerBlock.id} className="flex items-center gap-2 text-xs p-2 bg-gray-50 rounded">
+                <span className="w-5 h-5 bg-sky-100 text-sky-600 rounded flex items-center justify-center text-[10px] font-medium">
+                  {String.fromCharCode(65 + idx)}
+                </span>
+                <span style={{ color: themeProps.answersColor }}>{innerBlock.attributes.label}</span>
+              </div>
+            ))}
+            {(block.innerBlocks || []).length > 3 && (
+              <p className="text-[10px] text-center" style={{ color: themeProps.answersColor + '80' }}>
+                + {(block.innerBlocks || []).length - 3} autres questions
+              </p>
+            )}
+          </div>
+        )
+
+      case 'repeater':
+        return (
+          <div className="mt-2 space-y-2">
+            {/* Aperçu des questions du groupe */}
+            <div className="p-2 border border-orange-200 rounded-lg bg-orange-50/50">
+              {(block.innerBlocks || []).slice(0, 2).map((innerBlock, idx) => (
+                <div key={innerBlock.id} className="flex items-center gap-2 text-xs py-1">
+                  <span className="w-5 h-5 bg-orange-100 text-orange-600 rounded flex items-center justify-center text-[10px] font-medium">
+                    {String.fromCharCode(65 + idx)}
+                  </span>
+                  <span style={{ color: themeProps.answersColor }}>{innerBlock.attributes.label}</span>
+                </div>
+              ))}
+              {(block.innerBlocks || []).length > 2 && (
+                <p className="text-[10px] pl-7" style={{ color: themeProps.answersColor + '80' }}>
+                  + {(block.innerBlocks || []).length - 2} autres questions
+                </p>
+              )}
+            </div>
+            
+            {/* Aperçu de la question Oui/Non */}
+            <div className="p-2 border border-dashed border-orange-300 rounded-lg">
+              <p className="text-[10px] font-medium mb-1" style={{ color: themeProps.questionsColor }}>
+                {block.attributes.repeatQuestion || 'Voulez-vous ajouter un élément ?'}
+              </p>
+              <div className="flex gap-2">
+                <span className="text-[9px] px-2 py-0.5 rounded" style={{ backgroundColor: themeProps.buttonsBgColor, color: themeProps.buttonsFontColor }}>
+                  {block.attributes.repeatYesLabel || 'Oui'}
+                </span>
+                <span className="text-[9px] px-2 py-0.5 rounded border" style={{ borderColor: themeProps.answersColor + '30', color: themeProps.answersColor }}>
+                  {block.attributes.repeatNoLabel || 'Non'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )
+
+      default:
+        return null
+    }
+  }
+
+  const getBlockTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'welcome-screen': "ÉCRAN D'ACCUEIL",
+      'thankyou-screen': 'ÉCRAN DE FIN',
+      'short-text': 'TEXTE COURT',
+      'long-text': 'TEXTE LONG',
+      'multiple-choice': 'CHOIX MULTIPLE',
+      'dropdown': 'LISTE DÉROULANTE',
+      'date': 'DATE',
+      'number': 'NOMBRE',
+      'email': 'EMAIL',
+      'phone': 'TÉLÉPHONE',
+      'slider': 'CURSEUR',
+      'legal': 'CONDITIONS LÉGALES',
+      'statement': 'ÉNONCÉ',
+      'file': 'FICHIER',
+      'signature': 'SIGNATURE',
+      'group': 'GROUPE DE QUESTIONS',
+      'repeater': 'BLOC RÉPÉTABLE',
+    }
+    return labels[type] || type.toUpperCase()
+  }
+
+  return (
+    <div className="p-4 border-b bg-gray-50">
+      <div className="text-[10px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
+        Aperçu du bloc
+      </div>
+      <div
+        className="rounded-lg p-4 shadow-sm border transition-all"
+        style={{
+          backgroundColor: themeProps.backgroundColor,
+          fontFamily: themeProps.font || 'Inter',
+        }}
+      >
+        {/* Block type badge */}
+        <div className="flex items-center mb-1">
+          <span
+            className="text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider"
+            style={{
+              backgroundColor: themeProps.buttonsBgColor + '15',
+              color: themeProps.buttonsBgColor,
+            }}
+          >
+            {getBlockTypeLabel(block.type)}
+          </span>
+          {block.attributes.required && (
+            <span className="ml-1 text-red-500 text-[10px]">*</span>
+          )}
+        </div>
+
+        {/* Question text */}
+        <h3
+          className="text-sm font-medium leading-snug"
+          style={{ color: themeProps.questionsColor }}
+        >
+          {block.attributes.label || 'Question sans titre'}
+        </h3>
+
+        {/* Description */}
+        {block.attributes.description && (
+          <p className="mt-1 text-xs leading-relaxed" style={{ color: themeProps.answersColor }}>
+            {block.attributes.description}
+          </p>
+        )}
+
+        {/* Input preview */}
+        {renderInput()}
+
+        {/* OK button for input types */}
+        {['short-text', 'long-text', 'email', 'number', 'phone', 'date'].includes(block.type) && (
+          <div className="mt-3">
+            <button
+              className="px-3 py-1 rounded text-xs font-medium flex items-center"
+              style={{
+                backgroundColor: themeProps.buttonsBgColor,
+                color: themeProps.buttonsFontColor,
+              }}
+            >
+              OK
+              <span className="ml-1 opacity-70 text-[9px]">↵</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

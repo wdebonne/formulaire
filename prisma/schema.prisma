@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique
+  password          String
+  name              String?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  forms             Form[]
+  themes            Theme[]
+}
+
+model Form {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  description String?
+  status      String   @default("draft") // draft, published
+  blocks      String   @default("[]") // JSON string for blocks
+  logic       String   @default("{}") // JSON string for logic rules
+  settings    String   @default("{}") // JSON string for form settings
+  webhooks    String   @default("[]") // JSON string for webhooks config
+  themeId     String?
+  theme       Theme?   @relation(fields: [themeId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses   Response[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([slug])
+}
+
+model Theme {
+  id              String   @id @default(uuid())
+  name            String
+  properties      String   @default("{}") // JSON string for theme properties
+  isDefault       Boolean  @default(false)
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  forms           Form[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Response {
+  id          String   @id @default(uuid())
+  formId      String
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  data        String   @default("{}") // JSON string for response data
+  status      String   @default("completed") // completed, partial
+  metadata    String   @default("{}") // JSON for ip, user agent, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([formId])
+}

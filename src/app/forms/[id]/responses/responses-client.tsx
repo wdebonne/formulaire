@@ -125,7 +125,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   }
 
   const handleExportCSV = () => {
-    // Construire les headers, en développant les repeaters
+    // Construire les headers, en développant les repeaters et groupes
     const headers: string[] = ['Date']
     questionBlocks.forEach((b) => {
       if (b.type === 'repeater' && b.innerBlocks && b.innerBlocks.length > 0) {
@@ -150,6 +150,11 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         if (maxRep === 0) {
           headers.push(b.attributes.label || b.id)
         }
+      } else if (b.type === 'group' && b.innerBlocks && b.innerBlocks.length > 0) {
+        // Pour les groupes, ajouter une colonne par bloc interne
+        b.innerBlocks.forEach((inner) => {
+          headers.push(`${b.attributes.label || b.id} - ${inner.attributes.label || inner.id}`)
+        })
       } else {
         headers.push(b.attributes.label || b.id)
       }
@@ -188,6 +193,18 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
           if (maxRep === 0) {
             row.push('')
           }
+        } else if (b.type === 'group' && b.innerBlocks && b.innerBlocks.length > 0) {
+          // Pour les groupes, ajouter une valeur par bloc interne
+          b.innerBlocks.forEach((inner) => {
+            const value = r.data[inner.id]
+            if (Array.isArray(value)) {
+              row.push(value.join(', '))
+            } else if (typeof value === 'object') {
+              row.push(JSON.stringify(value))
+            } else {
+              row.push(String(value || ''))
+            }
+          })
         } else {
           const value = r.data[b.id]
           if (Array.isArray(value)) {
@@ -256,6 +273,32 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     return String(value)
   }
 
+  // Fonction pour obtenir la valeur d'un bloc (gère les groupes et repeaters)
+  const getBlockValue = (block: FormBlock, data: Record<string, any>): string => {
+    // Pour les groupes, afficher un résumé des réponses internes
+    if (block.type === 'group' && block.innerBlocks && block.innerBlocks.length > 0) {
+      const values = block.innerBlocks
+        .map((inner) => data[inner.id])
+        .filter((v) => v !== undefined && v !== null && v !== '')
+      if (values.length === 0) return '-'
+      return values.map((v) => formatValue(v)).join(' | ')
+    }
+
+    // Pour les repeaters, afficher le nombre d'entrées
+    if (block.type === 'repeater' && block.innerBlocks && block.innerBlocks.length > 0) {
+      let count = 0
+      let repIndex = 1
+      while (data[`${block.id}_${repIndex}_${block.innerBlocks[0].id}`] !== undefined) {
+        count++
+        repIndex++
+      }
+      if (count === 0) return '-'
+      return `${count} entrée${count > 1 ? 's' : ''}`
+    }
+
+    return formatValue(data[block.id])
+  }
+
   // Fonction pour récupérer les données d'un repeater
   const getRepeaterData = (repeaterId: string, innerBlocks: FormBlock[], data: Record<string, any>) => {
     const repetitions: Array<{ index: number; answers: Array<{ block: FormBlock; value: any }> }> = []
@@ -283,7 +326,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     return repetitions
   }
 
-  // Fonction pour afficher un bloc (y compris les repeaters)
+  // Fonction pour afficher un bloc (y compris les repeaters et groupes)
   const renderBlockResponse = (block: FormBlock, data: Record<string, any>) => {
     if (block.type === 'repeater' && block.innerBlocks && block.innerBlocks.length > 0) {
       const repetitions = getRepeaterData(block.id, block.innerBlocks, data)
@@ -320,6 +363,43 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                     </div>
                   ))}
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Pour les blocs de type groupe
+    if (block.type === 'group' && block.innerBlocks && block.innerBlocks.length > 0) {
+      const groupAnswers = block.innerBlocks.map((innerBlock) => ({
+        block: innerBlock,
+        value: data[innerBlock.id]
+      })).filter(({ value }) => value !== undefined)
+
+      if (groupAnswers.length === 0) {
+        return (
+          <div key={block.id} className="border-b pb-4 last:border-0">
+            <p className="text-sm font-medium text-gray-500 mb-1">
+              {block.attributes.label || block.id}
+            </p>
+            <p className="text-gray-900">-</p>
+          </div>
+        )
+      }
+
+      return (
+        <div key={block.id} className="border-b pb-4 last:border-0">
+          <p className="text-sm font-medium text-gray-500 mb-2">
+            {block.attributes.label || block.id}
+          </p>
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            {groupAnswers.map(({ block: innerBlock, value }) => (
+              <div key={innerBlock.id}>
+                <p className="text-xs text-gray-500">
+                  {innerBlock.attributes.label || innerBlock.id}
+                </p>
+                <p className="text-sm text-gray-900">{formatValue(value)}</p>
               </div>
             ))}
           </div>
@@ -483,7 +563,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                             key={block.id}
                             className="px-4 py-3 text-sm text-gray-900 max-w-[200px] truncate"
                           >
-                            {formatValue(response.data[block.id])}
+                            {getBlockValue(block, response.data)}
                           </td>
                         ))}
                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm">

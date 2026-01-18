@@ -1,9 +1,11 @@
 # Déploiement sur Portainer
 
-> **Nouveautés** :
-> - Partage de formulaire (lien direct, shortcode, embed, QR code) accessible via le bouton "Partager"
-> - Gestion avancée des droits : 3 niveaux (Lecture, Édition, Administrateur)
-> - Les utilisateurs Administrateur d'un formulaire peuvent gérer les partages
+> **Nouveautés (Janvier 2026)** :
+> - **Interface redessinée** : Dashboard et page Réponses avec design moderne
+> - **Sélecteur de colonnes** : Choisissez quelles colonnes afficher dans le tableau des réponses
+> - **Autocomplete partage** : Recherchez les utilisateurs facilement lors du partage
+> - **Gestion avancée des droits** : 3 niveaux (Lecture, Édition, Administrateur)
+> - **Partage de formulaire** : Lien direct, shortcode, embed, QR code
 > - Le slug (URL) du formulaire est modifiable dans les paramètres
 
 Ce guide explique comment déployer FormBuilder Standalone sur Portainer avec Docker Compose.

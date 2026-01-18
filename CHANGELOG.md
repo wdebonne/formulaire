@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-01-18 (nuit)
+
+### Ajouts
+- **Sélecteur de colonnes** sur la page des réponses :
+  - Bouton "Colonnes" avec icône d'engrenage
+  - Menu déroulant permettant de choisir les colonnes à afficher
+  - Cases à cocher pour chaque question du formulaire
+  - Bouton "Tout afficher / Réinitialiser"
+  - La colonne Date est toujours visible
+  - Par défaut, les 4 premières colonnes sont affichées
+- **Autocomplete pour le partage** :
+  - Remplacement du champ email par un champ de recherche avec autocomplétion
+  - Recherche parmi tous les utilisateurs non-administrateurs
+  - Affichage du nom et de l'email dans les suggestions
+  - Debounce de 300ms pour optimiser les requêtes
+- **Accès aux formulaires partagés** :
+  - Les utilisateurs avec permission "Édition" ou "Admin" peuvent accéder au builder
+  - Les utilisateurs avec permission "Lecture", "Édition" ou "Admin" peuvent voir les réponses
+- **Refonte visuelle du Dashboard** :
+  - Fond avec dégradé subtil
+  - 4 cartes de statistiques en haut (Total, Publiés, Brouillons, Réponses)
+  - Header avec effet glassmorphism
+  - Cartes de formulaires redessinées avec barre de couleur indicatrice
+  - Badges de statut modernisés avec indicateurs ronds
+  - Boutons de filtre intégrés dans un conteneur stylisé
+  - Animations et effets de survol améliorés
+- **Refonte visuelle de la page Réponses** :
+  - 3 cartes de statistiques (Total, Dernière réponse, Questions)
+  - Tableau avec en-tête dégradé et lignes alternées
+  - Dates affichées sur deux lignes (jour + heure)
+  - Pagination avec numéros de page cliquables
+  - Modales avec animations et effets blur
+  - Design cohérent avec le Dashboard
+
+### Améliorations
+- Meilleure gestion des permissions dans les routes API
+- Interface utilisateur plus moderne et cohérente
+
+---
+
 ## 2026-01-18 (soir)
 
 ### Ajouts

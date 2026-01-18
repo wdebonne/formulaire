@@ -3,6 +3,10 @@ import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DashboardClient } from './dashboard-client'
 
+// Forcer le rechargement des données à chaque visite
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function DashboardPage() {
   const session = await getSession()
   

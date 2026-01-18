@@ -2,17 +2,25 @@
 
 Un créateur de formulaires autonome avec éditeur visuel, logique conditionnelle, webhooks et personnalisation avancée des thèmes.
 
-## 🆕 Fonctionnalité de partage
+## 🆕 Nouveautés (Janvier 2026)
 
-- Un bouton **Partager** apparaît à droite de "Dépublier" lorsque le formulaire est publié.
-- Une modal propose :
-  - Lien direct
-  - Shortcode personnalisable
-  - Code Embed (iframe)
-  - QR Code scannable et téléchargeable
-- Le slug (URL) du formulaire est maintenant modifiable dans les paramètres, avant la section Marque.
+### Interface redessinée
+- **Dashboard moderne** : Cartes de statistiques, effets glassmorphism, animations fluides
+- **Page Réponses améliorée** : Statistiques visuelles, tableau élégant, pagination intuitive
+- **Sélecteur de colonnes** : Choisissez quelles colonnes afficher dans le tableau des réponses
 
-Consultez le fichier CHANGELOG.md pour le détail des évolutions.
+### Partage et collaboration
+- **3 niveaux de permissions** : Lecture, Édition, Administrateur
+- **Autocomplete pour le partage** : Recherche d'utilisateurs avec suggestions
+- **Accès partagé** : Les utilisateurs partagés peuvent accéder au builder et aux réponses selon leurs droits
+
+### Options de partage
+- Lien direct
+- Shortcode personnalisable
+- Code Embed (iframe)
+- QR Code scannable et téléchargeable
+
+Consultez le fichier CHANGELOG.md pour le détail complet des évolutions.
 
 ## ✨ Fonctionnalités
 
@@ -97,7 +105,25 @@ Voir le bloc "Heure" dans l'éditeur pour toutes les options.
 ### Fonctionnalités
 
 - **Partage avec utilisateurs** : Partagez vos formulaires avec d'autres utilisateurs de la plateforme
+- **Autocomplete** : Recherchez facilement les utilisateurs par nom ou email
 - **Modification des droits** : Changez le niveau de permission d'un utilisateur à tout moment
+- **Niveau Administrateur** : Les utilisateurs avec ce droit peuvent eux-mêmes partager le formulaire
+- **Notification par email** : Les utilisateurs reçoivent un email lors du partage
+
+### Options de partage
+
+- **Lien direct** : URL publique du formulaire
+- **Shortcode** : Code personnalisable pour intégration
+- **Embed** : Code iframe pour sites externes
+- **QR Code** : Code QR téléchargeable
+
+## 📊 Sélecteur de colonnes (NOUVEAU)
+
+Sur la page des réponses, un bouton **Colonnes** permet de :
+- Choisir quelles colonnes de questions afficher dans le tableau
+- Afficher toutes les colonnes ou réinitialiser à la vue par défaut
+- La colonne Date est toujours visible
+- Par défaut, les 4 premières questions sont affichées
 - **Niveau Administrateur** : Les utilisateurs avec ce droit peuvent eux-mêmes partager le formulaire
 - **Notification par email** : Les utilisateurs reçoivent un email lors du partage
 

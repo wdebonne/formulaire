@@ -22,6 +22,7 @@ import {
   Users,
   Trash2,
   Loader2,
+  Search,
 } from 'lucide-react'
 
 interface ShareDialogProps {
@@ -41,6 +42,12 @@ interface FormShare {
   }
 }
 
+interface UserSuggestion {
+  id: string
+  email: string
+  name: string | null
+}
+
 type ShareTab = 'link' | 'users' | 'shortcode' | 'embed' | 'qrcode'
 
 const PERMISSIONS = [
@@ -55,13 +62,20 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
   const [copied, setCopied] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
   const qrCanvasRef = useRef<HTMLCanvasElement>(null)
+  const autocompleteRef = useRef<HTMLDivElement>(null)
 
   // User sharing
   const [shares, setShares] = useState<FormShare[]>([])
   const [loadingShares, setLoadingShares] = useState(false)
-  const [shareEmail, setShareEmail] = useState('')
   const [sharePermission, setSharePermission] = useState('view')
   const [addingShare, setAddingShare] = useState(false)
+  
+  // Autocomplete
+  const [searchQuery, setSearchQuery] = useState('')
+  const [suggestions, setSuggestions] = useState<UserSuggestion[]>([])
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<UserSuggestion | null>(null)
 
   // Shortcode settings
   const [width, setWidth] = useState('100')
@@ -80,6 +94,44 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
       setBaseUrl(window.location.origin)
     }
   }, [])
+
+  // Fermer les suggestions si on clique en dehors
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Recherche d'utilisateurs avec debounce
+  useEffect(() => {
+    if (!searchQuery || searchQuery.length < 2) {
+      setSuggestions([])
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setLoadingSuggestions(true)
+      try {
+        const excludeIds = shares.map(s => s.user.id).join(',')
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery)}&exclude=${excludeIds}`)
+        if (res.ok) {
+          const data = await res.json()
+          setSuggestions(data)
+          setShowSuggestions(true)
+        }
+      } catch (error) {
+        console.error('Error searching users:', error)
+      } finally {
+        setLoadingSuggestions(false)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, shares])
 
   // Fetch shares when opening users tab
   useEffect(() => {
@@ -103,15 +155,22 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
     }
   }
 
+  const handleSelectUser = (user: UserSuggestion) => {
+    setSelectedUser(user)
+    setSearchQuery(user.name || user.email)
+    setShowSuggestions(false)
+    setSuggestions([])
+  }
+
   const handleAddShare = async () => {
-    if (!shareEmail) return
+    if (!selectedUser) return
 
     setAddingShare(true)
     try {
       const res = await fetch(`/api/forms/${formId}/share`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: shareEmail, permission: sharePermission }),
+        body: JSON.stringify({ email: selectedUser.email, permission: sharePermission }),
       })
 
       const data = await res.json()
@@ -122,10 +181,11 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
 
       toast({
         title: 'Formulaire partagé',
-        description: `Le formulaire a été partagé avec ${shareEmail}`,
+        description: `Le formulaire a été partagé avec ${selectedUser.name || selectedUser.email}`,
       })
 
-      setShareEmail('')
+      setSelectedUser(null)
+      setSearchQuery('')
       fetchShares()
     } catch (error: any) {
       toast({
@@ -313,13 +373,56 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
 
               {/* Add share form */}
               <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="Email de l'utilisateur"
-                  value={shareEmail}
-                  onChange={(e) => setShareEmail(e.target.value)}
-                  className="flex-1"
-                />
+                <div className="flex-1 relative" ref={autocompleteRef}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Rechercher un utilisateur..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                        setSelectedUser(null)
+                        if (e.target.value.length >= 2) {
+                          setShowSuggestions(true)
+                        }
+                      }}
+                      onFocus={() => {
+                        if (suggestions.length > 0) {
+                          setShowSuggestions(true)
+                        }
+                      }}
+                      className="pl-9"
+                    />
+                    {loadingSuggestions && (
+                      <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                    )}
+                  </div>
+                  
+                  {/* Dropdown suggestions */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {suggestions.map((user) => (
+                        <button
+                          key={user.id}
+                          type="button"
+                          className="w-full px-3 py-2 text-left hover:bg-gray-100 flex flex-col"
+                          onClick={() => handleSelectUser(user)}
+                        >
+                          <span className="font-medium text-sm">{user.name || user.email}</span>
+                          {user.name && <span className="text-xs text-gray-500">{user.email}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Message si pas de résultats */}
+                  {showSuggestions && searchQuery.length >= 2 && suggestions.length === 0 && !loadingSuggestions && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg p-3 text-sm text-gray-500">
+                      Aucun utilisateur trouvé
+                    </div>
+                  )}
+                </div>
                 <select
                   value={sharePermission}
                   onChange={(e) => setSharePermission(e.target.value)}
@@ -329,7 +432,7 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
                     <option key={perm.value} value={perm.value}>{perm.label}</option>
                   ))}
                 </select>
-                <Button onClick={handleAddShare} disabled={addingShare || !shareEmail}>
+                <Button onClick={handleAddShare} disabled={addingShare || !selectedUser}>
                   {addingShare ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (

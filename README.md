@@ -196,3 +196,7 @@ Depuis janvier 2026, les liens publics des formulaires sont accessibles directem
 - Exemple : `https://www.monsite.fr/test2` (au lieu de `https://www.monsite.fr/f/test2`)
 - Les anciennes URLs `/f/[slug]` sont automatiquement redirigées vers la nouvelle structure.
 - Le lien de partage et l'URL affichée dans l'administration ont été mis à jour.
+
+Champ	Valeur
+Email	admin@formbuilder.local
+Mot de passe	admin123

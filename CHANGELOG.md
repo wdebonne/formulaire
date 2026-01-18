@@ -3,6 +3,13 @@
 ## 2026-01-18
 
 ### Ajouts
+- **Gestion des polices d'écriture** (Administration) :
+  - Nouvelle page d'administration `/admin/fonts` pour gérer les polices
+  - Ajout/suppression de polices Google Fonts
+  - Aperçu en direct de chaque police avec prévisualisation du rendu
+  - Initialisation automatique avec 20 polices par défaut
+  - Suggestions de polices populaires lors de la recherche
+  - Les polices ajoutées sont automatiquement disponibles dans le sélecteur de thème du form builder
 - **Thèmes avancés** :
   - Type de fond : couleur unie, dégradé ou image
   - Dégradé : choix des 2 couleurs, 8 directions possibles, opacité ajustable (0-100%)

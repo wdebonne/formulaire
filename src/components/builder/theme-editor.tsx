@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,14 @@ interface ThemeEditorProps {
   onThemeChange?: (theme: Theme) => void
 }
 
+interface FontOption {
+  id: string
+  name: string
+  family: string
+  source: string
+  weights: number[]
+}
+
 const colorPresets = [
   '#7c3aed', // Purple
   '#2563eb', // Blue
@@ -33,7 +41,8 @@ const colorPresets = [
   '#000000', // Black
 ]
 
-const fontOptions = [
+// Polices par défaut en cas d'échec du chargement de l'API
+const defaultFontOptions = [
   { value: 'Inter', label: 'Inter' },
   { value: 'Roboto', label: 'Roboto' },
   { value: 'Open Sans', label: 'Open Sans' },
@@ -102,10 +111,47 @@ export function ThemeEditor({ themes: initialThemes, onThemeChange }: ThemeEdito
   const [deleteConfirmTheme, setDeleteConfirmTheme] = useState<Theme | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [fontOptions, setFontOptions] = useState<{ value: string; label: string }[]>(defaultFontOptions)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const currentTheme = themes.find((t) => t.id === themeId)
+
+  // Charger les polices depuis l'API
+  useEffect(() => {
+    const fetchFonts = async () => {
+      try {
+        const res = await fetch('/api/admin/fonts')
+        if (res.ok) {
+          const fonts: FontOption[] = await res.json()
+          if (fonts.length > 0) {
+            setFontOptions(fonts.map(f => ({ value: f.family, label: f.name })))
+            
+            // Charger les polices Google
+            const googleFonts = fonts.filter(f => f.source === 'google')
+            if (googleFonts.length > 0) {
+              const link = document.getElementById('theme-editor-fonts') as HTMLLinkElement
+              const fontsUrl = `https://fonts.googleapis.com/css2?${googleFonts.map(f => `family=${f.family.replace(/ /g, '+')}:wght@${f.weights.join(';')}`).join('&')}&display=swap`
+              
+              if (link) {
+                link.href = fontsUrl
+              } else {
+                const newLink = document.createElement('link')
+                newLink.id = 'theme-editor-fonts'
+                newLink.rel = 'stylesheet'
+                newLink.href = fontsUrl
+                document.head.appendChild(newLink)
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des polices:', error)
+      }
+    }
+    
+    fetchFonts()
+  }, [])
 
   const handleCreateTheme = async () => {
     setIsCreating(true)

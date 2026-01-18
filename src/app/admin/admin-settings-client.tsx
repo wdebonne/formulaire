@@ -11,6 +11,7 @@ import {
   Palette,
   Settings,
   Shield,
+  Type,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -30,6 +31,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: Users,
       href: '/admin/users',
       color: 'bg-blue-500',
+    },
+    {
+      title: 'Polices',
+      description: 'Gérer les polices d\'écriture disponibles',
+      icon: Type,
+      href: '/admin/fonts',
+      color: 'bg-pink-500',
     },
     {
       title: 'SMTP & Templates',

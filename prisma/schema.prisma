@@ -120,3 +120,16 @@ model EmailTemplate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Polices d'écriture personnalisées
+model Font {
+  id          String   @id @default(uuid())
+  name        String   // Nom affiché
+  family      String   @unique // Nom CSS de la police (font-family)
+  source      String   @default("google") // google, custom
+  url         String?  // URL du fichier de police (pour custom)
+  weights     String   @default("[400,700]") // JSON array des graisses disponibles
+  isDefault   Boolean  @default(false) // Polices par défaut du système
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

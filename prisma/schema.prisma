@@ -10,17 +10,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Roles: admin, user
 model User {
   id                String   @id @default(uuid())
   email             String   @unique
   password          String
   name              String?
+  role              String   @default("user") // admin, user
   resetToken        String?
   resetTokenExpiry  DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   forms             Form[]
   themes            Theme[]
+  sharedForms       FormShare[]
 }
 
 model Form {
@@ -38,11 +41,27 @@ model Form {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   responses   Response[]
+  shares      FormShare[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
   @@index([slug])
+}
+
+// Partage de formulaires entre utilisateurs
+model FormShare {
+  id          String   @id @default(uuid())
+  formId      String
+  form        Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission  String   @default("view") // view, edit
+  createdAt   DateTime @default(now())
+
+  @@unique([formId, userId])
+  @@index([formId])
+  @@index([userId])
 }
 
 model Theme {
@@ -70,4 +89,34 @@ model Response {
   updatedAt   DateTime @updatedAt
 
   @@index([formId])
+}
+
+// Paramètres système (SMTP, site, etc.)
+model SystemSettings {
+  id          String   @id @default("system")
+  siteName    String   @default("FormBuilder")
+  siteLogo    String?  // URL du logo
+  siteFavicon String?  // URL du favicon
+  smtpHost    String?
+  smtpPort    Int      @default(587)
+  smtpUser    String?
+  smtpPass    String?
+  smtpFrom    String?
+  smtpFromName String?  // Nom de l'expéditeur
+  smtpSecure  Boolean  @default(false)
+  registrationEnabled Boolean @default(true)
+  updatedAt   DateTime @updatedAt
+}
+
+// Templates d'emails
+model EmailTemplate {
+  id          String   @id @default(uuid())
+  name        String   // welcome, forgot-password, form-shared
+  slug        String   @unique
+  subject     String
+  htmlContent String   // HTML template
+  variables   String   @default("[]") // JSON array des variables disponibles
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

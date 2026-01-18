@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { Theme, ThemeProperties } from '@/types/form'
-import { Plus, Check, Palette, Trash2, AlertTriangle } from 'lucide-react'
+import { Plus, Check, Palette, Trash2, AlertTriangle, Upload, X, Image as ImageIcon } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
 
 interface ThemeEditorProps {
   themes: Theme[]
+  onThemeChange?: (theme: Theme) => void
 }
 
 const colorPresets = [
@@ -76,13 +77,32 @@ const inputStyleOptions = [
   { value: 'filled', label: 'Rempli' },
 ]
 
-export function ThemeEditor({ themes: initialThemes }: ThemeEditorProps) {
+const backgroundTypeOptions = [
+  { value: 'solid', label: 'Couleur' },
+  { value: 'gradient', label: 'Dégradé' },
+  { value: 'image', label: 'Image' },
+]
+
+const gradientDirectionOptions = [
+  { value: 'to-right', label: '→ Droite', css: 'to right' },
+  { value: 'to-left', label: '← Gauche', css: 'to left' },
+  { value: 'to-bottom', label: '↓ Bas', css: 'to bottom' },
+  { value: 'to-top', label: '↑ Haut', css: 'to top' },
+  { value: 'to-bottom-right', label: '↘ Bas-Droite', css: 'to bottom right' },
+  { value: 'to-bottom-left', label: '↙ Bas-Gauche', css: 'to bottom left' },
+  { value: 'to-top-right', label: '↗ Haut-Droite', css: 'to top right' },
+  { value: 'to-top-left', label: '↖ Haut-Gauche', css: 'to top left' },
+]
+
+export function ThemeEditor({ themes: initialThemes, onThemeChange }: ThemeEditorProps) {
   const { themeId, setTheme } = useFormBuilder()
   const [themes, setThemes] = useState(initialThemes)
   const [editingTheme, setEditingTheme] = useState<Theme | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [deleteConfirmTheme, setDeleteConfirmTheme] = useState<Theme | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   const currentTheme = themes.find((t) => t.id === themeId)
@@ -196,10 +216,44 @@ export function ThemeEditor({ themes: initialThemes }: ThemeEditorProps) {
 
   const updateEditingTheme = (property: keyof ThemeProperties, value: any) => {
     if (!editingTheme) return
-    setEditingTheme({
+    const updatedTheme = {
       ...editingTheme,
       properties: { ...editingTheme.properties, [property]: value },
-    })
+    }
+    setEditingTheme(updatedTheme)
+    // Notifier le parent pour le live preview
+    if (onThemeChange && editingTheme.id === themeId) {
+      onThemeChange(updatedTheme)
+    }
+  }
+
+  const handleImageUpload = async (file: File) => {
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!res.ok) throw new Error('Upload failed')
+
+      const { url } = await res.json()
+      updateEditingTheme('backgroundImage', url)
+      toast({
+        title: 'Image téléchargée',
+      })
+    } catch (error) {
+      toast({
+        title: 'Erreur',
+        description: "Impossible de télécharger l'image",
+        variant: 'destructive',
+      })
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   if (editingTheme) {
@@ -237,21 +291,201 @@ export function ThemeEditor({ themes: initialThemes }: ThemeEditorProps) {
         </div>
 
         <div className="space-y-2">
-          <Label>Couleur de fond</Label>
-          <div className="flex items-center space-x-2">
-            <input
-              type="color"
-              value={editingTheme.properties.backgroundColor || '#ffffff'}
-              onChange={(e) => updateEditingTheme('backgroundColor', e.target.value)}
-              className="w-10 h-10 rounded cursor-pointer"
-            />
-            <Input
-              value={editingTheme.properties.backgroundColor || '#ffffff'}
-              onChange={(e) => updateEditingTheme('backgroundColor', e.target.value)}
-              className="flex-1"
-            />
+          <Label>Type de fond</Label>
+          <div className="flex gap-2">
+            {backgroundTypeOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => updateEditingTheme('backgroundType', option.value)}
+                className={`flex-1 px-3 py-2 text-xs border-2 transition-all rounded ${
+                  (editingTheme.properties.backgroundType || 'solid') === option.value
+                    ? 'border-primary bg-primary/10'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {(editingTheme.properties.backgroundType || 'solid') === 'solid' && (
+          <div className="space-y-2">
+            <Label>Couleur de fond</Label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="color"
+                value={editingTheme.properties.backgroundColor || '#ffffff'}
+                onChange={(e) => updateEditingTheme('backgroundColor', e.target.value)}
+                className="w-10 h-10 rounded cursor-pointer"
+              />
+              <Input
+                value={editingTheme.properties.backgroundColor || '#ffffff'}
+                onChange={(e) => updateEditingTheme('backgroundColor', e.target.value)}
+                className="flex-1"
+              />
+            </div>
+          </div>
+        )}
+
+        {editingTheme.properties.backgroundType === 'gradient' && (
+          <>
+            <div className="space-y-2">
+              <Label>Direction du dégradé</Label>
+              <select
+                value={editingTheme.properties.gradientDirection || 'to-bottom'}
+                onChange={(e) => updateEditingTheme('gradientDirection', e.target.value)}
+                className="w-full px-3 py-2 text-sm border rounded-md"
+              >
+                {gradientDirectionOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Couleur de départ</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={editingTheme.properties.gradientStartColor || '#667eea'}
+                  onChange={(e) => updateEditingTheme('gradientStartColor', e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer"
+                />
+                <Input
+                  value={editingTheme.properties.gradientStartColor || '#667eea'}
+                  onChange={(e) => updateEditingTheme('gradientStartColor', e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Couleur de fin</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={editingTheme.properties.gradientEndColor || '#764ba2'}
+                  onChange={(e) => updateEditingTheme('gradientEndColor', e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer"
+                />
+                <Input
+                  value={editingTheme.properties.gradientEndColor || '#764ba2'}
+                  onChange={(e) => updateEditingTheme('gradientEndColor', e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Opacité du dégradé ({editingTheme.properties.gradientOpacity ?? 100}%)</Label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={editingTheme.properties.gradientOpacity ?? 100}
+                onChange={(e) => updateEditingTheme('gradientOpacity', parseInt(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Transparent</span>
+                <span>Opaque</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg border" style={{
+              background: (editingTheme.properties.gradientOpacity ?? 100) < 100
+                ? `linear-gradient(rgba(255,255,255,${1 - (editingTheme.properties.gradientOpacity ?? 100) / 100}), rgba(255,255,255,${1 - (editingTheme.properties.gradientOpacity ?? 100) / 100})), linear-gradient(${gradientDirectionOptions.find(o => o.value === (editingTheme.properties.gradientDirection || 'to-bottom'))?.css || 'to bottom'}, ${editingTheme.properties.gradientStartColor || '#667eea'}, ${editingTheme.properties.gradientEndColor || '#764ba2'})`
+                : `linear-gradient(${gradientDirectionOptions.find(o => o.value === (editingTheme.properties.gradientDirection || 'to-bottom'))?.css || 'to bottom'}, ${editingTheme.properties.gradientStartColor || '#667eea'}, ${editingTheme.properties.gradientEndColor || '#764ba2'})`
+            }}>
+              <p className="text-xs text-center text-white drop-shadow">Aperçu du dégradé</p>
+            </div>
+          </>
+        )}
+
+        {editingTheme.properties.backgroundType === 'image' && (
+          <>
+            <div className="space-y-2">
+              <Label>Image de fond</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleImageUpload(file)
+                }}
+                className="hidden"
+              />
+              
+              {editingTheme.properties.backgroundImage ? (
+                <div className="relative">
+                  <div 
+                    className="w-full h-32 rounded-lg border bg-cover bg-center"
+                    style={{ backgroundImage: `url(${editingTheme.properties.backgroundImage})` }}
+                  />
+                  <button
+                    onClick={() => updateEditingTheme('backgroundImage', '')}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="absolute bottom-2 right-2 px-2 py-1 bg-white/90 text-xs rounded hover:bg-white"
+                  >
+                    Changer
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-2 hover:border-primary hover:bg-primary/5 transition-colors"
+                >
+                  {isUploading ? (
+                    <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                  ) : (
+                    <>
+                      <Upload className="w-6 h-6 text-gray-400" />
+                      <span className="text-xs text-gray-500">Cliquez pour télécharger</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Opacité de l'image ({editingTheme.properties.backgroundImageOpacity ?? 100}%)</Label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={editingTheme.properties.backgroundImageOpacity ?? 100}
+                onChange={(e) => updateEditingTheme('backgroundImageOpacity', parseInt(e.target.value))}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Transparent</span>
+                <span>Opaque</span>
+              </div>
+            </div>
+
+            {editingTheme.properties.backgroundImage && (
+              <div 
+                className="p-3 rounded-lg border h-20 bg-cover bg-center"
+                style={{ 
+                  backgroundImage: `linear-gradient(rgba(255,255,255,${1 - (editingTheme.properties.backgroundImageOpacity ?? 100) / 100}), rgba(255,255,255,${1 - (editingTheme.properties.backgroundImageOpacity ?? 100) / 100})), url(${editingTheme.properties.backgroundImage})`,
+                }}
+              >
+                <p className="text-xs text-center" style={{ color: editingTheme.properties.questionsColor || '#000' }}>Aperçu avec opacité</p>
+              </div>
+            )}
+          </>
+        )}
 
         <div className="space-y-2">
           <Label>Couleur des questions</Label>
@@ -439,8 +673,20 @@ export function ThemeEditor({ themes: initialThemes }: ThemeEditorProps) {
               </div>
             )}
             <div
-              className="w-full h-16 rounded mb-2"
-              style={{ backgroundColor: theme.properties.backgroundColor || '#fff' }}
+              className="w-full h-16 rounded mb-2 bg-cover bg-center"
+              style={
+                theme.properties.backgroundType === 'gradient' 
+                  ? {
+                      background: (theme.properties.gradientOpacity ?? 100) < 100
+                        ? `linear-gradient(rgba(255,255,255,${1 - (theme.properties.gradientOpacity ?? 100) / 100}), rgba(255,255,255,${1 - (theme.properties.gradientOpacity ?? 100) / 100})), linear-gradient(${gradientDirectionOptions.find(o => o.value === (theme.properties.gradientDirection || 'to-bottom'))?.css || 'to bottom'}, ${theme.properties.gradientStartColor || '#667eea'}, ${theme.properties.gradientEndColor || '#764ba2'})`
+                        : `linear-gradient(${gradientDirectionOptions.find(o => o.value === (theme.properties.gradientDirection || 'to-bottom'))?.css || 'to bottom'}, ${theme.properties.gradientStartColor || '#667eea'}, ${theme.properties.gradientEndColor || '#764ba2'})`
+                    } 
+                  : theme.properties.backgroundType === 'image' && theme.properties.backgroundImage
+                    ? {
+                        backgroundImage: `linear-gradient(rgba(255,255,255,${1 - (theme.properties.backgroundImageOpacity ?? 100) / 100}), rgba(255,255,255,${1 - (theme.properties.backgroundImageOpacity ?? 100) / 100})), url(${theme.properties.backgroundImage})`,
+                      }
+                    : { backgroundColor: theme.properties.backgroundColor || '#fff' }
+              }
             >
               <div className="p-2">
                 <div

@@ -6,6 +6,8 @@ export type BlockType =
   | 'email'
   | 'phone'
   | 'date'
+  | 'advanced-date'
+  | 'time'
   | 'dropdown'
   | 'multiple-choice'
   | 'slider'
@@ -27,6 +29,7 @@ export interface BlockChoice {
 
 export interface BlockAttributes {
   label?: string
+  hideLabel?: boolean // Masquer le titre de la question
   description?: string
   placeholder?: string
   required?: boolean
@@ -46,14 +49,37 @@ export interface BlockAttributes {
     url: string
   }
   customHTML?: string
+  // Attributs pour le welcome-screen et thankyou-screen
+  showAttachment?: boolean
+  attachmentType?: 'image' | 'video'
+  attachmentUrl?: string
+  attachmentLayout?: 'stack' | 'float-right' | 'float-left' | 'split-right' | 'split-left'
+  focalPoint?: { x: number; y: number }
   // Attributs pour le bloc Repeater
   initialQuestion?: string // Question initiale demandant si l'utilisateur veut commencer (ex: "Avez-vous du matériel à déclarer ?")
   initialYesLabel?: string // Label pour "Oui" sur la question initiale
   initialNoLabel?: string // Label pour "Non" sur la question initiale
   repeatQuestion?: string // Question demandant si l'utilisateur veut répéter (ex: "Avez-vous besoin d'autre matériel ?")
+  repeatDescription?: string // Description pour la question de répétition (supporte les variables @1, @2a, etc.)
   repeatYesLabel?: string // Label pour "Oui"
   repeatNoLabel?: string // Label pour "Non"
   maxRepetitions?: number // Nombre maximum de répétitions autorisées
+  // Attributs pour le bloc Date Avancée
+  minDateType?: 'none' | 'specific' | 'today' | 'block' // Type de date minimum
+  minDate?: string // Date minimum spécifique (format YYYY-MM-DD)
+  minDateBlockId?: string // ID du bloc date à utiliser comme minimum
+  minDateOffset?: number // Décalage en jours par rapport à la date source
+  maxDateType?: 'none' | 'specific' | 'today' | 'block' // Type de date maximum
+  maxDate?: string // Date maximum spécifique (format YYYY-MM-DD)
+  maxDateBlockId?: string // ID du bloc date à utiliser comme maximum
+  maxDateOffset?: number // Décalage en jours par rapport à la date source
+  isDateRange?: boolean // Activer la sélection d'une plage de dates (début et fin)
+  startDateLabel?: string // Label pour la date de début
+  endDateLabel?: string // Label pour la date de fin
+  // Attributs pour le bloc Heure
+  isTimeRange?: boolean // Activer la sélection d'une plage horaire (début et fin)
+  startTimeLabel?: string // Label pour l'heure de début
+  endTimeLabel?: string // Label pour l'heure de fin
 }
 
 export interface FormBlock {
@@ -117,11 +143,20 @@ export interface Webhook {
 }
 
 // Theme types
+export type BackgroundType = 'solid' | 'gradient' | 'image'
+export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' | 'to-bottom-right' | 'to-bottom-left' | 'to-top-right' | 'to-top-left'
+
 export interface ThemeProperties {
   font?: string
   fontSize?: { lg: string; sm: string }
+  backgroundType?: BackgroundType
   backgroundColor?: string
+  gradientStartColor?: string
+  gradientEndColor?: string
+  gradientDirection?: GradientDirection
+  gradientOpacity?: number // 0 à 100
   backgroundImage?: string
+  backgroundImageOpacity?: number // 0 à 100
   questionsColor?: string
   answersColor?: string
   buttonsBgColor?: string
@@ -154,6 +189,7 @@ export interface FormSettings {
   autoSubmitLastQuestion?: boolean
   showBranding?: boolean
   brandingText?: string
+  logo?: string // URL du logo
 }
 
 export interface Form {

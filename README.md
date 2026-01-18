@@ -1,8 +1,18 @@
-
 # FormBuilder Standalone
 
 Un créateur de formulaires autonome avec éditeur visuel, logique conditionnelle, webhooks et personnalisation avancée des thèmes.
 
+## 🆕 Fonctionnalité de partage
+
+- Un bouton **Partager** apparaît à droite de "Dépublier" lorsque le formulaire est publié.
+- Une modal propose :
+  - Lien direct
+  - Shortcode personnalisable
+  - Code Embed (iframe)
+  - QR Code scannable et téléchargeable
+- Le slug (URL) du formulaire est maintenant modifiable dans les paramètres, avant la section Marque.
+
+Consultez le fichier CHANGELOG.md pour le détail des évolutions.
 
 ## ✨ Fonctionnalités
 
@@ -11,15 +21,51 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 - 🎯 **Logique conditionnelle** - Afficher/masquer des questions selon les réponses
 - 🔗 **Webhooks** - Envoyer les données à des services externes
 - 📊 **Réponses** - Visualiser et exporter les réponses en CSV
-- 🎨 **Thèmes** - Personnaliser l'apparence de vos formulaires (polices, couleurs, formes des boutons et champs, suppression de thèmes personnalisés)
+- 🎨 **Thèmes avancés** - Personnaliser l'apparence avec fonds unis, dégradés ou images
 - 📤 **Import/Export** - Sauvegarder et partager vos formulaires en JSON
 
-## 🆕 Nouveautés
+## 🎨 Personnalisation des thèmes (NOUVEAU)
 
-- Suppression des thèmes personnalisés (les thèmes par défaut sont protégés)
+- **Type de fond au choix** :
+  - **Couleur unie** : choisir une couleur de fond simple
+  - **Dégradé** : 2 couleurs + direction (8 directions disponibles) + opacité ajustable
+  - **Image** : upload d'image de fond + opacité ajustable
+- **Live preview** : visualisez les modifications du thème en temps réel dans l'éditeur
 - Plus de 20 polices disponibles
-- Choix de la forme des boutons et des champs (arrondi, carré, etc.)
+- Choix de la forme des boutons et des champs (arrondi, carré, pilule, etc.)
 - Styles d'inputs : souligné, encadré, rempli
+- Suppression des thèmes personnalisés (les thèmes par défaut sont protégés)
+
+## 📅 Bloc Date Avancée (NOUVEAU)
+
+- Bloc "Date Avancée" avec calendrier visuel intégré (remplace l'input natif)
+- Sélection d'une date ou d'une **plage de dates** (date de début + date de fin)
+- Affichage des dates désactivées (min/max, variables, etc.)
+- Navigation mois/année, week-ends en rouge, aujourd'hui surligné
+- Labels personnalisables pour la plage de dates
+- Aperçu fidèle dans le builder (live view)
+
+**Exemples d'usages :**
+- Limiter la saisie à une période (ex : réservation, congés)
+- Empêcher la sélection de dates passées ou trop lointaines
+- Synchroniser la date min/max avec une autre question du formulaire
+
+Voir le bloc "Date Avancée" dans l'éditeur pour toutes les options.
+
+## 🕒 Bloc Heure (NOUVEAU)
+
+- Bloc "Heure" permettant de saisir une heure au format 24h ou une **plage horaire** (heure de début + heure de fin)
+- Labels personnalisables pour chaque champ
+- Aperçu moderne et responsive dans le builder et le formulaire public
+- Design avec icône horloge, effets visuels, et transitions
+- Compatible avec la logique conditionnelle et l'export des réponses
+
+**Exemples d'usages :**
+- Prise de rendez-vous (heure unique ou créneau)
+- Saisie d'horaires d'ouverture/fermeture
+- Plage horaire pour réservation de salle, matériel, etc.
+
+Voir le bloc "Heure" dans l'éditeur pour toutes les options.
 
 ## 🚀 Installation
 
@@ -99,6 +145,7 @@ Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour dépl
 | `SMTP_USER` | Utilisateur SMTP |
 | `SMTP_PASS` | Mot de passe SMTP |
 | `SMTP_FROM` | Adresse email d'expédition |
+| `SMTP_FROM_NAME` | Nom de l'expéditeur (affiché dans les emails) |
 | `APP_URL` | URL de base de l'application |
 
 ## 📁 Structure du projet
@@ -113,7 +160,7 @@ formbuilder-standalone/
 │   │   ├── api/         # Routes API
 │   │   ├── builder/     # Éditeur de formulaires
 │   │   ├── dashboard/   # Tableau de bord
-│   │   ├── f/           # Formulaires publics
+│   │   ├── [slug]/      # Formulaires publics (accès direct via /mon-formulaire)
 │   │   ├── forms/       # Gestion des réponses
 │   │   ├── login/       # Authentification
 │   │   └── ...
@@ -141,3 +188,11 @@ MIT
 ## 🙏 Crédits
 
 Inspiré par [QuillForms](https://quillforms.com)
+
+# 🚀 Accès public des formulaires
+
+Depuis janvier 2026, les liens publics des formulaires sont accessibles directement à la racine du site :
+
+- Exemple : `https://www.monsite.fr/test2` (au lieu de `https://www.monsite.fr/f/test2`)
+- Les anciennes URLs `/f/[slug]` sont automatiquement redirigées vers la nouvelle structure.
+- Le lien de partage et l'URL affichée dans l'administration ont été mis à jour.

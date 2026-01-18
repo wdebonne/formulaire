@@ -10,25 +10,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { url, method, headers } = body
+    const { url, method, headers, data, bodyFormat } = body
 
     if (!url) {
       return NextResponse.json({ error: 'URL requise' }, { status: 400 })
     }
 
     // Construire les headers
-    const requestHeaders: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
+    const requestHeaders: Record<string, string> = {}
 
-    for (const header of headers || []) {
-      if (header.key && header.value) {
-        requestHeaders[header.key] = header.value
+    // Ajouter les headers personnalisés
+    if (headers && typeof headers === 'object') {
+      for (const [key, value] of Object.entries(headers)) {
+        if (key && value) {
+          requestHeaders[key] = String(value)
+        }
       }
     }
 
-    // Données de test
-    const testData = {
+    // S'assurer qu'on a un Content-Type si pas déjà défini
+    if (!requestHeaders['Content-Type'] && method !== 'GET') {
+      requestHeaders['Content-Type'] = bodyFormat === 'FORM' 
+        ? 'application/x-www-form-urlencoded' 
+        : 'application/json'
+    }
+
+    // Utiliser les données envoyées ou créer des données de test par défaut
+    const testData = data || {
       _test: true,
       _message: 'Ceci est un test de webhook depuis FormBuilder',
       _timestamp: new Date().toISOString(),
@@ -40,10 +48,22 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
 
     try {
+      let bodyContent: string | undefined
+      
+      if (method !== 'GET') {
+        if (bodyFormat === 'FORM') {
+          bodyContent = new URLSearchParams(
+            Object.entries(testData).map(([k, v]) => [k, String(v)])
+          ).toString()
+        } else {
+          bodyContent = JSON.stringify(testData)
+        }
+      }
+
       const response = await fetch(url, {
         method: method || 'POST',
         headers: requestHeaders,
-        body: method !== 'GET' ? JSON.stringify(testData) : undefined,
+        body: bodyContent,
       })
 
       const duration = Date.now() - startTime

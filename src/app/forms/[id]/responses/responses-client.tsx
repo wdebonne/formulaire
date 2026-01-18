@@ -17,7 +17,29 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
+  Send,
+  Loader2,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
+
+interface Webhook {
+  id: string
+  name: string
+  url: string
+  enabled: boolean
+}
+
+interface WebhookResult {
+  webhookId: string
+  webhookName: string
+  success: boolean
+  status?: number
+  statusText?: string
+  duration?: number
+  error?: string
+  response?: string
+}
 
 interface FormBlock {
   id: string
@@ -26,6 +48,7 @@ interface FormBlock {
     label?: string
     [key: string]: any
   }
+  innerBlocks?: FormBlock[]
 }
 
 interface FormResponse {
@@ -42,6 +65,7 @@ interface ResponsesClientProps {
     title: string
     blocks: FormBlock[]
     settings: any
+    webhooks?: Webhook[]
   }
   responses: FormResponse[]
 }
@@ -51,7 +75,11 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedResponse, setSelectedResponse] = useState<FormResponse | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [sendingWebhook, setSendingWebhook] = useState<string | null>(null)
+  const [webhookResults, setWebhookResults] = useState<WebhookResult[] | null>(null)
   const { toast } = useToast()
+
+  const hasActiveWebhooks = form.webhooks?.some((w) => w.enabled) ?? false
 
   const itemsPerPage = 20
   const questionBlocks = form.blocks.filter(
@@ -96,16 +124,83 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   }
 
   const handleExportCSV = () => {
-    const headers = ['Date', ...questionBlocks.map((b) => b.attributes.label || b.id)]
-    const rows = responses.map((r) => [
-      format(new Date(r.createdAt), 'dd/MM/yyyy HH:mm', { locale: fr }),
-      ...questionBlocks.map((b) => {
-        const value = r.data[b.id]
-        if (Array.isArray(value)) return value.join(', ')
-        if (typeof value === 'object') return JSON.stringify(value)
-        return String(value || '')
-      }),
-    ])
+    // Construire les headers, en développant les repeaters
+    const headers: string[] = ['Date']
+    questionBlocks.forEach((b) => {
+      if (b.type === 'repeater' && b.innerBlocks && b.innerBlocks.length > 0) {
+        // Trouver le nombre max de répétitions pour ce repeater
+        let maxRep = 0
+        responses.forEach((r) => {
+          let rep = 1
+          while (r.data[`${b.id}_${rep}_${b.innerBlocks![0].id}`] !== undefined) {
+            rep++
+          }
+          maxRep = Math.max(maxRep, rep - 1)
+        })
+        
+        // Ajouter les headers pour chaque répétition
+        for (let i = 1; i <= maxRep; i++) {
+          b.innerBlocks.forEach((inner) => {
+            headers.push(`${b.attributes.label || b.id} #${i} - ${inner.attributes.label || inner.id}`)
+          })
+        }
+        
+        // Si aucune répétition, ajouter au moins une colonne
+        if (maxRep === 0) {
+          headers.push(b.attributes.label || b.id)
+        }
+      } else {
+        headers.push(b.attributes.label || b.id)
+      }
+    })
+    
+    const rows = responses.map((r) => {
+      const row: string[] = [format(new Date(r.createdAt), 'dd/MM/yyyy HH:mm', { locale: fr })]
+      
+      questionBlocks.forEach((b) => {
+        if (b.type === 'repeater' && b.innerBlocks && b.innerBlocks.length > 0) {
+          // Trouver le nombre max de répétitions pour ce repeater
+          let maxRep = 0
+          responses.forEach((resp) => {
+            let rep = 1
+            while (resp.data[`${b.id}_${rep}_${b.innerBlocks![0].id}`] !== undefined) {
+              rep++
+            }
+            maxRep = Math.max(maxRep, rep - 1)
+          })
+          
+          // Ajouter les valeurs pour chaque répétition
+          for (let i = 1; i <= maxRep; i++) {
+            b.innerBlocks.forEach((inner) => {
+              const value = r.data[`${b.id}_${i}_${inner.id}`]
+              if (Array.isArray(value)) {
+                row.push(value.join(', '))
+              } else if (typeof value === 'object') {
+                row.push(JSON.stringify(value))
+              } else {
+                row.push(String(value || ''))
+              }
+            })
+          }
+          
+          // Si aucune répétition, ajouter une cellule vide
+          if (maxRep === 0) {
+            row.push('')
+          }
+        } else {
+          const value = r.data[b.id]
+          if (Array.isArray(value)) {
+            row.push(value.join(', '))
+          } else if (typeof value === 'object') {
+            row.push(JSON.stringify(value))
+          } else {
+            row.push(String(value || ''))
+          }
+        }
+      })
+      
+      return row
+    })
 
     const csvContent = [headers, ...rows]
       .map((row) =>
@@ -160,6 +255,130 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     return String(value)
   }
 
+  // Fonction pour récupérer les données d'un repeater
+  const getRepeaterData = (repeaterId: string, innerBlocks: FormBlock[], data: Record<string, any>) => {
+    const repetitions: Array<{ index: number; answers: Array<{ block: FormBlock; value: any }> }> = []
+    
+    // Trouver toutes les répétitions
+    let repIndex = 1
+    while (true) {
+      const repAnswers: Array<{ block: FormBlock; value: any }> = []
+      let hasData = false
+      
+      for (const innerBlock of innerBlocks) {
+        const key = `${repeaterId}_${repIndex}_${innerBlock.id}`
+        if (data[key] !== undefined) {
+          hasData = true
+          repAnswers.push({ block: innerBlock, value: data[key] })
+        }
+      }
+      
+      if (!hasData) break
+      
+      repetitions.push({ index: repIndex, answers: repAnswers })
+      repIndex++
+    }
+    
+    return repetitions
+  }
+
+  // Fonction pour afficher un bloc (y compris les repeaters)
+  const renderBlockResponse = (block: FormBlock, data: Record<string, any>) => {
+    if (block.type === 'repeater' && block.innerBlocks && block.innerBlocks.length > 0) {
+      const repetitions = getRepeaterData(block.id, block.innerBlocks, data)
+      
+      if (repetitions.length === 0) {
+        return (
+          <div key={block.id} className="border-b pb-4 last:border-0">
+            <p className="text-sm font-medium text-gray-500 mb-1">
+              {block.attributes.label || block.id}
+            </p>
+            <p className="text-gray-900">-</p>
+          </div>
+        )
+      }
+      
+      return (
+        <div key={block.id} className="border-b pb-4 last:border-0">
+          <p className="text-sm font-medium text-gray-500 mb-2">
+            {block.attributes.label || block.id}
+          </p>
+          <div className="space-y-3">
+            {repetitions.map((rep) => (
+              <div key={rep.index} className="bg-gray-50 rounded-lg p-3">
+                <p className="text-xs font-medium text-gray-400 mb-2">
+                  Entrée #{rep.index}
+                </p>
+                <div className="space-y-2">
+                  {rep.answers.map(({ block: innerBlock, value }) => (
+                    <div key={innerBlock.id}>
+                      <p className="text-xs text-gray-500">
+                        {innerBlock.attributes.label || innerBlock.id}
+                      </p>
+                      <p className="text-sm text-gray-900">{formatValue(value)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+    
+    // Pour les blocs normaux
+    return (
+      <div key={block.id} className="border-b pb-4 last:border-0">
+        <p className="text-sm font-medium text-gray-500 mb-1">
+          {block.attributes.label || block.id}
+        </p>
+        <p className="text-gray-900">{formatValue(data[block.id])}</p>
+      </div>
+    )
+  }
+
+  const handleSendWebhook = async (responseId: string) => {
+    setSendingWebhook(responseId)
+    setWebhookResults(null)
+
+    try {
+      const res = await fetch(`/api/forms/${form.id}/responses/${responseId}/webhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'envoi')
+      }
+
+      setWebhookResults(data.results)
+
+      if (data.success) {
+        toast({
+          title: 'Webhook envoyé',
+          description: 'Les webhooks ont été renvoyés avec succès',
+        })
+      } else {
+        toast({
+          title: 'Envoi partiel',
+          description: 'Certains webhooks ont échoué',
+          variant: 'destructive',
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible d\'envoyer le webhook',
+        variant: 'destructive',
+      })
+    } finally {
+      setSendingWebhook(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -206,7 +425,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
             <p className="text-gray-500 mb-6">
               Ce formulaire n'a pas encore reçu de réponses.
             </p>
-            <Link href={`/f/${form.id}`} target="_blank">
+            <Link href={`/${form.slug || form.id}`} target="_blank">
               <Button>Voir le formulaire</Button>
             </Link>
           </div>
@@ -275,6 +494,20 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+                            {hasActiveWebhooks && (
+                              <button
+                                onClick={() => handleSendWebhook(response.id)}
+                                disabled={sendingWebhook === response.id}
+                                className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-50"
+                                title="Renvoyer le webhook"
+                              >
+                                {sendingWebhook === response.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Send className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(response.id)}
                               className="p-1 text-gray-400 hover:text-red-600"
@@ -348,22 +581,27 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
             </div>
             <div className="p-4 overflow-y-auto max-h-[calc(80vh-120px)]">
               <div className="space-y-4">
-                {questionBlocks.map((block) => (
-                  <div key={block.id} className="border-b pb-4 last:border-0">
-                    <p className="text-sm font-medium text-gray-500 mb-1">
-                      {block.attributes.label || block.id}
-                    </p>
-                    <p className="text-gray-900">
-                      {formatValue(selectedResponse.data[block.id])}
-                    </p>
-                  </div>
-                ))}
+                {questionBlocks.map((block) => renderBlockResponse(block, selectedResponse.data))}
               </div>
             </div>
             <div className="p-4 border-t flex justify-end space-x-2">
               <Button variant="outline" onClick={() => setSelectedResponse(null)}>
                 Fermer
               </Button>
+              {hasActiveWebhooks && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleSendWebhook(selectedResponse.id)}
+                  disabled={sendingWebhook === selectedResponse.id}
+                >
+                  {sendingWebhook === selectedResponse.id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 mr-2" />
+                  )}
+                  Renvoyer webhook
+                </Button>
+              )}
               <Button
                 variant="destructive"
                 onClick={() => {
@@ -374,6 +612,80 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 <Trash2 className="w-4 h-4 mr-2" />
                 Supprimer
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Webhook results modal */}
+      {webhookResults && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="font-semibold">Résultats des webhooks</h2>
+              <button
+                onClick={() => setWebhookResults(null)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-120px)]">
+              <div className="space-y-3">
+                {webhookResults.map((result) => (
+                  <div
+                    key={result.webhookId}
+                    className={`p-4 rounded-lg border ${
+                      result.success
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {result.success ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        )}
+                        <span className="font-medium">{result.webhookName}</span>
+                      </div>
+                      {result.status && (
+                        <span
+                          className={`text-sm px-2 py-0.5 rounded ${
+                            result.success
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {result.status} {result.statusText}
+                        </span>
+                      )}
+                    </div>
+                    {result.duration && (
+                      <p className="text-sm text-gray-600">
+                        Temps de réponse: {result.duration}ms
+                      </p>
+                    )}
+                    {result.error && (
+                      <p className="text-sm text-red-600 mt-1">{result.error}</p>
+                    )}
+                    {result.response && (
+                      <details className="mt-2">
+                        <summary className="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+                          Voir la réponse
+                        </summary>
+                        <pre className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto max-h-32">
+                          {result.response}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end">
+              <Button onClick={() => setWebhookResults(null)}>Fermer</Button>
             </div>
           </div>
         </div>

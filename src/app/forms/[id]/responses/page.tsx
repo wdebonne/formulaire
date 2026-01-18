@@ -35,6 +35,7 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
     ...form,
     blocks: JSON.parse(form.blocks),
     settings: JSON.parse(form.settings),
+    webhooks: JSON.parse(form.webhooks || '[]'),
   }
 
   const parsedResponses = responses.map((r) => ({

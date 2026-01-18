@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, Calendar, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -23,6 +23,8 @@ const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }
   { type: 'email', label: 'Email', icon: <Mail className="w-4 h-4" /> },
   { type: 'phone', label: 'Téléphone', icon: <Phone className="w-4 h-4" /> },
   { type: 'date', label: 'Date', icon: <Calendar className="w-4 h-4" /> },
+  { type: 'advanced-date', label: 'Date avancée', icon: <CalendarRange className="w-4 h-4" /> },
+  { type: 'time', label: 'Heure', icon: <Clock className="w-4 h-4" /> },
   { type: 'dropdown', label: 'Liste déroulante', icon: <ChevronDown className="w-4 h-4" /> },
   { type: 'multiple-choice', label: 'Choix multiple', icon: <CheckSquare className="w-4 h-4" /> },
   { type: 'slider', label: 'Curseur', icon: <SlidersHorizontal className="w-4 h-4" /> },
@@ -125,23 +127,49 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
           onChange={(e) => updateAttribute('label', e.target.value)}
           placeholder="Entrez votre question"
         />
-      </div>
-
-      {/* Description */}
-      <div className="space-y-2">
-        <Label htmlFor="description">Description (optionnel)</Label>
-        <textarea
-          id="description"
-          value={block.attributes.description || ''}
-          onChange={(e) => updateAttribute('description', e.target.value)}
-          placeholder="Description ou instruction supplémentaire"
-          className="w-full min-h-[80px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-        />
         <p className="text-xs text-gray-500">
           💡 Utilisez <code className="bg-gray-100 px-1 rounded">@1</code>, <code className="bg-gray-100 px-1 rounded">@2</code>, etc. pour insérer les réponses des questions précédentes. 
           Pour les groupes : <code className="bg-gray-100 px-1 rounded">@2a</code>, <code className="bg-gray-100 px-1 rounded">@2b</code>...
         </p>
       </div>
+
+      {/* Hide label toggle - disponible pour tous les blocs sauf welcome/thankyou */}
+      {!['welcome-screen', 'thankyou-screen'].includes(block.type) && (
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="hideLabel">Masquer le titre</Label>
+            <p className="text-xs text-gray-500">Le titre ne sera pas affiché dans le formulaire</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              id="hideLabel"
+              checked={block.attributes.hideLabel || false}
+              onChange={(e) => updateAttribute('hideLabel', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+      )}
+
+      {/* Description (pas pour les repeaters qui ont leur propre champ) */}
+      {block.type !== 'repeater' && (
+        <div className="space-y-2">
+          <Label htmlFor="description">Description (optionnel)</Label>
+          <textarea
+            id="description"
+            value={block.attributes.description || ''}
+            onChange={(e) => updateAttribute('description', e.target.value)}
+            placeholder="Description ou instruction supplémentaire"
+            className="w-full min-h-[80px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <p className="text-xs text-gray-500">
+            💡 Utilisez <code className="bg-gray-100 px-1 rounded">@1</code>, <code className="bg-gray-100 px-1 rounded">@2</code>, etc. pour insérer les réponses des questions précédentes. 
+            Pour les groupes : <code className="bg-gray-100 px-1 rounded">@2a</code>, <code className="bg-gray-100 px-1 rounded">@2b</code>...
+          </p>
+        </div>
+      )}
 
       {/* Placeholder (for text inputs) */}
       {['short-text', 'long-text', 'number', 'email', 'phone'].includes(block.type) && (
@@ -184,6 +212,11 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
             placeholder="Continuer"
           />
         </div>
+      )}
+
+      {/* Attachment pour welcome-screen et thankyou-screen */}
+      {['welcome-screen', 'thankyou-screen'].includes(block.type) && (
+        <WelcomeScreenAttachment block={block} updateAttribute={updateAttribute} />
       )}
 
       {/* Number options */}
@@ -366,6 +399,58 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Advanced Date editor */}
+      {block.type === 'advanced-date' && (
+        <AdvancedDateEditor block={block} updateAttribute={updateAttribute} isInnerBlock={isInnerBlock} parentGroupId={parentGroupId} />
+      )}
+
+      {/* Time editor */}
+      {block.type === 'time' && (
+        <div className="space-y-4">
+          {/* Option pour activer la plage horaire */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="isTimeRange">Plage horaire</Label>
+              <p className="text-xs text-gray-500">Permet de saisir une heure de début et une heure de fin</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="isTimeRange"
+                checked={block.attributes.isTimeRange || false}
+                onChange={(e) => updateAttribute('isTimeRange', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          {/* Labels personnalisés pour la plage horaire */}
+          {block.attributes.isTimeRange && (
+            <div className="space-y-3 p-3 border border-indigo-200 rounded-lg bg-indigo-50/50">
+              <div className="space-y-2">
+                <Label htmlFor="startTimeLabel">Label de l'heure de début</Label>
+                <Input
+                  id="startTimeLabel"
+                  value={block.attributes.startTimeLabel || 'Heure de début'}
+                  onChange={(e) => updateAttribute('startTimeLabel', e.target.value)}
+                  placeholder="Heure de début"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endTimeLabel">Label de l'heure de fin</Label>
+                <Input
+                  id="endTimeLabel"
+                  value={block.attributes.endTimeLabel || 'Heure de fin'}
+                  onChange={(e) => updateAttribute('endTimeLabel', e.target.value)}
+                  placeholder="Heure de fin"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Group inner blocks editor */}
       {block.type === 'group' && (
         <div className="space-y-4">
@@ -530,6 +615,21 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
                   placeholder="Avez-vous des éléments à ajouter ?"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description (optionnel)</Label>
+                <textarea
+                  id="description"
+                  value={block.attributes.description || ''}
+                  onChange={(e) => updateAttribute('description', e.target.value)}
+                  placeholder="Description ou instruction supplémentaire"
+                  className="w-full min-h-[60px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-xs text-gray-500">
+                  💡 Variables : <code className="bg-gray-100 px-1 rounded">@1</code>, <code className="bg-gray-100 px-1 rounded">@2</code> (questions), 
+                  <code className="bg-gray-100 px-1 rounded">@2a</code>, <code className="bg-gray-100 px-1 rounded">@2b</code> (blocs internes).
+                </p>
+              </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -569,6 +669,23 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
                   onChange={(e) => updateAttribute('repeatQuestion', e.target.value)}
                   placeholder="Voulez-vous ajouter un autre élément ?"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="repeatDescription">Description (optionnel)</Label>
+                <textarea
+                  id="repeatDescription"
+                  value={block.attributes.repeatDescription || ''}
+                  onChange={(e) => updateAttribute('repeatDescription', e.target.value)}
+                  placeholder="Description ou instruction supplémentaire"
+                  className="w-full min-h-[60px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-xs text-gray-500">
+                  💡 Variables : <code className="bg-gray-100 px-1 rounded">@1</code>, <code className="bg-gray-100 px-1 rounded">@2</code> (questions), 
+                  <code className="bg-gray-100 px-1 rounded">@2a</code>, <code className="bg-gray-100 px-1 rounded">@2b</code> (blocs internes).
+                  <br />
+                  🔄 <code className="bg-gray-100 px-1 rounded">@2a.all</code> = tous les choix cumulés (ex: "papier, tableaux, crayon")
+                </p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
@@ -672,6 +789,502 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
           className="w-full min-h-[80px] px-3 py-2 text-sm font-mono border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
         />
       </div>
+    </div>
+  )
+}
+
+// Composant pour l'éditeur de Date Avancée
+interface AdvancedDateEditorProps {
+  block: FormBlock
+  updateAttribute: (key: string, value: any) => void
+  isInnerBlock?: boolean
+  parentGroupId?: string
+}
+
+function AdvancedDateEditor({ block, updateAttribute, isInnerBlock, parentGroupId }: AdvancedDateEditorProps) {
+  const { blocks } = useFormBuilder()
+  
+  // Récupérer tous les blocs date et advanced-date du formulaire (qui sont avant ce bloc)
+  const getAvailableDateBlocks = () => {
+    const allBlocks: { id: string; label: string; type: string }[] = []
+    let foundCurrentBlock = false
+    
+    for (const b of blocks) {
+      if (b.id === block.id) {
+        foundCurrentBlock = true
+        break
+      }
+      
+      if (b.type === 'date' || b.type === 'advanced-date') {
+        allBlocks.push({
+          id: b.id,
+          label: b.attributes.label || 'Date sans titre',
+          type: b.type === 'advanced-date' ? 'Date avancée' : 'Date',
+        })
+      }
+      
+      // Chercher aussi dans les innerBlocks des groupes et repeaters
+      if ((b.type === 'group' || b.type === 'repeater') && b.innerBlocks) {
+        for (const inner of b.innerBlocks) {
+          if (inner.type === 'date' || inner.type === 'advanced-date') {
+            allBlocks.push({
+              id: inner.id,
+              label: `${b.attributes.label || 'Groupe'} > ${inner.attributes.label || 'Date sans titre'}`,
+              type: inner.type === 'advanced-date' ? 'Date avancée' : 'Date',
+            })
+          }
+        }
+      }
+    }
+    
+    return allBlocks
+  }
+  
+  const availableDateBlocks = getAvailableDateBlocks()
+  
+  const minDateType = block.attributes.minDateType || 'none'
+  const maxDateType = block.attributes.maxDateType || 'none'
+  const isDateRange = block.attributes.isDateRange || false
+
+  return (
+    <div className="space-y-4">
+      {/* Plage de dates */}
+      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-purple-700 flex items-center gap-2">
+            <CalendarRange className="w-4 h-4" />
+            Plage de dates
+          </h4>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isDateRange}
+              onChange={(e) => updateAttribute('isDateRange', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+          </label>
+        </div>
+        <p className="text-xs text-gray-500">
+          Permet de sélectionner une date de début et une date de fin
+        </p>
+        
+        {isDateRange && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div className="space-y-2">
+              <Label htmlFor="startDateLabel">Label date de début</Label>
+              <Input
+                id="startDateLabel"
+                value={block.attributes.startDateLabel || ''}
+                onChange={(e) => updateAttribute('startDateLabel', e.target.value)}
+                placeholder="Date de début"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDateLabel">Label date de fin</Label>
+              <Input
+                id="endDateLabel"
+                value={block.attributes.endDateLabel || ''}
+                onChange={(e) => updateAttribute('endDateLabel', e.target.value)}
+                placeholder="Date de fin"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Format de date */}
+      <div className="space-y-2">
+        <Label htmlFor="format">Format de date</Label>
+        <select
+          id="format"
+          value={block.attributes.format || 'DD/MM/YYYY'}
+          onChange={(e) => updateAttribute('format', e.target.value)}
+          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+        </select>
+      </div>
+
+      {/* Date Minimum */}
+      <div className="p-3 bg-orange-50 rounded-lg border border-orange-200 space-y-3">
+        <h4 className="font-medium text-orange-700 flex items-center gap-2">
+          <CalendarRange className="w-4 h-4" />
+          Date minimum
+        </h4>
+        
+        <div className="space-y-2">
+          <Label htmlFor="minDateType">Type de restriction</Label>
+          <select
+            id="minDateType"
+            value={minDateType}
+            onChange={(e) => updateAttribute('minDateType', e.target.value)}
+            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="none">Aucune restriction</option>
+            <option value="today">Aujourd'hui</option>
+            <option value="specific">Date spécifique</option>
+            {availableDateBlocks.length > 0 && <option value="block">Valeur d'un autre bloc</option>}
+          </select>
+        </div>
+
+        {minDateType === 'specific' && (
+          <div className="space-y-2">
+            <Label htmlFor="minDate">Date minimum</Label>
+            <Input
+              id="minDate"
+              type="date"
+              value={block.attributes.minDate || ''}
+              onChange={(e) => updateAttribute('minDate', e.target.value)}
+            />
+          </div>
+        )}
+
+        {minDateType === 'block' && availableDateBlocks.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="minDateBlockId">Bloc source</Label>
+            <select
+              id="minDateBlockId"
+              value={block.attributes.minDateBlockId || ''}
+              onChange={(e) => updateAttribute('minDateBlockId', e.target.value)}
+              className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Sélectionner un bloc</option>
+              {availableDateBlocks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label} ({b.type})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {(minDateType === 'today' || minDateType === 'block') && (
+          <div className="space-y-2">
+            <Label htmlFor="minDateOffset">Décalage (jours)</Label>
+            <Input
+              id="minDateOffset"
+              type="number"
+              value={block.attributes.minDateOffset ?? 0}
+              onChange={(e) => updateAttribute('minDateOffset', Number(e.target.value))}
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-500">
+              Nombre de jours à ajouter (+) ou retrancher (-) de la date source
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Date Maximum */}
+      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 space-y-3">
+        <h4 className="font-medium text-blue-700 flex items-center gap-2">
+          <CalendarRange className="w-4 h-4" />
+          Date maximum
+        </h4>
+        
+        <div className="space-y-2">
+          <Label htmlFor="maxDateType">Type de restriction</Label>
+          <select
+            id="maxDateType"
+            value={maxDateType}
+            onChange={(e) => updateAttribute('maxDateType', e.target.value)}
+            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="none">Aucune restriction</option>
+            <option value="today">Aujourd'hui</option>
+            <option value="specific">Date spécifique</option>
+            {availableDateBlocks.length > 0 && <option value="block">Valeur d'un autre bloc</option>}
+          </select>
+        </div>
+
+        {maxDateType === 'specific' && (
+          <div className="space-y-2">
+            <Label htmlFor="maxDate">Date maximum</Label>
+            <Input
+              id="maxDate"
+              type="date"
+              value={block.attributes.maxDate || ''}
+              onChange={(e) => updateAttribute('maxDate', e.target.value)}
+            />
+          </div>
+        )}
+
+        {maxDateType === 'block' && availableDateBlocks.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="maxDateBlockId">Bloc source</Label>
+            <select
+              id="maxDateBlockId"
+              value={block.attributes.maxDateBlockId || ''}
+              onChange={(e) => updateAttribute('maxDateBlockId', e.target.value)}
+              className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="">Sélectionner un bloc</option>
+              {availableDateBlocks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label} ({b.type})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {(maxDateType === 'today' || maxDateType === 'block') && (
+          <div className="space-y-2">
+            <Label htmlFor="maxDateOffset">Décalage (jours)</Label>
+            <Input
+              id="maxDateOffset"
+              type="number"
+              value={block.attributes.maxDateOffset ?? 0}
+              onChange={(e) => updateAttribute('maxDateOffset', Number(e.target.value))}
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-500">
+              Nombre de jours à ajouter (+) ou retrancher (-) de la date source
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Composant pour les attachments du welcome-screen et thankyou-screen
+interface WelcomeScreenAttachmentProps {
+  block: FormBlock
+  updateAttribute: (key: string, value: any) => void
+}
+
+function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttachmentProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [focalPointDragging, setFocalPointDragging] = useState(false)
+  
+  const showAttachment = block.attributes.showAttachment || false
+  const attachmentType = block.attributes.attachmentType || 'image'
+  const attachmentUrl = block.attributes.attachmentUrl || ''
+  const attachmentLayout = block.attributes.attachmentLayout || 'stack'
+  const focalPoint = block.attributes.focalPoint || { x: 50, y: 50 }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        updateAttribute('attachmentUrl', data.url)
+      } else {
+        console.error('Upload failed')
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleFocalPointClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100)
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100)
+    updateAttribute('focalPoint', { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) })
+  }
+
+  const layouts = [
+    { value: 'stack', label: 'Empilé', icon: <Layers className="w-4 h-4" /> },
+    { value: 'float-right', label: 'Float Right', icon: <PanelRight className="w-4 h-4" /> },
+    { value: 'float-left', label: 'Float Left', icon: <PanelLeft className="w-4 h-4" /> },
+    { value: 'split-right', label: 'Split Right', icon: <LayoutTemplate className="w-4 h-4 rotate-180" /> },
+    { value: 'split-left', label: 'Split Left', icon: <LayoutTemplate className="w-4 h-4" /> },
+  ]
+
+  return (
+    <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+      {/* Toggle Show Attachment */}
+      <div className="flex items-center justify-between">
+        <Label htmlFor="showAttachment">Afficher une pièce jointe</Label>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            id="showAttachment"
+            checked={showAttachment}
+            onChange={(e) => updateAttribute('showAttachment', e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+        </label>
+      </div>
+
+      {showAttachment && (
+        <>
+          {/* Attachment Type */}
+          <div className="space-y-2">
+            <Label>Type de pièce jointe</Label>
+            <div className="relative">
+              <select
+                value={attachmentType}
+                onChange={(e) => updateAttribute('attachmentType', e.target.value)}
+                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary appearance-none bg-white"
+              >
+                <option value="image">Image</option>
+                <option value="video">Vidéo (YouTube)</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          {attachmentType === 'image' && (
+            <div className="space-y-2">
+              <Label>Image</Label>
+              {attachmentUrl ? (
+                <div className="space-y-2">
+                  <div className="relative group">
+                    <img 
+                      src={attachmentUrl} 
+                      alt="Preview" 
+                      className="w-full h-32 object-cover rounded-md border"
+                    />
+                    <button
+                      onClick={() => updateAttribute('attachmentUrl', '')}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="URL de l'image ou uploadez un fichier"
+                    value={attachmentUrl}
+                    onChange={(e) => updateAttribute('attachmentUrl', e.target.value)}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploading ? 'Upload en cours...' : 'Uploader une image'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Video URL */}
+          {attachmentType === 'video' && (
+            <div className="space-y-2">
+              <Label>URL de la vidéo YouTube</Label>
+              <Input
+                placeholder="https://www.youtube.com/watch?v=..."
+                value={attachmentUrl}
+                onChange={(e) => updateAttribute('attachmentUrl', e.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                Collez l'URL d'une vidéo YouTube
+              </p>
+            </div>
+          )}
+
+          {/* Layout */}
+          <div className="space-y-2">
+            <Label>Disposition</Label>
+            <div className="grid grid-cols-5 gap-1">
+              {layouts.map((layout) => (
+                <button
+                  key={layout.value}
+                  onClick={() => updateAttribute('attachmentLayout', layout.value)}
+                  className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-colors ${
+                    attachmentLayout === layout.value
+                      ? 'border-primary bg-primary/5'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  title={layout.label}
+                >
+                  {layout.icon}
+                  <span className="text-[10px] mt-1 text-gray-500">{layout.label.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Focal Point Picker - Only for images */}
+          {attachmentType === 'image' && attachmentUrl && (
+            <div className="space-y-2">
+              <Label>Point focal</Label>
+              <div 
+                className="relative w-full h-32 rounded-md overflow-hidden cursor-crosshair border"
+                onClick={handleFocalPointClick}
+              >
+                <img 
+                  src={attachmentUrl} 
+                  alt="Focal point" 
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
+                />
+                <div 
+                  className="absolute w-4 h-4 bg-white border-2 border-primary rounded-full -translate-x-1/2 -translate-y-1/2 shadow-lg"
+                  style={{ left: `${focalPoint.x}%`, top: `${focalPoint.y}%` }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">GAUCHE</Label>
+                  <div className="flex items-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={focalPoint.x}
+                      onChange={(e) => updateAttribute('focalPoint', { ...focalPoint, x: Number(e.target.value) })}
+                      className="text-sm"
+                    />
+                    <span className="ml-1 text-gray-400 text-sm">%</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">HAUT</Label>
+                  <div className="flex items-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={focalPoint.y}
+                      onChange={(e) => updateAttribute('focalPoint', { ...focalPoint, y: Number(e.target.value) })}
+                      className="text-sm"
+                    />
+                    <span className="ml-1 text-gray-400 text-sm">%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { useFormBuilder } from '@/stores/form-builder'
 import type { Theme, FormBlock, FormSettings, BlockLogic, LogicCondition } from '@/types/form'
 import { ChevronDown, ChevronUp, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { replaceVariables } from '@/lib/utils'
+import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 
 interface FormPreviewProps {
   blocks: FormBlock[]
@@ -126,8 +126,17 @@ const evaluateRule = (rule: BlockLogic['rules'][0], answers: Record<string, any>
   }
 }
 
+// Helper pour extraire l'ID YouTube
+const getYouTubeVideoId = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
+  const match = url.match(regExp)
+  return match && match[2].length === 11 ? match[2] : null
+}
+
 export function FormPreview({ blocks, settings, theme, onClose }: FormPreviewProps) {
   const { logic } = useFormBuilder()
+  // Protection contre logic non-array
+  const safeLogic = Array.isArray(logic) ? logic : []
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [isAnimating, setIsAnimating] = useState(false)
@@ -249,7 +258,7 @@ export function FormPreview({ blocks, settings, theme, onClose }: FormPreviewPro
   const visibleBlocks = useMemo(() => {
     return allQuestionBlocks.filter((block) => {
       // Trouver les règles de logique pour ce bloc
-      const blockLogic = logic.find(l => l.blockId === block.id)
+      const blockLogic = safeLogic.find(l => l.blockId === block.id)
       
       if (!blockLogic || blockLogic.rules.length === 0) {
         // Pas de règle = toujours visible
@@ -272,7 +281,7 @@ export function FormPreview({ blocks, settings, theme, onClose }: FormPreviewPro
       // Par défaut, le bloc est visible
       return true
     })
-  }, [allQuestionBlocks, logic, answers, blocks])
+  }, [allQuestionBlocks, safeLogic, answers, blocks])
 
   // Le bloc courant (mode classique)
   const currentBlock = visibleBlocks[currentIndex]
@@ -528,7 +537,7 @@ export function FormPreview({ blocks, settings, theme, onClose }: FormPreviewPro
 
   if (blocks.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: themeProps.backgroundColor }}>
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ ...getBackgroundStyle(themeProps) }}>
         <div className="p-4 flex justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
             <X className="w-4 h-4 mr-2" />
@@ -538,6 +547,118 @@ export function FormPreview({ blocks, settings, theme, onClose }: FormPreviewPro
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-500">Ajoutez des blocs pour voir l'aperçu</p>
         </div>
+      </div>
+    )
+  }
+
+  // Vérifier si on doit utiliser un layout split
+  const hasSplitLayout = currentBlock && 
+    (currentBlock.type === 'welcome-screen' || currentBlock.type === 'thankyou-screen') &&
+    currentBlock.attributes.showAttachment &&
+    (currentBlock.attributes.attachmentLayout === 'split-left' || currentBlock.attributes.attachmentLayout === 'split-right')
+
+  // Rendu avec layout split pour welcome/thankyou screen dans le preview
+  if (hasSplitLayout && currentBlock) {
+    const layout = currentBlock.attributes.attachmentLayout
+    const attachmentUrl = currentBlock.attributes.attachmentUrl
+    const attachmentType = currentBlock.attributes.attachmentType || 'image'
+    const focalPoint = currentBlock.attributes.focalPoint || { x: 50, y: 50 }
+    const isImageOnLeft = layout === 'split-left'
+
+    const contentSection = (
+      <div className="w-full md:w-1/2 min-h-screen flex flex-col">
+        {/* Logo */}
+        {settings.logo && (
+          <div className="p-4">
+            <img 
+              src={settings.logo} 
+              alt="Logo" 
+              className="h-8 object-contain"
+            />
+          </div>
+        )}
+        
+        {/* Contenu centré */}
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className={`max-w-md w-full transition-all duration-300 ${
+            isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+          }`}>
+            <PreviewBlock
+              block={currentBlock}
+              index={currentIndex}
+              showNumber={false}
+              showLetters={settings.lettersOnAnswers !== false}
+              themeProps={themeProps}
+              answer={answers[currentBlock.id]}
+              onAnswer={(value) => setAnswers({ ...answers, [currentBlock.id]: value })}
+              onNext={goToNext}
+              allBlocks={blocks}
+              allAnswers={answers}
+              inputStyle={inputStyle}
+              buttonBorderRadius={buttonBorderRadius}
+            />
+          </div>
+        </div>
+        
+        {/* Footer */}
+        {(settings.showBranding ?? true) && (
+          <div className="p-4 text-center">
+            <span className="text-xs" style={{ color: themeProps.answersColor + '80' }}>
+              propulsé par <span className="font-semibold">{settings.brandingText || 'FormBuilder'}</span>
+            </span>
+          </div>
+        )}
+      </div>
+    )
+
+    const attachmentSection = (
+      <div className="hidden md:block w-1/2 min-h-screen relative">
+        {attachmentType === 'image' && attachmentUrl && (
+          <img
+            src={attachmentUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
+          />
+        )}
+        {attachmentType === 'video' && attachmentUrl && (
+          <iframe
+            src={`https://www.youtube.com/embed/${getYouTubeVideoId(attachmentUrl)}?autoplay=0`}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+      </div>
+    )
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-row transition-colors duration-300"
+        style={{
+          ...getBackgroundStyle(themeProps),
+          fontFamily: themeProps.font || 'Inter',
+        }}
+      >
+        {/* Close button */}
+        <div className="absolute top-4 right-4 z-10">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            <X className="w-4 h-4 mr-2" />
+            Fermer l'aperçu
+          </Button>
+        </div>
+        
+        {isImageOnLeft ? (
+          <>
+            {attachmentSection}
+            {contentSection}
+          </>
+        ) : (
+          <>
+            {contentSection}
+            {attachmentSection}
+          </>
+        )}
       </div>
     )
   }
@@ -593,7 +714,7 @@ export function FormPreview({ blocks, settings, theme, onClose }: FormPreviewPro
     <div
       className="fixed inset-0 z-50 flex flex-col transition-colors duration-300"
       style={{
-        backgroundColor: themeProps.backgroundColor,
+        ...getBackgroundStyle(themeProps),
         fontFamily: themeProps.font || 'Inter',
         paddingLeft: progressBarPosition === 'left' && showProgressBar ? barPadding[progressBarSize] : 0,
         paddingRight: progressBarPosition === 'right' && showProgressBar ? barPadding[progressBarSize] : 0,
@@ -1131,6 +1252,66 @@ function PreviewBlock({
           />
         )
 
+      case 'advanced-date':
+        // Calculer les dates min/max en fonction de la configuration (version preview)
+        const getPreviewDate = (
+          dateType: string | undefined,
+          specificDate: string | undefined,
+          blockId: string | undefined,
+          offset: number | undefined
+        ): string | undefined => {
+          if (!dateType || dateType === 'none') return undefined
+          
+          let baseDate: Date | null = null
+          
+          if (dateType === 'today') {
+            baseDate = new Date()
+          } else if (dateType === 'specific' && specificDate) {
+            return specificDate
+          } else if (dateType === 'block' && blockId) {
+            const blockValue = answers[blockId]
+            if (blockValue) {
+              baseDate = new Date(blockValue)
+            }
+          }
+          
+          if (baseDate && !isNaN(baseDate.getTime())) {
+            if (offset) {
+              baseDate.setDate(baseDate.getDate() + offset)
+            }
+            return baseDate.toISOString().split('T')[0]
+          }
+          
+          return undefined
+        }
+        
+        const previewMinDate = getPreviewDate(
+          block.attributes.minDateType,
+          block.attributes.minDate,
+          block.attributes.minDateBlockId,
+          block.attributes.minDateOffset
+        )
+        
+        const previewMaxDate = getPreviewDate(
+          block.attributes.maxDateType,
+          block.attributes.maxDate,
+          block.attributes.maxDateBlockId,
+          block.attributes.maxDateOffset
+        )
+        
+        return (
+          <PreviewDateCalendar
+            value={answer}
+            onChange={onAnswer}
+            minDate={previewMinDate}
+            maxDate={previewMaxDate}
+            themeProps={themeProps}
+            isDateRange={block.attributes.isDateRange}
+            startDateLabel={block.attributes.startDateLabel}
+            endDateLabel={block.attributes.endDateLabel}
+          />
+        )
+
       case 'slider':
         const min = block.attributes.min || 0
         const max = block.attributes.max || 100
@@ -1237,7 +1418,7 @@ function PreviewBlock({
       {renderInput()}
 
       {/* OK button for text inputs */}
-      {['short-text', 'long-text', 'email', 'number', 'website', 'date'].includes(block.type) && (
+      {['short-text', 'long-text', 'email', 'number', 'website', 'date', 'advanced-date'].includes(block.type) && (
         <div className="mt-4">
           <button
             onClick={onNext}
@@ -1251,6 +1432,362 @@ function PreviewBlock({
             OK
             <span className="ml-2 text-xs opacity-70">Entrée ↵</span>
           </button>
+        </div>
+      )}
+    </div>
+  )
+}
+// Composant Calendrier pour la prévisualisation
+interface PreviewDateCalendarProps {
+  value: string | { start: string; end: string } | undefined
+  onChange: (value: string | { start: string; end: string }) => void
+  minDate?: string
+  maxDate?: string
+  themeProps: any
+  isDateRange?: boolean
+  startDateLabel?: string
+  endDateLabel?: string
+}
+
+function PreviewDateCalendar({ 
+  value, 
+  onChange, 
+  minDate, 
+  maxDate, 
+  themeProps, 
+  isDateRange = false,
+  startDateLabel = 'Date de début',
+  endDateLabel = 'Date de fin'
+}: PreviewDateCalendarProps) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const [rangeSelection, setRangeSelection] = useState<'start' | 'end'>('start')
+  
+  const getSingleValue = (): string | undefined => {
+    if (!value) return undefined
+    if (typeof value === 'string') return value
+    return undefined
+  }
+  
+  const getRangeValue = (): { start?: string; end?: string } => {
+    if (!value) return {}
+    if (typeof value === 'object' && 'start' in value) {
+      return value
+    }
+    return {}
+  }
+  
+  const singleValue = getSingleValue()
+  const rangeValue = getRangeValue()
+  
+  const [displayMonth, setDisplayMonth] = useState(() => {
+    const dateToUse = isDateRange ? rangeValue.start : singleValue
+    if (dateToUse) {
+      const d = new Date(dateToUse)
+      return new Date(d.getFullYear(), d.getMonth(), 1)
+    }
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  })
+
+  const daysOfWeek = ['LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM', 'DIM']
+  const monthNames = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+  ]
+
+  const getFirstDayOfMonth = (date: Date) => {
+    const day = new Date(date.getFullYear(), date.getMonth(), 1).getDay()
+    return day === 0 ? 6 : day - 1
+  }
+
+  const getDaysInMonth = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  }
+
+  const isDateDisabled = (year: number, month: number, day: number) => {
+    const date = new Date(year, month, day)
+    date.setHours(0, 0, 0, 0)
+    
+    if (minDate) {
+      const min = new Date(minDate)
+      min.setHours(0, 0, 0, 0)
+      if (date < min) return true
+    }
+    
+    if (maxDate) {
+      const max = new Date(maxDate)
+      max.setHours(0, 0, 0, 0)
+      if (date > max) return true
+    }
+    
+    if (isDateRange && rangeSelection === 'end' && rangeValue.start) {
+      const startDate = new Date(rangeValue.start)
+      startDate.setHours(0, 0, 0, 0)
+      if (date < startDate) return true
+    }
+    
+    return false
+  }
+
+  const isDateSelected = (year: number, month: number, day: number) => {
+    if (isDateRange) {
+      if (rangeValue.start) {
+        const start = new Date(rangeValue.start)
+        if (start.getFullYear() === year && start.getMonth() === month && start.getDate() === day) {
+          return 'start'
+        }
+      }
+      if (rangeValue.end) {
+        const end = new Date(rangeValue.end)
+        if (end.getFullYear() === year && end.getMonth() === month && end.getDate() === day) {
+          return 'end'
+        }
+      }
+      return false
+    }
+    
+    if (!singleValue) return false
+    const selected = new Date(singleValue)
+    return selected.getFullYear() === year && selected.getMonth() === month && selected.getDate() === day ? 'single' : false
+  }
+
+  const isInRange = (year: number, month: number, day: number) => {
+    if (!isDateRange || !rangeValue.start || !rangeValue.end) return false
+    
+    const date = new Date(year, month, day)
+    date.setHours(0, 0, 0, 0)
+    const start = new Date(rangeValue.start)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(rangeValue.end)
+    end.setHours(0, 0, 0, 0)
+    
+    return date > start && date < end
+  }
+
+  const isToday = (year: number, month: number, day: number) => {
+    return today.getFullYear() === year && today.getMonth() === month && today.getDate() === day
+  }
+
+  const isWeekend = (year: number, month: number, day: number) => {
+    const date = new Date(year, month, day)
+    const dayOfWeek = date.getDay()
+    return dayOfWeek === 0 || dayOfWeek === 6
+  }
+
+  const generateCalendarDays = () => {
+    const year = displayMonth.getFullYear()
+    const month = displayMonth.getMonth()
+    const firstDay = getFirstDayOfMonth(displayMonth)
+    const daysInMonth = getDaysInMonth(displayMonth)
+    const daysInPrevMonth = getDaysInMonth(new Date(year, month - 1, 1))
+    
+    const days: { day: number; month: number; year: number; isCurrentMonth: boolean }[] = []
+    
+    for (let i = firstDay - 1; i >= 0; i--) {
+      days.push({
+        day: daysInPrevMonth - i,
+        month: month - 1,
+        year: month === 0 ? year - 1 : year,
+        isCurrentMonth: false,
+      })
+    }
+    
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push({ day: i, month, year, isCurrentMonth: true })
+    }
+    
+    const remainingDays = 42 - days.length
+    for (let i = 1; i <= remainingDays; i++) {
+      days.push({
+        day: i,
+        month: month + 1,
+        year: month === 11 ? year + 1 : year,
+        isCurrentMonth: false,
+      })
+    }
+    
+    return days
+  }
+
+  const handleDateClick = (year: number, month: number, day: number) => {
+    if (isDateDisabled(year, month, day)) return
+    
+    const date = new Date(year, month, day)
+    const formatted = date.toISOString().split('T')[0]
+    
+    if (isDateRange) {
+      if (rangeSelection === 'start') {
+        const newRange: { start: string; end?: string } = { start: formatted }
+        if (rangeValue.end) {
+          const endDate = new Date(rangeValue.end)
+          if (date <= endDate) {
+            newRange.end = rangeValue.end
+          }
+        }
+        onChange(newRange as { start: string; end: string })
+        setRangeSelection('end')
+      } else {
+        onChange({ start: rangeValue.start || formatted, end: formatted })
+        setRangeSelection('start')
+      }
+    } else {
+      onChange(formatted)
+    }
+  }
+
+  const days = generateCalendarDays()
+
+  return (
+    <div className="mt-4 w-full">
+      {isDateRange && (
+        <div className="flex gap-2 mb-4 max-w-lg mx-auto">
+          <button
+            onClick={() => setRangeSelection('start')}
+            className={`flex-1 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all`}
+            style={{
+              borderColor: rangeSelection === 'start' ? themeProps.buttonsBgColor : themeProps.answersColor + '30',
+              backgroundColor: rangeSelection === 'start' ? themeProps.buttonsBgColor + '10' : 'transparent',
+              color: themeProps.answersColor,
+            }}
+          >
+            <div className="text-xs opacity-70 mb-1">{startDateLabel}</div>
+            <div>{rangeValue.start ? new Date(rangeValue.start).toLocaleDateString('fr-FR') : '—'}</div>
+          </button>
+          <button
+            onClick={() => setRangeSelection('end')}
+            className={`flex-1 px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all`}
+            style={{
+              borderColor: rangeSelection === 'end' ? themeProps.buttonsBgColor : themeProps.answersColor + '30',
+              backgroundColor: rangeSelection === 'end' ? themeProps.buttonsBgColor + '10' : 'transparent',
+              color: themeProps.answersColor,
+            }}
+          >
+            <div className="text-xs opacity-70 mb-1">{endDateLabel}</div>
+            <div>{rangeValue.end ? new Date(rangeValue.end).toLocaleDateString('fr-FR') : '—'}</div>
+          </button>
+        </div>
+      )}
+
+      <div 
+        className="bg-white rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-lg mx-auto"
+        style={{ backgroundColor: themeProps.backgroundColor || '#ffffff' }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear() - 1, displayMonth.getMonth(), 1))}
+              className="p-1 hover:bg-gray-100 rounded"
+              style={{ color: themeProps.answersColor }}
+            >
+              «
+            </button>
+            <button
+              onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1, 1))}
+              className="p-1 hover:bg-gray-100 rounded"
+              style={{ color: themeProps.answersColor }}
+            >
+              ‹
+            </button>
+          </div>
+          
+          <span className="font-medium text-lg" style={{ color: themeProps.questionsColor }}>
+            {monthNames[displayMonth.getMonth()]} {displayMonth.getFullYear()}
+          </span>
+          
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 1))}
+              className="p-1 hover:bg-gray-100 rounded"
+              style={{ color: themeProps.answersColor }}
+            >
+              ›
+            </button>
+            <button
+              onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear() + 1, displayMonth.getMonth(), 1))}
+              className="p-1 hover:bg-gray-100 rounded"
+              style={{ color: themeProps.answersColor }}
+            >
+              »
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {daysOfWeek.map((day, idx) => (
+            <div
+              key={day}
+              className="text-center text-xs font-medium py-2"
+              style={{ color: idx >= 5 ? '#ef4444' : themeProps.answersColor + '80' }}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((d, idx) => {
+            const disabled = isDateDisabled(d.year, d.month, d.day)
+            const selected = isDateSelected(d.year, d.month, d.day)
+            const inRange = isInRange(d.year, d.month, d.day)
+            const todayDate = isToday(d.year, d.month, d.day)
+            const weekend = isWeekend(d.year, d.month, d.day)
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => handleDateClick(d.year, d.month, d.day)}
+                disabled={disabled}
+                className={`
+                  py-2 text-sm rounded transition-all
+                  ${!d.isCurrentMonth ? 'opacity-30' : ''}
+                  ${disabled ? 'cursor-not-allowed opacity-30' : 'hover:bg-gray-100 cursor-pointer'}
+                  ${selected ? 'ring-2 ring-offset-1' : ''}
+                `}
+                style={{
+                  backgroundColor: selected 
+                    ? themeProps.buttonsBgColor 
+                    : inRange
+                      ? themeProps.buttonsBgColor + '30'
+                      : todayDate 
+                        ? '#fef08a' 
+                        : 'transparent',
+                  color: selected 
+                    ? themeProps.buttonsFontColor 
+                    : disabled 
+                      ? themeProps.answersColor + '40' 
+                      : weekend && d.isCurrentMonth 
+                        ? '#ef4444' 
+                        : themeProps.answersColor,
+                  ringColor: selected ? themeProps.buttonsBgColor : undefined,
+                }}
+              >
+                {d.day}
+              </button>
+            )
+          })}
+        </div>
+
+        {(minDate || maxDate) && (
+          <div className="mt-4 pt-3 border-t text-xs flex flex-wrap gap-3" style={{ borderColor: themeProps.answersColor + '20' }}>
+            {minDate && <span style={{ color: themeProps.answersColor + '80' }}>Min: {new Date(minDate).toLocaleDateString('fr-FR')}</span>}
+            {maxDate && <span style={{ color: themeProps.answersColor + '80' }}>Max: {new Date(maxDate).toLocaleDateString('fr-FR')}</span>}
+          </div>
+        )}
+      </div>
+      
+      {!isDateRange && singleValue && (
+        <div className="mt-3 text-lg text-center" style={{ color: themeProps.answersColor }}>
+          Date sélectionnée : <strong>{new Date(singleValue).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+        </div>
+      )}
+      
+      {isDateRange && rangeValue.start && rangeValue.end && (
+        <div className="mt-3 text-lg text-center" style={{ color: themeProps.answersColor }}>
+          Du <strong>{new Date(rangeValue.start).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</strong> au <strong>{new Date(rangeValue.end).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+          <span className="text-sm opacity-70 ml-2">
+            ({Math.ceil((new Date(rangeValue.end).getTime() - new Date(rangeValue.start).getTime()) / (1000 * 60 * 60 * 24)) + 1} jours)
+          </span>
         </div>
       )}
     </div>

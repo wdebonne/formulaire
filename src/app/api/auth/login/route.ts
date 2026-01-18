@@ -33,13 +33,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const token = generateToken({ userId: user.id, email: user.email })
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role })
 
     const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     })
 

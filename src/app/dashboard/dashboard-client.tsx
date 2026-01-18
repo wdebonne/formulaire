@@ -21,6 +21,9 @@ import {
   LogOut,
   BarChart3,
   Settings,
+  Shield,
+  Users,
+  Share2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -37,12 +40,20 @@ interface FormData {
   status: 'draft' | 'published'
   responsesCount: number
   updatedAt: string
+  isShared?: boolean
+  sharePermission?: string | null
+  owner?: {
+    id: string
+    name: string | null
+    email: string
+  }
 }
 
 interface UserData {
   id: string
   name: string | null
   email: string
+  role: string
 }
 
 interface DashboardClientProps {
@@ -241,6 +252,14 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                     <Settings className="w-4 h-4 mr-2" />
                     Paramètres
                   </DropdownMenuItem>
+                  {user.role === 'admin' && (
+                    <>
+                      <DropdownMenuItem onClick={() => router.push('/admin')}>
+                        <Shield className="w-4 h-4 mr-2" />
+                        Administration
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />
@@ -350,15 +369,28 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-lg truncate">{form.title}</CardTitle>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-2 ${
-                        form.status === 'published'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {form.status === 'published' ? 'Publié' : 'Brouillon'}
-                    </span>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          form.status === 'published'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {form.status === 'published' ? 'Publié' : 'Brouillon'}
+                      </span>
+                      {form.isShared && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <Share2 className="w-3 h-3 mr-1" />
+                          Partagé {form.sharePermission === 'edit' ? '(édition)' : '(lecture)'}
+                        </span>
+                      )}
+                    </div>
+                    {form.owner && form.isShared && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Par {form.owner.name || form.owner.email}
+                      </p>
+                    )}
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -367,37 +399,43 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => router.push(`/builder/${form.id}`)}>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Modifier
-                      </DropdownMenuItem>
+                      {(!form.isShared || form.sharePermission === 'edit') && (
+                        <DropdownMenuItem onClick={() => router.push(`/builder/${form.id}`)}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Modifier
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => router.push(`/forms/${form.id}/responses`)}>
                         <BarChart3 className="w-4 h-4 mr-2" />
                         Réponses
                       </DropdownMenuItem>
                       {form.status === 'published' && (
-                        <DropdownMenuItem onClick={() => window.open(`/f/${form.slug}`, '_blank')}>
+                        <DropdownMenuItem onClick={() => window.open(`/${form.slug}`, '_blank')}>
                           <ExternalLink className="w-4 h-4 mr-2" />
                           Voir le formulaire
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleDuplicateForm(form.id)}>
-                        <Copy className="w-4 h-4 mr-2" />
-                        Dupliquer
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleExport(form.id)}>
-                        <Download className="w-4 h-4 mr-2" />
-                        Exporter
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteForm(form.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Supprimer
-                      </DropdownMenuItem>
+                      {!form.isShared && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleDuplicateForm(form.id)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Dupliquer
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExport(form.id)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Exporter
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteForm(form.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </CardHeader>

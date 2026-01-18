@@ -127,6 +127,101 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
           </div>
         )
 
+      case 'advanced-date':
+        const hasMinRestriction = block.attributes.minDateType && block.attributes.minDateType !== 'none'
+        const hasMaxRestriction = block.attributes.maxDateType && block.attributes.maxDateType !== 'none'
+        return (
+          <div className="mt-2">
+            <div className="flex items-center">
+              <input
+                type="text"
+                readOnly
+                placeholder={block.attributes.format || 'DD/MM/YYYY'}
+                className="w-full bg-transparent border-b py-1 text-sm outline-none"
+                style={{
+                  color: themeProps.answersColor,
+                  borderColor: themeProps.buttonsBgColor + '60',
+                }}
+              />
+            </div>
+            {(hasMinRestriction || hasMaxRestriction) && (
+              <div className="flex gap-2 mt-1">
+                {hasMinRestriction && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-600">
+                    Min: {block.attributes.minDateType === 'today' ? "Aujourd'hui" : 
+                          block.attributes.minDateType === 'specific' ? block.attributes.minDate :
+                          block.attributes.minDateType === 'block' ? 'Variable' : ''}
+                    {block.attributes.minDateOffset ? ` ${block.attributes.minDateOffset > 0 ? '+' : ''}${block.attributes.minDateOffset}j` : ''}
+                  </span>
+                )}
+                {hasMaxRestriction && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">
+                    Max: {block.attributes.maxDateType === 'today' ? "Aujourd'hui" : 
+                          block.attributes.maxDateType === 'specific' ? block.attributes.maxDate :
+                          block.attributes.maxDateType === 'block' ? 'Variable' : ''}
+                    {block.attributes.maxDateOffset ? ` ${block.attributes.maxDateOffset > 0 ? '+' : ''}${block.attributes.maxDateOffset}j` : ''}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )
+
+      case 'time':
+        const isTimeRange = block.attributes.isTimeRange || false
+        return (
+          <div className="mt-2">
+            {isTimeRange ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 w-16 shrink-0">
+                    {block.attributes.startTimeLabel || 'Début'}
+                  </span>
+                  <input
+                    type="text"
+                    readOnly
+                    placeholder="HH:MM"
+                    className="flex-1 bg-transparent border-b py-1 text-xs outline-none"
+                    style={{
+                      color: themeProps.answersColor,
+                      borderColor: themeProps.buttonsBgColor + '60',
+                    }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 w-16 shrink-0">
+                    {block.attributes.endTimeLabel || 'Fin'}
+                  </span>
+                  <input
+                    type="text"
+                    readOnly
+                    placeholder="HH:MM"
+                    className="flex-1 bg-transparent border-b py-1 text-xs outline-none"
+                    style={{
+                      color: themeProps.answersColor,
+                      borderColor: themeProps.buttonsBgColor + '60',
+                    }}
+                  />
+                </div>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 inline-block">
+                  Plage horaire
+                </span>
+              </div>
+            ) : (
+              <input
+                type="text"
+                readOnly
+                placeholder="HH:MM"
+                className="w-full bg-transparent border-b py-1 text-sm outline-none"
+                style={{
+                  color: themeProps.answersColor,
+                  borderColor: themeProps.buttonsBgColor + '60',
+                }}
+              />
+            )}
+          </div>
+        )
+
       case 'slider':
         const min = block.attributes.min || 0
         const max = block.attributes.max || 10
@@ -276,6 +371,8 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       'multiple-choice': 'CHOIX MULTIPLE',
       'dropdown': 'LISTE DÉROULANTE',
       'date': 'DATE',
+      'advanced-date': 'DATE AVANCÉE',
+      'time': 'HEURE',
       'number': 'NOMBRE',
       'email': 'EMAIL',
       'phone': 'TÉLÉPHONE',
@@ -337,7 +434,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
         {renderInput()}
 
         {/* OK button for input types */}
-        {['short-text', 'long-text', 'email', 'number', 'phone', 'date'].includes(block.type) && (
+        {['short-text', 'long-text', 'email', 'number', 'phone', 'date', 'advanced-date', 'time'].includes(block.type) && (
           <div className="mt-3">
             <button
               className="px-3 py-1 rounded text-xs font-medium flex items-center"

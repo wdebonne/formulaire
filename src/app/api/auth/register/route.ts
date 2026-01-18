@@ -6,6 +6,21 @@ export async function POST(request: NextRequest) {
   try {
     const { name, email, password } = await request.json()
 
+    // Vérifier si l'inscription est activée
+    try {
+      const settings = await prisma.systemSettings.findUnique({
+        where: { id: 'system' }
+      })
+      if (settings && !settings.registrationEnabled) {
+        return NextResponse.json(
+          { error: 'Les inscriptions sont désactivées' },
+          { status: 403 }
+        )
+      }
+    } catch (e) {
+      // Si la table n'existe pas encore, permettre l'inscription
+    }
+
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email et mot de passe requis' },
@@ -72,13 +87,14 @@ export async function POST(request: NextRequest) {
       ],
     })
 
-    const token = generateToken({ userId: user.id, email: user.email })
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role })
 
     const response = NextResponse.json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
     })
 

@@ -1,10 +1,36 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 
 export function SettingsEditor() {
-  const { settings, updateSettings } = useFormBuilder()
+  const { settings, updateSettings, slug, setFormData } = useFormBuilder()
+  const [localSlug, setLocalSlug] = useState(slug)
+  const [slugError, setSlugError] = useState('')
+
+  useEffect(() => {
+    setLocalSlug(slug)
+  }, [slug])
+
+  const handleSlugChange = (value: string) => {
+    // Convertir en slug valide (minuscules, tirets, pas d'espaces ni caractères spéciaux)
+    const sanitized = value
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-')
+    
+    setLocalSlug(sanitized)
+    setSlugError('')
+  }
+
+  const handleSlugBlur = () => {
+    if (localSlug && localSlug !== slug) {
+      setFormData({ slug: localSlug })
+    }
+  }
 
   return (
     <div className="p-4 space-y-6">
@@ -167,6 +193,28 @@ export function SettingsEditor() {
           <option value="vertical">Verticale</option>
           <option value="horizontal">Horizontale</option>
         </select>
+      </div>
+
+      {/* Slug / URL section */}
+      <div className="pt-4 border-t">
+        <h4 className="font-medium text-sm mb-4">URL du formulaire</h4>
+        
+        <div className="space-y-2">
+          <Label>Slug</Label>
+          <Input
+            value={localSlug}
+            onChange={(e) => handleSlugChange(e.target.value)}
+            onBlur={handleSlugBlur}
+            placeholder="mon-formulaire"
+            className="font-mono text-sm"
+          />
+          <p className="text-xs text-gray-500">
+            L'URL sera : /{localSlug || 'mon-formulaire'}
+          </p>
+          {slugError && (
+            <p className="text-xs text-red-500">{slugError}</p>
+          )}
+        </div>
       </div>
 
       {/* Branding section */}

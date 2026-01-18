@@ -2,8 +2,27 @@ import prisma from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import { PublicFormClient } from './public-form-client'
 
+// Liste des routes réservées à exclure
+const RESERVED_SLUGS = [
+  'api',
+  'login',
+  'register',
+  'dashboard',
+  'builder',
+  'forms',
+  'settings',
+  'forgot-password',
+  'reset-password',
+  'f',
+]
+
 export default async function PublicFormPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
+
+  // Si c'est une route réservée, ne pas traiter comme un formulaire
+  if (RESERVED_SLUGS.includes(slug)) {
+    notFound()
+  }
 
   const form = await prisma.form.findFirst({
     where: {

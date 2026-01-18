@@ -27,7 +27,9 @@ import {
   Check,
   LayoutGrid,
   X,
+  Share2,
 } from 'lucide-react'
+import { ShareDialog } from '@/components/builder/share-dialog'
 
 interface FormData {
   id: string
@@ -48,12 +50,13 @@ interface FormBuilderClientProps {
   themes: Theme[]
 }
 
-export function FormBuilderClient({ initialForm, themes }: FormBuilderClientProps) {
+export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBuilderClientProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [title, setTitle] = useState(initialForm.title)
+  const [themes, setThemes] = useState(initialThemes)
   
   const {
     formId,
@@ -70,6 +73,13 @@ export function FormBuilderClient({ initialForm, themes }: FormBuilderClientProp
     setActivePanel,
     markClean,
   } = useFormBuilder()
+
+  // Handler pour mettre à jour le thème en temps réel (live preview)
+  const handleThemeChange = useCallback((updatedTheme: Theme) => {
+    setThemes(prevThemes => 
+      prevThemes.map(t => t.id === updatedTheme.id ? updatedTheme : t)
+    )
+  }, [])
 
   // Initialize store with form data
   useEffect(() => {
@@ -125,6 +135,7 @@ export function FormBuilderClient({ initialForm, themes }: FormBuilderClientProp
   }, [title, blocks, logic, settings, webhooks, themeId, initialForm, markClean, toast])
 
   const [isPublishing, setIsPublishing] = useState(false)
+  const [showShareDialog, setShowShareDialog] = useState(false)
   
   const handleTogglePublish = useCallback(async () => {
     setIsPublishing(true)
@@ -274,6 +285,16 @@ export function FormBuilderClient({ initialForm, themes }: FormBuilderClientProp
               </>
             )}
           </Button>
+          {initialForm.status === 'published' && (
+            <Button 
+              size="sm" 
+              variant="default"
+              onClick={() => setShowShareDialog(true)}
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Partager
+            </Button>
+          )}
         </div>
       </header>
 
@@ -368,7 +389,7 @@ export function FormBuilderClient({ initialForm, themes }: FormBuilderClientProp
               <LogicEditor blocks={blocks} />
             )}
             {activePanel === 'theme' && (
-              <ThemeEditor themes={themes} />
+              <ThemeEditor themes={themes} onThemeChange={handleThemeChange} />
             )}
             {activePanel === 'webhooks' && (
               <WebhooksEditor blocks={blocks} />
@@ -379,6 +400,14 @@ export function FormBuilderClient({ initialForm, themes }: FormBuilderClientProp
           </div>
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={showShareDialog}
+        onOpenChange={setShowShareDialog}
+        formSlug={initialForm.slug}
+        formId={initialForm.id}
+      />
     </div>
   )
 }

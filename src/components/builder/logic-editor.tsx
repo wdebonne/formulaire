@@ -28,6 +28,9 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
   const { logic, addLogicRule, updateLogicRule, removeLogicRule, selectBlock, setActivePanel } = useFormBuilder()
   const [expandedBlocks, setExpandedBlocks] = useState<string[]>([])
 
+  // S'assurer que logic est un tableau
+  const safeLogic = Array.isArray(logic) ? logic : []
+
   // Aplatir les blocs pour inclure les blocs internes des groupes
   const flattenBlocks = (blocks: FormBlock[]): { block: FormBlock; parentIndex: number; innerIndex?: number }[] => {
     const result: { block: FormBlock; parentIndex: number; innerIndex?: number }[] = []
@@ -81,7 +84,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
     conditionIndex: number,
     updates: Partial<LogicCondition>
   ) => {
-    const blockLogic = logic.find((l) => l.blockId === blockId)
+    const blockLogic = safeLogic.find((l) => l.blockId === blockId)
     const rule = blockLogic?.rules.find((r) => r.id === ruleId)
     if (!rule) return
 
@@ -91,7 +94,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
   }
 
   const handleAddCondition = (blockId: string, ruleId: string) => {
-    const blockLogic = logic.find((l) => l.blockId === blockId)
+    const blockLogic = safeLogic.find((l) => l.blockId === blockId)
     const rule = blockLogic?.rules.find((r) => r.id === ruleId)
     if (!rule) return
 
@@ -105,7 +108,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
   }
 
   const handleRemoveCondition = (blockId: string, ruleId: string, conditionIndex: number) => {
-    const blockLogic = logic.find((l) => l.blockId === blockId)
+    const blockLogic = safeLogic.find((l) => l.blockId === blockId)
     const rule = blockLogic?.rules.find((r) => r.id === ruleId)
     if (!rule || rule.conditions.length <= 1) return
 
@@ -155,7 +158,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
       </div>
 
       {flattenedBlocks.map(({ block, parentIndex, innerIndex }) => {
-        const blockLogic = logic.find((l) => l.blockId === block.id)
+        const blockLogic = safeLogic.find((l) => l.blockId === block.id)
         const isExpanded = expandedBlocks.includes(block.id)
         const displayIndex = innerIndex !== undefined 
           ? `${parentIndex + 1}${String.fromCharCode(65 + innerIndex)}`
@@ -286,7 +289,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
                                   >
                                     <option value="">Sélectionner une réponse...</option>
                                     {sourceBlock.attributes.choices!.map((choice) => (
-                                      <option key={choice.id} value={choice.label}>
+                                      <option key={choice.id} value={choice.value}>
                                         {choice.label}
                                       </option>
                                     ))}

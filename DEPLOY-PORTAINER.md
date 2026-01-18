@@ -1,5 +1,7 @@
 # Déploiement sur Portainer
 
+> Nouvelle fonctionnalité : partage de formulaire (lien direct, shortcode, embed, QR code) accessible via le bouton "Partager" dans l'éditeur visuel. Le slug (URL) du formulaire est modifiable dans les paramètres du formulaire.
+
 Ce guide explique comment déployer FormBuilder Standalone sur Portainer avec Docker Compose.
 
 ## Prérequis
@@ -36,6 +38,14 @@ services:
 ## 3. Accéder à l'application
 
 - Rendez-vous sur `http://[votre-serveur]:3000`
+
+## 🚀 Accès public des formulaires
+
+Depuis janvier 2026, les liens publics des formulaires sont accessibles directement à la racine du site :
+
+- Exemple : `https://www.monsite.fr/test2` (au lieu de `https://www.monsite.fr/f/test2`)
+- Les anciennes URLs `/f/[slug]` sont automatiquement redirigées vers la nouvelle structure.
+- Le lien de partage et l'URL affichée dans l'administration ont été mis à jour.
 
 ## Notes
 - Adaptez le service `app` si vous utilisez une image Docker personnalisée

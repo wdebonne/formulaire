@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -10,12 +10,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 
+interface PublicSettings {
+  siteName: string
+  siteLogo: string | null
+  registrationEnabled: boolean
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [settings, setSettings] = useState<PublicSettings>({
+    siteName: 'FormBuilder',
+    siteLogo: null,
+    registrationEnabled: true,
+  })
   const router = useRouter()
   const { toast } = useToast()
+
+  useEffect(() => {
+    fetch('/api/settings/public')
+      .then(res => res.json())
+      .then(data => setSettings(data))
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +54,7 @@ export default function LoginPage() {
 
       toast({
         title: 'Connexion réussie',
-        description: 'Bienvenue sur FormBuilder !',
+        description: `Bienvenue sur ${settings.siteName} !`,
       })
 
       router.push('/dashboard')
@@ -57,11 +75,17 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">FB</span>
-            </div>
+            {settings.siteLogo ? (
+              <img src={settings.siteLogo} alt={settings.siteName} className="h-16 object-contain" />
+            ) : (
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center">
+                <span className="text-white text-2xl font-bold">
+                  {settings.siteName.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
-          <CardTitle className="text-2xl font-bold">FormBuilder</CardTitle>
+          <CardTitle className="text-2xl font-bold">{settings.siteName}</CardTitle>
           <CardDescription>
             Connectez-vous à votre compte
           </CardDescription>
@@ -104,12 +128,14 @@ export default function LoginPage() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Se connecter
             </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Pas encore de compte ?{' '}
-              <Link href="/register" className="text-primary hover:underline">
-                S'inscrire
-              </Link>
-            </p>
+            {settings.registrationEnabled && (
+              <p className="text-sm text-muted-foreground text-center">
+                Pas encore de compte ?{' '}
+                <Link href="/register" className="text-primary hover:underline">
+                  S'inscrire
+                </Link>
+              </p>
+            )}
           </CardFooter>
         </form>
       </Card>

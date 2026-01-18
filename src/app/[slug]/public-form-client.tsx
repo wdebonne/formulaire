@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { FormBlock, LogicRule, Webhook, ThemeProperties } from '@/types/form'
+import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from '@/types/form'
 import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 
@@ -19,7 +19,7 @@ interface PublicFormClientProps {
     title: string
     blocks: FormBlock[]
     settings: any
-    logic: LogicRule[]
+    logic: BlockLogic[]
     webhooks: Webhook[]
   }
   theme: {
@@ -625,7 +625,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
           {currentBlock.type === 'welcome-screen' && (
             <div className={`mt-8 ${isImageOnLeft ? '' : 'flex justify-end'}`}>
               <button
-                onClick={goToNext}
+                onClick={() => goToNext()}
                 className="px-8 py-3 font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor,
@@ -900,7 +900,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
             <ChevronUp className="w-5 h-5" />
           </button>
           <button
-            onClick={goToNext}
+            onClick={() => goToNext()}
             className="p-2 rounded-md hover:bg-black/5 transition-colors"
             style={{ color: themeProps.questionsColor }}
           >
@@ -1007,7 +1007,7 @@ function QuestionBlock({
         return (
           <div className="mt-6">
             <button
-              onClick={onNext}
+              onClick={() => onNext()}
               className="px-6 py-3 font-medium transition-opacity hover:opacity-90 flex items-center"
               style={{
                 backgroundColor: themeProps.buttonsBgColor,
@@ -1144,7 +1144,7 @@ function QuestionBlock({
           } else if (dateType === 'specific' && specificDate) {
             return specificDate // Pas besoin d'offset pour une date spécifique
           } else if (dateType === 'block' && blockId) {
-            const blockValue = answers[blockId]
+            const blockValue = allAnswers[blockId]
             if (blockValue && typeof blockValue === 'string' && blockValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
               const [y, m, d] = blockValue.split('-').map(Number)
               baseDate = new Date(y, m - 1, d)
@@ -1356,7 +1356,7 @@ function QuestionBlock({
         return (
           <div className="mt-6">
             <button
-              onClick={onNext}
+              onClick={() => onNext()}
               className="px-6 py-3 font-medium transition-opacity hover:opacity-90"
               style={{
                 backgroundColor: themeProps.buttonsBgColor,
@@ -1450,7 +1450,7 @@ function QuestionBlock({
       ) && (
         <div className="mt-4">
           <button
-            onClick={onNext}
+            onClick={() => onNext()}
             disabled={isSubmitting || (block.attributes.required && !answer)}
             className="px-6 py-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             style={{
@@ -1480,7 +1480,7 @@ function QuestionBlock({
         (answer || []).length > 0 && (
           <div className="mt-4">
             <button
-              onClick={onNext}
+              onClick={() => onNext()}
               disabled={isSubmitting}
               className="px-6 py-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center"
               style={{
@@ -1523,7 +1523,7 @@ interface GroupBlockProps {
   allBlocks: FormBlock[]
   inputStyle?: React.CSSProperties
   buttonBorderRadius?: string
-  logic?: LogicRule[]
+  logic?: BlockLogic[]
 }
 
 function GroupBlock({
@@ -3001,7 +3001,7 @@ function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius }:
 
       <div className="mt-8">
         <button
-          onClick={onNext}
+          onClick={() => onNext()}
           className="px-8 py-3 font-medium transition-opacity hover:opacity-90 flex items-center"
           style={{
             backgroundColor: themeProps.buttonsBgColor,

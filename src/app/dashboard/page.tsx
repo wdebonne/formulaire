@@ -73,8 +73,8 @@ export default async function DashboardPage() {
     status: form.status as 'draft' | 'published',
     responsesCount: form._count.responses,
     updatedAt: form.updatedAt.toISOString(),
-    isShared: 'isShared' in form ? form.isShared : false,
-    sharePermission: 'sharePermission' in form ? form.sharePermission : null,
+    isShared: 'isShared' in form ? Boolean(form.isShared) : false,
+    sharePermission: 'sharePermission' in form ? (form.sharePermission as string | null) : null,
     owner: form.user,
   }))
 

@@ -1269,7 +1269,7 @@ function PreviewBlock({
           } else if (dateType === 'specific' && specificDate) {
             return specificDate
           } else if (dateType === 'block' && blockId) {
-            const blockValue = answers[blockId]
+            const blockValue = allAnswers[blockId]
             if (blockValue) {
               baseDate = new Date(blockValue)
             }
@@ -1759,7 +1759,7 @@ function PreviewDateCalendar({
                       : weekend && d.isCurrentMonth 
                         ? '#ef4444' 
                         : themeProps.answersColor,
-                  ringColor: selected ? themeProps.buttonsBgColor : undefined,
+                  outline: selected ? `2px solid ${themeProps.buttonsBgColor}` : undefined,
                 }}
               >
                 {d.day}

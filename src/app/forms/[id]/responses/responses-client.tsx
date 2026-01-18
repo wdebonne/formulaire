@@ -63,6 +63,7 @@ interface ResponsesClientProps {
   form: {
     id: string
     title: string
+    slug?: string
     blocks: FormBlock[]
     settings: any
     webhooks?: Webhook[]

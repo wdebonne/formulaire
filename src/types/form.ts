@@ -108,6 +108,7 @@ export interface LogicCondition {
 
 export interface LogicRule {
   id: string
+  enabled?: boolean
   conditions: LogicCondition[]
   conditionMatch: 'all' | 'any'
   action: 'jump' | 'hide' | 'show' | 'require'

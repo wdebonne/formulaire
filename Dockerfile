@@ -1,22 +1,27 @@
 # Étape 1: Build
 FROM node:18-alpine AS builder
 
+# Installer les dépendances système nécessaires pour certains packages npm
+RUN apk add --no-cache libc6-compat openssl
+
 WORKDIR /app
 
-# Variable d'environnement nécessaire pour Prisma au moment du build
+# Variables d'environnement nécessaires pour le build
 ENV DATABASE_URL="file:./dev.db"
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copier les fichiers de dépendances
 COPY package.json ./
+COPY prisma ./prisma/
 
 # Installer les dépendances
 RUN npm install
 
-# Copier le reste du code source
-COPY . .
-
 # Générer le client Prisma
 RUN npx prisma generate
+
+# Copier le reste du code source
+COPY . .
 
 # Build de l'application Next.js
 RUN npm run build
@@ -24,9 +29,13 @@ RUN npm run build
 # Étape 2: Production
 FROM node:18-alpine AS runner
 
+# Dépendances runtime
+RUN apk add --no-cache libc6-compat openssl
+
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Créer un utilisateur non-root
 RUN addgroup --system --gid 1001 nodejs

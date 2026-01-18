@@ -19,10 +19,12 @@ Consultez le fichier CHANGELOG.md pour le détail des évolutions.
 - 🔐 **Authentification** - Inscription, connexion, mot de passe oublié
 - 📝 **Éditeur visuel** - Glisser-déposer pour construire vos formulaires
 - 🎯 **Logique conditionnelle** - Afficher/masquer des questions selon les réponses
-- 🔗 **Webhooks** - Envoyer les données à des services externes
-- 📊 **Réponses** - Visualiser et exporter les réponses en CSV
+- 🔗 **Webhooks** - Envoyer les données à des services externes avec indicateur de statut
+- 📊 **Réponses** - Visualiser et exporter les réponses en CSV (incluant groupes et repeaters)
 - 🎨 **Thèmes avancés** - Personnaliser l'apparence avec fonds unis, dégradés ou images
 - 📤 **Import/Export** - Sauvegarder et partager vos formulaires en JSON
+- 📱 **Mobile optimisé** - Interface responsive et tactile pour formulaires publics
+- 📊 **Barre de progression** - Position (haut/bas/gauche/droite) et taille configurables
 
 ## 🎨 Personnalisation des thèmes (NOUVEAU)
 
@@ -67,7 +69,22 @@ Voir le bloc "Date Avancée" dans l'éditeur pour toutes les options.
 
 Voir le bloc "Heure" dans l'éditeur pour toutes les options.
 
-## 🚀 Installation
+## � Bloc Groupe (NOUVEAU)
+
+- Regroupe plusieurs questions sous un même ensemble
+- Les réponses des blocs internes sont affichées dans le détail et exportées en CSV
+- Utile pour organiser des questions liées (ex: informations de contact)
+
+## 🔗 Indicateur de statut Webhook (NOUVEAU)
+
+- L'icône webhook dans la liste des réponses affiche maintenant un indicateur visuel :
+  - 🟢 **Vert** : Tous les webhooks ont réussi
+  - 🔴 **Rouge** : Tous les webhooks ont échoué
+  - 🟠 **Orange** : Certains webhooks ont réussi, d'autres ont échoué
+  - ⚪ **Gris** : Pas encore envoyé
+- Le statut se met à jour automatiquement après chaque envoi/renvoi
+
+## �🚀 Installation
 
 ### Prérequis
 
@@ -122,14 +139,19 @@ Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour dépl
 - **Texte court** - Champ de saisie simple
 - **Texte long** - Zone de texte multi-lignes
 - **Email** - Champ email avec validation
+- **Téléphone** - Champ téléphone avec validation
 - **Nombre** - Champ numérique
 - **Choix multiple** - Sélection unique ou multiple
-- **Menu déroulant** - Liste de choix
+- **Menu déroulant** - Liste de choix déroulante
 - **Date** - Sélecteur de date
+- **Date avancée** - Calendrier visuel avec plage de dates
+- **Heure** - Sélecteur d'heure ou plage horaire
 - **Curseur** - Valeur numérique avec slider
 - **Site web** - URL avec validation
 - **Mention légale** - Case à cocher obligatoire
 - **Déclaration** - Texte informatif
+- **Groupe** - Regroupement de questions
+- **Repeater** - Répétition dynamique de questions
 - **Écran de remerciement** - Page de fin personnalisée
 
 ## 🔧 Configuration

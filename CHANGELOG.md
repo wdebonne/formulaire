@@ -1,6 +1,35 @@
 # Changelog
 
-## 2026-01-18
+## 2026-01-18 (après-midi)
+
+### Ajouts
+- **Indicateur visuel de statut webhook** dans la liste des réponses :
+  - Icône verte si tous les webhooks ont réussi
+  - Icône rouge si tous ont échoué
+  - Icône orange si résultat partiel
+  - Icône grise si pas encore envoyé
+  - Le statut se met à jour après chaque envoi/renvoi
+- **Support complet des blocs Groupe** dans l'affichage des réponses :
+  - Les champs internes d'un groupe sont maintenant affichés dans le modal de détail
+  - Export CSV avec colonnes séparées pour chaque champ du groupe
+- **Optimisation mobile** du formulaire public :
+  - Interface tactile améliorée
+  - Tailles de police et boutons adaptées
+  - Padding et espacements responsives
+- **Barre de progression configurable** :
+  - Position : haut, bas, gauche ou droite
+  - Taille : petite, moyenne ou grande
+  - Fonctionne sur le formulaire public
+
+### Corrections
+- Correction du rendu du bloc **téléphone** dans le formulaire public
+- Correction du rendu du bloc **dropdown** (menu déroulant) - affiche maintenant un vrai select
+- Correction de l'upload d'images en mode Docker standalone (404 résolu)
+- Bouton OK ajouté au bloc téléphone
+
+---
+
+## 2026-01-18 (matin)
 
 ### Ajouts
 - **Gestion des polices d'écriture** (Administration) :

@@ -1,8 +1,8 @@
 # Étape 1: Build
 FROM node:18-alpine AS builder
 
-# Installer les dépendances système nécessaires pour certains packages npm
-RUN apk add --no-cache libc6-compat openssl
+# Installer les dépendances système pour compiler sur ARM
+RUN apk add --no-cache libc6-compat openssl python3 make g++
 
 WORKDIR /app
 
@@ -14,8 +14,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json ./
 COPY prisma ./prisma/
 
-# Installer les dépendances
-RUN npm install
+# Installer les dépendances (avec rebuild pour ARM)
+RUN npm install --build-from-source
 
 # Générer le client Prisma
 RUN npx prisma generate

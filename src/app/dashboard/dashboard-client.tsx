@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { ShareDialog } from '@/components/builder/share-dialog'
 import {
   Plus,
   Search,
@@ -65,8 +66,15 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
   const [forms, setForms] = useState(initialForms)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [selectedFormForShare, setSelectedFormForShare] = useState<FormData | null>(null)
   const router = useRouter()
   const { toast } = useToast()
+
+  const handleOpenShareDialog = (form: FormData) => {
+    setSelectedFormForShare(form)
+    setShareDialogOpen(true)
+  }
 
   const filteredForms = forms.filter((form) => {
     const matchesSearch = form.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -427,6 +435,10 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                       {!form.isShared && (
                         <>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleOpenShareDialog(form)}>
+                            <Users className="w-4 h-4 mr-2" />
+                            Gérer les droits
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicateForm(form.id)}>
                             <Copy className="w-4 h-4 mr-2" />
                             Dupliquer
@@ -479,6 +491,16 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
           </div>
         )}
       </main>
+
+      {/* Share Dialog */}
+      {selectedFormForShare && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          formSlug={selectedFormForShare.slug}
+          formId={selectedFormForShare.id}
+        />
+      )}
     </div>
   )
 }

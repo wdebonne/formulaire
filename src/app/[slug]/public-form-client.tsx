@@ -560,10 +560,19 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     
     const blockLogicArray = Array.isArray(form.logic) ? form.logic : []
     
-    // Trouver si une règle de jump s'applique pour le bloc courant
+    // Collecter les IDs des blocs à vérifier (bloc courant + ses blocs internes si c'est un groupe)
+    const blockIdsToCheck = new Set<string>()
+    blockIdsToCheck.add(currentBlock.id)
+    
+    // Si c'est un groupe, ajouter aussi les IDs des blocs internes
+    if (currentBlock.type === 'group' && currentBlock.innerBlocks) {
+      currentBlock.innerBlocks.forEach(inner => blockIdsToCheck.add(inner.id))
+    }
+    
+    // Trouver si une règle de jump s'applique pour le bloc courant ou ses blocs internes
     for (const blockLogic of blockLogicArray) {
-      // Vérifier que la règle appartient au bloc actuellement affiché
-      if (blockLogic.blockId !== currentBlock.id) continue
+      // Vérifier que la règle appartient au bloc actuellement affiché ou à un de ses blocs internes
+      if (!blockIdsToCheck.has(blockLogic.blockId)) continue
       if (!blockLogic.rules) continue
       
       for (const rule of blockLogic.rules) {

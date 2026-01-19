@@ -2758,12 +2758,12 @@ function GroupBlock({
               className="text-2xl md:text-3xl font-medium leading-tight"
               style={{ color: themeProps.questionsColor }}
             >
-              {block.attributes.label}
+              {replaceVariables(block.attributes.label, allBlocks, answers, index)}
             </h2>
           </div>
           {block.attributes.description && (
             <p className="mt-2 text-lg" style={{ color: themeProps.answersColor }}>
-              {block.attributes.description}
+              {replaceVariables(block.attributes.description, allBlocks, answers, index)}
             </p>
           )}
         </div>
@@ -2790,7 +2790,7 @@ function GroupBlock({
                   className="text-lg font-medium"
                   style={{ color: themeProps.questionsColor }}
                 >
-                  {innerBlock.attributes.label || 'Question sans titre'}
+                  {replaceVariables(innerBlock.attributes.label || 'Question sans titre', allBlocks, answers, index)}
                   {innerBlock.attributes.required && (
                     <span className="text-red-500 ml-1">*</span>
                   )}
@@ -2799,7 +2799,7 @@ function GroupBlock({
             )}
             {innerBlock.attributes.description && (
               <p className="text-sm mb-2" style={{ color: themeProps.answersColor + '80' }}>
-                {innerBlock.attributes.description}
+                {replaceVariables(innerBlock.attributes.description, allBlocks, answers, index)}
               </p>
             )}
             {renderInnerInput(innerBlock, innerIdx)}

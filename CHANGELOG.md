@@ -2,6 +2,9 @@
 
 ## 2026-01-19
 
+### Corrections
+- **Variables (@1, @2, etc.) dans les groupes** : Les variables de remplacement fonctionnent maintenant correctement dans les titres et descriptions des blocs groupe et de leurs questions internes
+
 ### Ajouts
 - **Autocomplétion pour toutes les listes déroulantes** :
   - Le champ de liste déroulante utilise maintenant **toujours** un composant avec autocomplétion

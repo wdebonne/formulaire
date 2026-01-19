@@ -4,6 +4,7 @@
 
 ### Corrections
 - **Variables (@1, @2, etc.) dans les groupes** : Les variables de remplacement fonctionnent maintenant correctement dans les titres et descriptions des blocs groupe et de leurs questions internes
+- **Liste déroulante avec autocomplétion** : Le formulaire ne passe plus automatiquement à la question suivante pendant la saisie. Le passage se fait uniquement lors d'une sélection explicite (clic sur une option ou touche Entrée)
 
 ### Ajouts
 - **Autocomplétion pour toutes les listes déroulantes** :

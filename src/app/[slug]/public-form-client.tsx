@@ -95,6 +95,7 @@ interface DropdownWithAutocompleteProps {
   choices: { id?: string; label: string; value: string }[]
   value: string
   onChange: (value: string) => void
+  onSelect?: (value: string) => void // Appelé uniquement lors d'une sélection explicite (clic ou Entrée)
   placeholder: string
   themeProps: ThemeProperties
   inputBorderRadius: string
@@ -107,6 +108,7 @@ function DropdownWithAutocomplete({
   choices,
   value,
   onChange,
+  onSelect,
   placeholder,
   themeProps,
   inputBorderRadius,
@@ -193,6 +195,7 @@ function DropdownWithAutocomplete({
   const handleSelect = (choice: { label: string; value: string }) => {
     setSearchTerm(choice.label)
     onChange(choice.value)
+    onSelect?.(choice.value) // Notifier la sélection explicite
     setIsOpen(false)
     inputRef.current?.blur()
   }
@@ -226,8 +229,10 @@ function DropdownWithAutocomplete({
           setIsOpen(false)
           if (exactMatch) {
             onChange(exactMatch.value)
+            onSelect?.(exactMatch.value) // Notifier la sélection explicite
           } else if (allowCustomValue) {
             onChange(searchTerm)
+            onSelect?.(searchTerm) // Notifier la sélection explicite pour saisie libre
           }
         }
         break
@@ -1552,8 +1557,8 @@ function QuestionBlock({
           <DropdownWithAutocomplete
             choices={dropdownChoicesMain}
             value={answer || ''}
-            onChange={(value) => {
-              onAnswer(value)
+            onChange={(value) => onAnswer(value)}
+            onSelect={(value) => {
               if (value) {
                 setTimeout(() => onNext(true), 300)
               }
@@ -3281,8 +3286,8 @@ function InnerBlockInput({
         <DropdownWithAutocomplete
           choices={innerDropdownChoices}
           value={answer || ''}
-          onChange={(value) => {
-            onAnswer(value)
+          onChange={(value) => onAnswer(value)}
+          onSelect={(value) => {
             if (value) {
               setTimeout(() => onNext(true), 300)
             }

@@ -595,18 +595,24 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     console.log('[getJumpTarget] All logic rules:', blockLogicArray)
     console.log('[getJumpTarget] Current answers:', answers)
     
-    // Trouver si une règle de jump s'applique pour le bloc courant ou ses blocs internes
+    // NOUVELLE LOGIQUE: Pour les sauts, on cherche les règles dont les conditions
+    // référencent le bloc courant (ou ses blocs internes)
+    // Cela permet de déclencher le saut APRÈS avoir répondu à la question
     for (const blockLogic of blockLogicArray) {
-      console.log('[getJumpTarget] Checking blockLogic:', blockLogic.blockId, 'in set:', blockIdsToCheck.has(blockLogic.blockId))
-      
-      // Vérifier que la règle appartient au bloc actuellement affiché ou à un de ses blocs internes
-      if (!blockIdsToCheck.has(blockLogic.blockId)) continue
       if (!blockLogic.rules) continue
       
       for (const rule of blockLogic.rules) {
-        console.log('[getJumpTarget] Checking rule:', rule)
         if (rule.enabled === false) continue
         if (rule.action !== 'jump') continue
+        
+        // Vérifier si au moins une condition référence le bloc courant
+        const referencesCurrentBlock = rule.conditions.some(cond => 
+          blockIdsToCheck.has(cond.blockId)
+        )
+        
+        console.log('[getJumpTarget] Checking rule on block:', blockLogic.blockId, 'References current:', referencesCurrentBlock)
+        
+        if (!referencesCurrentBlock) continue
 
         const shouldApply = evaluateConditions(rule.conditions, rule.conditionMatch, answers)
         console.log('[getJumpTarget] Rule should apply:', shouldApply)

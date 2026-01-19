@@ -12,7 +12,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: formbuilder:latest
+    container_name: formbuilder
     ports:
       - "3110:3000"
     environment:

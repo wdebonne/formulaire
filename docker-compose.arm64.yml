@@ -10,7 +10,7 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/arm64
-    image: formbuilder:arm64
+    container_name: formbuilder
     ports:
       - "3110:3000"
     environment:

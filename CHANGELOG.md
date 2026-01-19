@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-01-18 (nuit - update 2)
+
+### Ajouts
+- **Support multi-architecture Docker** :
+  - `docker-compose.yml` : Configuration universelle avec auto-détection
+  - `docker-compose.amd64.yml` : Configuration optimisée pour Intel/AMD (x86_64)
+  - `docker-compose.arm64.yml` : Configuration optimisée pour ARM (Raspberry Pi, Apple Silicon)
+  - Healthcheck ajustés selon l'architecture
+  - Documentation complète dans DEPLOY-PORTAINER.md
+
+### Corrections
+- **Cache du Dashboard** : Les nouveaux formulaires apparaissent immédiatement sans rechargement manuel
+  - Ajout de `dynamic = 'force-dynamic'` pour forcer le rendu côté serveur
+
+---
+
 ## 2026-01-18 (nuit)
 
 ### Ajouts

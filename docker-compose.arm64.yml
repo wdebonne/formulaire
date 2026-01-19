@@ -1,18 +1,16 @@
 version: '3.8'
 
-# Configuration universelle - détecte automatiquement l'architecture
-# Fonctionne sur AMD64 (Intel/AMD) et ARM64 (Raspberry Pi, Apple Silicon)
-#
-# Fichiers alternatifs disponibles :
-# - docker-compose.amd64.yml : Pour forcer AMD64 (Intel/AMD)
-# - docker-compose.arm64.yml : Pour forcer ARM64 (Raspberry Pi, Apple Silicon)
+# Configuration pour processeurs ARM64 (Raspberry Pi 4/5, Apple Silicon, Oracle Cloud ARM)
+# Utilisez cette configuration sur les serveurs ARM
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: formbuilder:latest
+      platforms:
+        - linux/arm64
+    image: formbuilder:arm64
     ports:
       - "3110:3000"
     environment:
@@ -34,7 +32,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 60s  # Plus de temps pour ARM
 
 volumes:
   sqlite-data:

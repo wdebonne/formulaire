@@ -449,6 +449,11 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Image Selection editor */}
+      {block.type === 'image-selection' && (
+        <ImageSelectionEditor block={block} updateAttribute={updateAttribute} />
+      )}
+
       {/* Date format */}
       {block.type === 'date' && (
         <div className="space-y-2">
@@ -1112,6 +1117,300 @@ function AdvancedDateEditor({ block, updateAttribute, isInnerBlock, parentGroupI
               Nombre de jours à ajouter (+) ou retrancher (-) de la date source
             </p>
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Composant pour l'éditeur de Sélection Image
+interface ImageSelectionEditorProps {
+  block: FormBlock
+  updateAttribute: (key: string, value: any) => void
+}
+
+function ImageSelectionEditor({ block, updateAttribute }: ImageSelectionEditorProps) {
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [uploadingChoiceId, setUploadingChoiceId] = useState<string | null>(null)
+
+  const choices = block.attributes.choices || []
+
+  const addImageChoice = () => {
+    const newChoice: BlockChoice = {
+      id: uuidv4(),
+      label: `Image ${choices.length + 1}`,
+      value: `image-${choices.length + 1}`,
+      imageUrl: '',
+    }
+    updateAttribute('choices', [...choices, newChoice])
+  }
+
+  const updateChoice = (choiceId: string, updates: Partial<BlockChoice>) => {
+    updateAttribute(
+      'choices',
+      choices.map((c: BlockChoice) => (c.id === choiceId ? { ...c, ...updates } : c))
+    )
+  }
+
+  const removeChoice = (choiceId: string) => {
+    updateAttribute(
+      'choices',
+      choices.filter((c: BlockChoice) => c.id !== choiceId)
+    )
+  }
+
+  const handleFileUpload = async (choiceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingChoiceId(choiceId)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        updateChoice(choiceId, { imageUrl: data.url })
+      } else {
+        console.error('Upload failed')
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+    } finally {
+      setUploadingChoiceId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Options de mise en page */}
+      <div className="p-3 bg-fuchsia-50 rounded-lg border border-fuchsia-200 space-y-3">
+        <h4 className="font-medium text-fuchsia-700 flex items-center gap-2">
+          <Image className="w-4 h-4" />
+          Options d'affichage
+        </h4>
+
+        {/* Layout */}
+        <div className="space-y-2">
+          <Label>Disposition</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => updateAttribute('imageLayout', 'side-by-side')}
+              className={`flex items-center justify-center gap-2 p-2 rounded border-2 transition-colors ${
+                block.attributes.imageLayout === 'side-by-side'
+                  ? 'border-fuchsia-500 bg-fuchsia-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex gap-1">
+                <div className="w-4 h-4 bg-gray-300 rounded-sm" />
+                <div className="w-4 h-4 bg-gray-300 rounded-sm" />
+              </div>
+              <span className="text-xs">Côte à côte</span>
+            </button>
+            <button
+              onClick={() => updateAttribute('imageLayout', 'stacked')}
+              className={`flex items-center justify-center gap-2 p-2 rounded border-2 transition-colors ${
+                block.attributes.imageLayout === 'stacked'
+                  ? 'border-fuchsia-500 bg-fuchsia-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex flex-col gap-1">
+                <div className="w-8 h-3 bg-gray-300 rounded-sm" />
+                <div className="w-8 h-3 bg-gray-300 rounded-sm" />
+              </div>
+              <span className="text-xs">Superposé</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Colonnes (uniquement pour side-by-side) */}
+        {block.attributes.imageLayout === 'side-by-side' && (
+          <div className="space-y-2">
+            <Label>Nombre de colonnes</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[2, 3, 4].map((cols) => (
+                <button
+                  key={cols}
+                  onClick={() => updateAttribute('imageColumns', cols)}
+                  className={`p-2 rounded border-2 transition-colors text-sm font-medium ${
+                    block.attributes.imageColumns === cols
+                      ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {cols} col.
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              💡 Sur mobile, l'affichage passera automatiquement en 2 colonnes
+            </p>
+          </div>
+        )}
+
+        {/* Taille des images */}
+        <div className="space-y-2">
+          <Label>Taille des images</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: 'small', label: 'Petite' },
+              { value: 'medium', label: 'Moyenne' },
+              { value: 'large', label: 'Grande' },
+            ].map((size) => (
+              <button
+                key={size.value}
+                onClick={() => updateAttribute('imageSize', size.value)}
+                className={`p-2 rounded border-2 transition-colors text-sm ${
+                  block.attributes.imageSize === size.value
+                    ? 'border-fuchsia-500 bg-fuchsia-50 text-fuchsia-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {size.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Afficher les labels */}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="showImageLabels">Afficher les labels</Label>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              id="showImageLabels"
+              checked={block.attributes.showImageLabels !== false}
+              onChange={(e) => updateAttribute('showImageLabels', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-fuchsia-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fuchsia-500"></div>
+          </label>
+        </div>
+
+        {/* Autoriser plusieurs sélections */}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="allowMultipleImages">Autoriser plusieurs sélections</Label>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              id="allowMultipleImages"
+              checked={block.attributes.allowMultiple || false}
+              onChange={(e) => updateAttribute('allowMultiple', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-fuchsia-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fuchsia-500"></div>
+          </label>
+        </div>
+      </div>
+
+      {/* Liste des images */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Images ({choices.length})</Label>
+          <Button size="sm" variant="outline" onClick={addImageChoice}>
+            <Plus className="w-4 h-4 mr-1" />
+            Ajouter
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {choices.map((choice: BlockChoice, index: number) => (
+            <div
+              key={choice.id}
+              className="p-3 border rounded-lg bg-gray-50 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                  <span className="w-6 h-6 flex items-center justify-center bg-fuchsia-100 text-fuchsia-600 rounded text-xs font-medium">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                  onClick={() => removeChoice(choice.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Image preview / upload */}
+              <div className="space-y-2">
+                {choice.imageUrl ? (
+                  <div className="relative group">
+                    <img
+                      src={choice.imageUrl}
+                      alt={choice.label}
+                      className="w-full h-24 object-cover rounded-md border"
+                    />
+                    <button
+                      onClick={() => updateChoice(choice.id, { imageUrl: '' })}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="URL de l'image"
+                      value={choice.imageUrl || ''}
+                      onChange={(e) => updateChoice(choice.id, { imageUrl: e.target.value })}
+                    />
+                    <input
+                      ref={(el) => { fileInputRefs.current[choice.id] = el }}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(choice.id, e)}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRefs.current[choice.id]?.click()}
+                      disabled={uploadingChoiceId === choice.id}
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadingChoiceId === choice.id ? 'Upload...' : 'Uploader'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Label */}
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">Label</Label>
+                <Input
+                  value={choice.label}
+                  onChange={(e) =>
+                    updateChoice(choice.id, {
+                      label: e.target.value,
+                      value: e.target.value.toLowerCase().replace(/\s+/g, '-'),
+                    })
+                  }
+                  placeholder="Nom de l'image"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {choices.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-4 border-2 border-dashed rounded-lg">
+            Aucune image. Cliquez sur "Ajouter" pour commencer.
+          </p>
         )}
       </div>
     </div>

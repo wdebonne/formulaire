@@ -3,6 +3,18 @@
 ## 2026-01-19
 
 ### Ajouts
+- **Nouveau bloc Sélection Image** :
+  - Permet de créer des choix avec des images cliquables
+  - Deux modes de disposition :
+    - **Côte à côte** : Grille avec 2, 3 ou 4 colonnes (responsive sur mobile)
+    - **Superposé** : Images empilées verticalement avec labels à côté
+  - Options de personnalisation :
+    - Taille des images : petite, moyenne ou grande
+    - Afficher/masquer les labels sous les images
+    - Sélection simple ou multiple
+  - Upload d'images intégré ou URL externe
+  - Design responsive adapté PC, tablette et mobile
+  - Support complet dans les groupes et blocs répétables
 - **Validation avancée du bloc Téléphone** :
   - Choix du format : Standard (06 12 34 56 78) ou International (+33 6 12 34 56 78)
   - Nombre de chiffres attendu configurable (par défaut 10 ou 11 selon le format)

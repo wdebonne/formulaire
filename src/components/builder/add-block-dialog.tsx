@@ -33,6 +33,7 @@ import {
   Plus,
   LayoutList,
   Repeat,
+  ImageIcon,
 } from 'lucide-react'
 
 interface BlockTypeConfig {
@@ -224,6 +225,26 @@ const blockTypes: BlockTypeConfig[] = [
         { id: '1', label: 'Option A', value: 'option-a' },
         { id: '2', label: 'Option B', value: 'option-b' },
         { id: '3', label: 'Option C', value: 'option-c' },
+      ],
+    },
+  },
+  {
+    type: 'image-selection',
+    label: 'Sélection Image',
+    icon: <ImageIcon className="w-5 h-5" />,
+    iconColor: 'text-fuchsia-500 bg-fuchsia-50',
+    category: 'choice',
+    defaultAttributes: {
+      label: 'Sélectionnez une ou plusieurs images',
+      required: false,
+      allowMultiple: true,
+      imageLayout: 'side-by-side',
+      imageColumns: 2,
+      showImageLabels: true,
+      imageSize: 'medium',
+      choices: [
+        { id: '1', label: 'Image 1', value: 'image-1', imageUrl: '' },
+        { id: '2', label: 'Image 2', value: 'image-2', imageUrl: '' },
       ],
     },
   },

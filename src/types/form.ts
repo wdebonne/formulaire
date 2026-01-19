@@ -10,6 +10,7 @@ export type BlockType =
   | 'time'
   | 'dropdown'
   | 'multiple-choice'
+  | 'image-selection'
   | 'slider'
   | 'legal'
   | 'statement'
@@ -25,6 +26,7 @@ export interface BlockChoice {
   id: string
   label: string
   value: string
+  imageUrl?: string // URL de l'image pour image-selection
 }
 
 export interface BlockAttributes {
@@ -85,6 +87,11 @@ export interface BlockAttributes {
   phoneFormat?: 'standard' | 'international' // Format: standard (0612...) ou international (+33...)
   // Attributs pour le bloc Email
   validateEmail?: boolean // Activer la validation stricte de l'email (par défaut true)
+  // Attributs pour le bloc Sélection Image
+  imageLayout?: 'side-by-side' | 'stacked' // Disposition des images: côte à côte ou superposées
+  imageColumns?: 2 | 3 | 4 // Nombre de colonnes pour l'affichage côte à côte
+  showImageLabels?: boolean // Afficher les labels sous les images
+  imageSize?: 'small' | 'medium' | 'large' // Taille des images
 }
 
 export interface FormBlock {

@@ -1392,6 +1392,186 @@ function QuestionBlock({
           </div>
         )
 
+      case 'image-selection':
+        const imageChoices = block.attributes.choices || []
+        const allowMultipleImages = block.attributes.allowMultiple || block.attributes.multiple
+        const imageLayout = block.attributes.imageLayout || 'side-by-side'
+        const imageColumns = block.attributes.imageColumns || 2
+        const imageSize = block.attributes.imageSize || 'medium'
+        const showLabels = block.attributes.showImageLabels !== false
+
+        // Définir les tailles d'images
+        const sizeClasses = {
+          small: 'h-24 sm:h-28',
+          medium: 'h-32 sm:h-40',
+          large: 'h-40 sm:h-52',
+        }
+
+        // Classes pour le nombre de colonnes (responsive)
+        const columnClasses = {
+          2: 'grid-cols-2',
+          3: 'grid-cols-2 sm:grid-cols-3',
+          4: 'grid-cols-2 sm:grid-cols-4',
+        }
+
+        return (
+          <div className="mt-4">
+            {imageLayout === 'stacked' ? (
+              // Mode superposé (une image par ligne)
+              <div className="space-y-3">
+                {imageChoices.map((choice: any, idx: number) => {
+                  const isSelected = allowMultipleImages
+                    ? (answer || []).includes(choice.value)
+                    : answer === choice.value
+
+                  return (
+                    <button
+                      key={choice.value}
+                      onClick={() => {
+                        if (allowMultipleImages) {
+                          const current = answer || []
+                          if (isSelected) {
+                            onAnswer(current.filter((v: string) => v !== choice.value))
+                          } else {
+                            onAnswer([...current, choice.value])
+                          }
+                        } else {
+                          onAnswer(choice.value)
+                          setTimeout(() => onNext(true), 300)
+                        }
+                      }}
+                      className="w-full flex items-center gap-4 p-3 rounded-lg border-2 transition-all active:scale-[0.99] hover:scale-[1.005]"
+                      style={{
+                        borderColor: isSelected
+                          ? themeProps.buttonsBgColor
+                          : themeProps.answersColor + '20',
+                        backgroundColor: isSelected ? themeProps.buttonsBgColor + '08' : 'transparent',
+                      }}
+                    >
+                      {/* Image */}
+                      <div className={`relative shrink-0 w-20 sm:w-24 ${sizeClasses[imageSize]} rounded-md overflow-hidden bg-gray-100`}>
+                        {choice.imageUrl ? (
+                          <img
+                            src={choice.imageUrl}
+                            alt={choice.label}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-gray-400 text-xs">Image</span>
+                          </div>
+                        )}
+                        {/* Indicateur de sélection */}
+                        {isSelected && (
+                          <div 
+                            className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: themeProps.buttonsBgColor }}
+                          >
+                            <Check className="w-4 h-4" style={{ color: themeProps.buttonsFontColor }} />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Label */}
+                      {showLabels && (
+                        <div className="flex-1 text-left">
+                          <span 
+                            className="text-base sm:text-lg font-medium"
+                            style={{ color: themeProps.answersColor }}
+                          >
+                            {choice.label}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              // Mode côte à côte (grille)
+              <div className={`grid ${columnClasses[imageColumns as keyof typeof columnClasses]} gap-3 sm:gap-4`}>
+                {imageChoices.map((choice: any, idx: number) => {
+                  const isSelected = allowMultipleImages
+                    ? (answer || []).includes(choice.value)
+                    : answer === choice.value
+
+                  return (
+                    <button
+                      key={choice.value}
+                      onClick={() => {
+                        if (allowMultipleImages) {
+                          const current = answer || []
+                          if (isSelected) {
+                            onAnswer(current.filter((v: string) => v !== choice.value))
+                          } else {
+                            onAnswer([...current, choice.value])
+                          }
+                        } else {
+                          onAnswer(choice.value)
+                          setTimeout(() => onNext(true), 300)
+                        }
+                      }}
+                      className="relative rounded-lg border-2 overflow-hidden transition-all active:scale-[0.98] hover:scale-[1.02]"
+                      style={{
+                        borderColor: isSelected
+                          ? themeProps.buttonsBgColor
+                          : themeProps.answersColor + '20',
+                      }}
+                    >
+                      {/* Image */}
+                      <div className={`relative ${sizeClasses[imageSize]} bg-gray-100`}>
+                        {choice.imageUrl ? (
+                          <img
+                            src={choice.imageUrl}
+                            alt={choice.label}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-gray-400 text-sm">Image</span>
+                          </div>
+                        )}
+                        
+                        {/* Overlay de sélection */}
+                        {isSelected && (
+                          <div 
+                            className="absolute inset-0 flex items-center justify-center"
+                            style={{ backgroundColor: themeProps.buttonsBgColor + '30' }}
+                          >
+                            <div 
+                              className="w-10 h-10 rounded-full flex items-center justify-center"
+                              style={{ backgroundColor: themeProps.buttonsBgColor }}
+                            >
+                              <Check className="w-6 h-6" style={{ color: themeProps.buttonsFontColor }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Label */}
+                      {showLabels && (
+                        <div 
+                          className="px-3 py-2 text-center"
+                          style={{ 
+                            backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                          }}
+                        >
+                          <span 
+                            className="text-sm sm:text-base font-medium"
+                            style={{ color: themeProps.answersColor }}
+                          >
+                            {choice.label}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+
       case 'date':
         return (
           <input
@@ -2202,6 +2382,124 @@ function GroupBlock({
           />
         )
 
+      case 'image-selection':
+        const imgChoices = innerBlock.attributes.choices || []
+        const imgAllowMultiple = innerBlock.attributes.allowMultiple || innerBlock.attributes.multiple
+        const imgLayout = innerBlock.attributes.imageLayout || 'side-by-side'
+        const imgColumns = innerBlock.attributes.imageColumns || 2
+        const imgSize = innerBlock.attributes.imageSize || 'medium'
+        const imgShowLabels = innerBlock.attributes.showImageLabels !== false
+        const imgSelectedValues = Array.isArray(value) ? value : value ? [value] : []
+
+        const innerSizeClasses = {
+          small: 'h-16',
+          medium: 'h-20',
+          large: 'h-28',
+        }
+
+        const innerColumnClasses = {
+          2: 'grid-cols-2',
+          3: 'grid-cols-2 sm:grid-cols-3',
+          4: 'grid-cols-2 sm:grid-cols-4',
+        }
+
+        return (
+          <div className="mt-2">
+            {imgLayout === 'stacked' ? (
+              <div className="space-y-2">
+                {imgChoices.map((choice: any) => {
+                  const isSelected = imgSelectedValues.includes(choice.value)
+                  return (
+                    <button
+                      key={choice.id}
+                      onClick={() => {
+                        if (imgAllowMultiple) {
+                          const newValues = isSelected
+                            ? imgSelectedValues.filter((v: string) => v !== choice.value)
+                            : [...imgSelectedValues, choice.value]
+                          handleChange(newValues)
+                        } else {
+                          handleChange(choice.value)
+                        }
+                      }}
+                      className="w-full flex items-center gap-3 p-2 rounded-lg border-2 transition-all text-left"
+                      style={{
+                        borderColor: isSelected
+                          ? themeProps.buttonsBgColor
+                          : themeProps.answersColor + '20',
+                        backgroundColor: isSelected ? themeProps.buttonsBgColor + '08' : 'transparent',
+                      }}
+                    >
+                      <div className={`relative shrink-0 w-16 ${innerSizeClasses[imgSize]} rounded overflow-hidden bg-gray-100`}>
+                        {choice.imageUrl ? (
+                          <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">IMG</div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
+                            <Check className="w-3 h-3" style={{ color: themeProps.buttonsFontColor }} />
+                          </div>
+                        )}
+                      </div>
+                      {imgShowLabels && (
+                        <span className="text-sm" style={{ color: themeProps.answersColor }}>{choice.label}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className={`grid ${innerColumnClasses[imgColumns as keyof typeof innerColumnClasses]} gap-2`}>
+                {imgChoices.map((choice: any) => {
+                  const isSelected = imgSelectedValues.includes(choice.value)
+                  return (
+                    <button
+                      key={choice.id}
+                      onClick={() => {
+                        if (imgAllowMultiple) {
+                          const newValues = isSelected
+                            ? imgSelectedValues.filter((v: string) => v !== choice.value)
+                            : [...imgSelectedValues, choice.value]
+                          handleChange(newValues)
+                        } else {
+                          handleChange(choice.value)
+                        }
+                      }}
+                      className="relative rounded-lg border-2 overflow-hidden transition-all"
+                      style={{
+                        borderColor: isSelected
+                          ? themeProps.buttonsBgColor
+                          : themeProps.answersColor + '20',
+                      }}
+                    >
+                      <div className={`${innerSizeClasses[imgSize]} bg-gray-100`}>
+                        {choice.imageUrl ? (
+                          <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">IMG</div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor + '30' }}>
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
+                              <Check className="w-4 h-4" style={{ color: themeProps.buttonsFontColor }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {imgShowLabels && (
+                        <div className="px-2 py-1 text-center" style={{ backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent' }}>
+                          <span className="text-xs" style={{ color: themeProps.answersColor }}>{choice.label}</span>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+
       default:
         return (
           <p className="text-sm" style={{ color: themeProps.answersColor + '60' }}>
@@ -2618,7 +2916,7 @@ function RepeaterBlock({
         )}
 
         {/* Bouton OK pour les choix multiples */}
-        {['multiple-choice', 'dropdown'].includes(currentInnerBlock.type) &&
+        {['multiple-choice', 'dropdown', 'image-selection'].includes(currentInnerBlock.type) &&
           (currentInnerBlock.attributes.allowMultiple || currentInnerBlock.attributes.multiple) &&
           (currentAnswer || []).length > 0 && (
             <div className="mt-4">
@@ -2935,6 +3233,135 @@ function InnerBlockInput({
             <span className="font-medium text-lg">{answer || min}</span>
             <span>{max}</span>
           </div>
+        </div>
+      )
+
+    case 'image-selection':
+      const imgSelChoices = block.attributes.choices || []
+      const imgSelAllowMultiple = block.attributes.allowMultiple || block.attributes.multiple
+      const imgSelLayout = block.attributes.imageLayout || 'side-by-side'
+      const imgSelColumns = block.attributes.imageColumns || 2
+      const imgSelSize = block.attributes.imageSize || 'medium'
+      const imgSelShowLabels = block.attributes.showImageLabels !== false
+
+      const innerImgSizeClasses = {
+        small: 'h-20 sm:h-24',
+        medium: 'h-28 sm:h-32',
+        large: 'h-36 sm:h-44',
+      }
+
+      const innerImgColumnClasses = {
+        2: 'grid-cols-2',
+        3: 'grid-cols-2 sm:grid-cols-3',
+        4: 'grid-cols-2 sm:grid-cols-4',
+      }
+
+      return (
+        <div className="mt-4">
+          {imgSelLayout === 'stacked' ? (
+            <div className="space-y-3">
+              {imgSelChoices.map((choice: any) => {
+                const isSelected = imgSelAllowMultiple
+                  ? (answer || []).includes(choice.value)
+                  : answer === choice.value
+
+                return (
+                  <button
+                    key={choice.value}
+                    onClick={() => {
+                      if (imgSelAllowMultiple) {
+                        const current = answer || []
+                        if (isSelected) {
+                          onAnswer(current.filter((v: string) => v !== choice.value))
+                        } else {
+                          onAnswer([...current, choice.value])
+                        }
+                      } else {
+                        onAnswer(choice.value)
+                        setTimeout(() => onNext(true), 300)
+                      }
+                    }}
+                    className="w-full flex items-center gap-4 p-3 rounded-lg border-2 transition-all"
+                    style={{
+                      borderColor: isSelected
+                        ? themeProps.buttonsBgColor
+                        : themeProps.answersColor + '20',
+                      backgroundColor: isSelected ? themeProps.buttonsBgColor + '08' : 'transparent',
+                    }}
+                  >
+                    <div className={`relative shrink-0 w-16 sm:w-20 ${innerImgSizeClasses[imgSelSize]} rounded-md overflow-hidden bg-gray-100`}>
+                      {choice.imageUrl ? (
+                        <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Image</div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
+                          <Check className="w-3 h-3" style={{ color: themeProps.buttonsFontColor }} />
+                        </div>
+                      )}
+                    </div>
+                    {imgSelShowLabels && (
+                      <span className="text-base font-medium" style={{ color: themeProps.answersColor }}>{choice.label}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className={`grid ${innerImgColumnClasses[imgSelColumns as keyof typeof innerImgColumnClasses]} gap-3`}>
+              {imgSelChoices.map((choice: any) => {
+                const isSelected = imgSelAllowMultiple
+                  ? (answer || []).includes(choice.value)
+                  : answer === choice.value
+
+                return (
+                  <button
+                    key={choice.value}
+                    onClick={() => {
+                      if (imgSelAllowMultiple) {
+                        const current = answer || []
+                        if (isSelected) {
+                          onAnswer(current.filter((v: string) => v !== choice.value))
+                        } else {
+                          onAnswer([...current, choice.value])
+                        }
+                      } else {
+                        onAnswer(choice.value)
+                        setTimeout(() => onNext(true), 300)
+                      }
+                    }}
+                    className="relative rounded-lg border-2 overflow-hidden transition-all"
+                    style={{
+                      borderColor: isSelected
+                        ? themeProps.buttonsBgColor
+                        : themeProps.answersColor + '20',
+                    }}
+                  >
+                    <div className={`${innerImgSizeClasses[imgSelSize]} bg-gray-100`}>
+                      {choice.imageUrl ? (
+                        <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Image</div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor + '30' }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
+                            <Check className="w-5 h-5" style={{ color: themeProps.buttonsFontColor }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {imgSelShowLabels && (
+                      <div className="px-2 py-1.5 text-center" style={{ backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent' }}>
+                        <span className="text-sm font-medium" style={{ color: themeProps.answersColor }}>{choice.label}</span>
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )
 

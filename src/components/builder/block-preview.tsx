@@ -111,6 +111,55 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
           </div>
         )
 
+      case 'image-selection':
+        const imageChoices = (block.attributes.choices || []).slice(0, 4)
+        const hasMoreImages = (block.attributes.choices || []).length > 4
+        const isStacked = block.attributes.imageLayout === 'stacked'
+        const columns = block.attributes.imageColumns || 2
+        
+        return (
+          <div className="mt-2">
+            <div className={`${isStacked ? 'space-y-1' : `grid grid-cols-${Math.min(columns, 2)} gap-1`}`}>
+              {imageChoices.map((choice: any, idx: number) => (
+                <div
+                  key={choice.id || idx}
+                  className={`relative rounded border overflow-hidden ${isStacked ? 'flex items-center gap-2 p-1' : ''}`}
+                  style={{
+                    borderColor: themeProps.answersColor + '30',
+                  }}
+                >
+                  {choice.imageUrl ? (
+                    <img
+                      src={choice.imageUrl}
+                      alt={choice.label}
+                      className={`object-cover ${isStacked ? 'w-8 h-8 rounded' : 'w-full h-12'}`}
+                    />
+                  ) : (
+                    <div 
+                      className={`flex items-center justify-center bg-gray-100 ${isStacked ? 'w-8 h-8 rounded' : 'w-full h-12'}`}
+                    >
+                      <span className="text-[8px] text-gray-400">IMG</span>
+                    </div>
+                  )}
+                  {block.attributes.showImageLabels !== false && (
+                    <span 
+                      className={`text-[9px] truncate ${isStacked ? '' : 'absolute bottom-0 left-0 right-0 bg-black/50 text-white px-1 py-0.5'}`}
+                      style={isStacked ? { color: themeProps.answersColor } : {}}
+                    >
+                      {choice.label}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {hasMoreImages && (
+              <p className="text-[10px] text-center mt-1" style={{ color: themeProps.answersColor + '80' }}>
+                + {(block.attributes.choices || []).length - 4} autres images
+              </p>
+            )}
+          </div>
+        )
+
       case 'date':
         return (
           <div className="mt-2 flex items-center">
@@ -369,6 +418,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       'short-text': 'TEXTE COURT',
       'long-text': 'TEXTE LONG',
       'multiple-choice': 'CHOIX MULTIPLE',
+      'image-selection': 'SÉLECTION IMAGE',
       'dropdown': 'LISTE DÉROULANTE',
       'date': 'DATE',
       'advanced-date': 'DATE AVANCÉE',

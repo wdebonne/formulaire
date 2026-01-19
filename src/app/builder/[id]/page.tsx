@@ -15,10 +15,16 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
     redirect('/login')
   }
 
-  // Vérifier si l'utilisateur est propriétaire OU a une permission d'édition/admin
-  const [form, themes] = await Promise.all([
-    prisma.form.findFirst({
-      where: {
+  // Récupérer le rôle de l'utilisateur
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { role: true }
+  })
+
+  // Construire la condition de requête selon le rôle
+  const whereCondition = user?.role === 'admin'
+    ? { id } // Les admins globaux ont accès à tous les formulaires
+    : {
         id,
         OR: [
           { userId: session.userId }, // Propriétaire
@@ -31,7 +37,12 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
             }
           }
         ]
-      },
+      }
+
+  // Vérifier si l'utilisateur est propriétaire OU a une permission d'édition/admin OU est admin global
+  const [form, themes] = await Promise.all([
+    prisma.form.findFirst({
+      where: whereCondition,
       include: { theme: true }
     }),
     prisma.theme.findMany({

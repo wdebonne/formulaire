@@ -84,6 +84,7 @@ const blockTypes: BlockTypeConfig[] = [
       label: 'Votre email',
       placeholder: 'email@exemple.com',
       required: false,
+      validateEmail: true,
     },
   },
   {
@@ -93,8 +94,10 @@ const blockTypes: BlockTypeConfig[] = [
     category: 'input',
     defaultAttributes: {
       label: 'Votre téléphone',
-      placeholder: '+33 6 12 34 56 78',
+      placeholder: '06 12 34 56 78',
       required: false,
+      phoneFormat: 'standard',
+      phoneDigitsCount: 10,
     },
   },
   {

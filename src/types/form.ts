@@ -80,6 +80,11 @@ export interface BlockAttributes {
   isTimeRange?: boolean // Activer la sélection d'une plage horaire (début et fin)
   startTimeLabel?: string // Label pour l'heure de début
   endTimeLabel?: string // Label pour l'heure de fin
+  // Attributs pour le bloc Téléphone
+  phoneDigitsCount?: number // Nombre de chiffres attendu (par défaut 10)
+  phoneFormat?: 'standard' | 'international' // Format: standard (0612...) ou international (+33...)
+  // Attributs pour le bloc Email
+  validateEmail?: boolean // Activer la validation stricte de l'email (par défaut true)
 }
 
 export interface FormBlock {

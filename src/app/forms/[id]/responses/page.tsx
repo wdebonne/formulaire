@@ -11,22 +11,33 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
 
   const { id } = await params
 
-  // Vérifier si l'utilisateur est propriétaire OU a une permission de partage (view, edit, admin)
-  const form = await prisma.form.findFirst({
-    where: {
-      id,
-      OR: [
-        { userId: session.userId }, // Propriétaire
-        {
-          shares: {
-            some: {
-              userId: session.userId,
-              permission: { in: ['view', 'edit', 'admin'] }
+  // Récupérer le rôle de l'utilisateur
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { role: true }
+  })
+
+  // Construire la condition de requête selon le rôle
+  const whereCondition = user?.role === 'admin'
+    ? { id } // Les admins globaux ont accès à tous les formulaires
+    : {
+        id,
+        OR: [
+          { userId: session.userId }, // Propriétaire
+          {
+            shares: {
+              some: {
+                userId: session.userId,
+                permission: { in: ['view', 'edit', 'admin'] }
+              }
             }
           }
-        }
-      ]
-    },
+        ]
+      }
+
+  // Vérifier si l'utilisateur est propriétaire OU a une permission de partage OU est admin global
+  const form = await prisma.form.findFirst({
+    where: whereCondition,
   })
 
   if (!form) {

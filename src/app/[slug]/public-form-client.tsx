@@ -5,6 +5,44 @@ import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from 
 import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 
+// Fonction de validation d'email
+function isValidEmail(email: string): boolean {
+  // Regex pour valider les emails comme test@test.fr, didier.jean-marie@neuf.com
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  return emailRegex.test(email.trim())
+}
+
+// Fonction de validation de téléphone (chiffres uniquement)
+function isValidPhone(phone: string, digitsCount: number, format: 'standard' | 'international'): { valid: boolean; error?: string } {
+  // Nettoyer le numéro (garder uniquement les chiffres et le +)
+  const cleanedPhone = phone.replace(/[\s\-\.\(\)]/g, '')
+  
+  // Vérifier le format international
+  if (format === 'international') {
+    // Doit commencer par + ou un chiffre
+    if (!cleanedPhone.match(/^(\+|[0-9])/)) {
+      return { valid: false, error: 'Le numéro doit commencer par + ou un chiffre' }
+    }
+    // Extraire uniquement les chiffres pour compter
+    const digitsOnly = cleanedPhone.replace(/\D/g, '')
+    if (digitsOnly.length !== digitsCount) {
+      return { valid: false, error: `Le numéro doit contenir exactement ${digitsCount} chiffres` }
+    }
+  } else {
+    // Format standard: uniquement des chiffres
+    const digitsOnly = cleanedPhone.replace(/\D/g, '')
+    if (digitsOnly.length !== digitsCount) {
+      return { valid: false, error: `Le numéro doit contenir exactement ${digitsCount} chiffres` }
+    }
+    // Vérifier qu'il n'y a que des chiffres (après nettoyage)
+    if (!/^\d+$/.test(digitsOnly)) {
+      return { valid: false, error: 'Le numéro ne doit contenir que des chiffres' }
+    }
+  }
+  
+  return { valid: true }
+}
+
 // Liste des polices système qui n'ont pas besoin d'être chargées
 const SYSTEM_FONTS = [
   'Inter',
@@ -426,6 +464,26 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         return
       }
       
+      // Validation spécifique pour les blocs email dans les répéteurs
+      if (currentInnerBlock?.type === 'email' && innerAnswer) {
+        const shouldValidate = currentInnerBlock.attributes.validateEmail !== false
+        if (shouldValidate && !isValidEmail(innerAnswer)) {
+          setError('Veuillez entrer une adresse email valide (ex: exemple@domaine.fr)')
+          return
+        }
+      }
+      
+      // Validation spécifique pour les blocs téléphone dans les répéteurs
+      if (currentInnerBlock?.type === 'phone' && innerAnswer) {
+        const phoneFormat = currentInnerBlock.attributes.phoneFormat || 'standard'
+        const digitsCount = currentInnerBlock.attributes.phoneDigitsCount ?? (phoneFormat === 'international' ? 11 : 10)
+        const phoneValidation = isValidPhone(innerAnswer, digitsCount, phoneFormat)
+        if (!phoneValidation.valid) {
+          setError(phoneValidation.error || 'Numéro de téléphone invalide')
+          return
+        }
+      }
+      
       // Passer au bloc interne suivant ou afficher la question de répétition
       if (state.currentInnerIndex < innerBlocks.length - 1) {
         setIsAnimating(true)
@@ -460,6 +518,53 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     if (!skipValidation && displayBlock?.attributes.required && !answers[displayBlock.id]) {
       setError('Ce champ est requis')
       return
+    }
+
+    // Validation spécifique pour les blocs email
+    if (!skipValidation && displayBlock?.type === 'email' && answers[displayBlock.id]) {
+      const shouldValidate = displayBlock.attributes.validateEmail !== false
+      if (shouldValidate && !isValidEmail(answers[displayBlock.id])) {
+        setError('Veuillez entrer une adresse email valide (ex: exemple@domaine.fr)')
+        return
+      }
+    }
+
+    // Validation spécifique pour les blocs téléphone
+    if (!skipValidation && displayBlock?.type === 'phone' && answers[displayBlock.id]) {
+      const phoneFormat = displayBlock.attributes.phoneFormat || 'standard'
+      const digitsCount = displayBlock.attributes.phoneDigitsCount ?? (phoneFormat === 'international' ? 11 : 10)
+      const phoneValidation = isValidPhone(answers[displayBlock.id], digitsCount, phoneFormat)
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.error || 'Numéro de téléphone invalide')
+        return
+      }
+    }
+
+    // Validation pour les blocs de groupe (valider tous les blocs internes)
+    if (!skipValidation && displayBlock?.type === 'group' && displayBlock.innerBlocks) {
+      for (const innerBlock of displayBlock.innerBlocks) {
+        const innerAnswer = answers[innerBlock.id]
+        
+        // Validation email dans les groupes
+        if (innerBlock.type === 'email' && innerAnswer) {
+          const shouldValidate = innerBlock.attributes.validateEmail !== false
+          if (shouldValidate && !isValidEmail(innerAnswer)) {
+            setError(`Email invalide dans "${innerBlock.attributes.label || 'Email'}". Veuillez entrer une adresse email valide.`)
+            return
+          }
+        }
+        
+        // Validation téléphone dans les groupes
+        if (innerBlock.type === 'phone' && innerAnswer) {
+          const phoneFormat = innerBlock.attributes.phoneFormat || 'standard'
+          const digitsCount = innerBlock.attributes.phoneDigitsCount ?? (phoneFormat === 'international' ? 11 : 10)
+          const phoneValidation = isValidPhone(innerAnswer, digitsCount, phoneFormat)
+          if (!phoneValidation.valid) {
+            setError(`Téléphone invalide dans "${innerBlock.attributes.label || 'Téléphone'}". ${phoneValidation.error}`)
+            return
+          }
+        }
+      }
     }
 
     // Vérifier s'il y a un saut logique
@@ -1142,12 +1247,31 @@ function QuestionBlock({
         )
 
       case 'phone':
+        const phoneFormat = block.attributes.phoneFormat || 'standard'
+        const defaultPlaceholder = phoneFormat === 'international' ? '+33 6 12 34 56 78' : '06 12 34 56 78'
         return (
           <input
             type="tel"
-            placeholder={block.attributes.placeholder || '+33 6 12 34 56 78'}
+            inputMode="numeric"
+            placeholder={block.attributes.placeholder || defaultPlaceholder}
             value={answer || ''}
-            onChange={(e) => onAnswer(e.target.value)}
+            onChange={(e) => {
+              // Autoriser uniquement les chiffres, +, espaces, tirets et points
+              const filtered = e.target.value.replace(/[^0-9+\s\-\.]/g, '')
+              onAnswer(filtered)
+            }}
+            onKeyDown={(e) => {
+              // Bloquer les lettres et caractères spéciaux sauf les autorisés
+              const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End']
+              const isNumber = /^[0-9]$/.test(e.key)
+              const isAllowedChar = /^[+\s\-\.]$/.test(e.key)
+              const isAllowedKey = allowedKeys.includes(e.key)
+              const isCtrlKey = e.ctrlKey || e.metaKey
+              
+              if (!isNumber && !isAllowedChar && !isAllowedKey && !isCtrlKey) {
+                e.preventDefault()
+              }
+            }}
             autoFocus
             className="mt-4 w-full bg-transparent border-2 py-3 px-4 text-base sm:text-lg outline-none transition-colors focus:border-opacity-100"
             style={{
@@ -2044,12 +2168,31 @@ function GroupBlock({
         )
 
       case 'phone':
+        const innerPhoneFormat = innerBlock.attributes.phoneFormat || 'standard'
+        const innerDefaultPlaceholder = innerPhoneFormat === 'international' ? '+33 6 12 34 56 78' : '06 12 34 56 78'
         return (
           <input
             type="tel"
-            placeholder={innerBlock.attributes.placeholder || 'Tapez votre numéro...'}
+            inputMode="numeric"
+            placeholder={innerBlock.attributes.placeholder || innerDefaultPlaceholder}
             value={value || ''}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={(e) => {
+              // Autoriser uniquement les chiffres, +, espaces, tirets et points
+              const filtered = e.target.value.replace(/[^0-9+\s\-\.]/g, '')
+              handleChange(filtered)
+            }}
+            onKeyDown={(e) => {
+              // Bloquer les lettres et caractères spéciaux sauf les autorisés
+              const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End']
+              const isNumber = /^[0-9]$/.test(e.key)
+              const isAllowedChar = /^[+\s\-\.]$/.test(e.key)
+              const isAllowedKey = allowedKeys.includes(e.key)
+              const isCtrlKey = e.ctrlKey || e.metaKey
+              
+              if (!isNumber && !isAllowedChar && !isAllowedKey && !isCtrlKey) {
+                e.preventDefault()
+              }
+            }}
             className="w-full bg-transparent border-2 py-2 px-3 text-base outline-none transition-colors focus:border-opacity-100"
             style={{
               color: themeProps.answersColor,
@@ -2551,12 +2694,31 @@ function InnerBlockInput({
       )
 
     case 'phone':
+      const innerPhoneFormat2 = block.attributes.phoneFormat || 'standard'
+      const innerDefaultPlaceholder2 = innerPhoneFormat2 === 'international' ? '+33 6 12 34 56 78' : '06 12 34 56 78'
       return (
         <input
           type="tel"
-          placeholder={block.attributes.placeholder || '+33 6 12 34 56 78'}
+          inputMode="numeric"
+          placeholder={block.attributes.placeholder || innerDefaultPlaceholder2}
           value={answer || ''}
-          onChange={(e) => onAnswer(e.target.value)}
+          onChange={(e) => {
+            // Autoriser uniquement les chiffres, +, espaces, tirets et points
+            const filtered = e.target.value.replace(/[^0-9+\s\-\.]/g, '')
+            onAnswer(filtered)
+          }}
+          onKeyDown={(e) => {
+            // Bloquer les lettres et caractères spéciaux sauf les autorisés
+            const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Home', 'End']
+            const isNumber = /^[0-9]$/.test(e.key)
+            const isAllowedChar = /^[+\s\-\.]$/.test(e.key)
+            const isAllowedKey = allowedKeys.includes(e.key)
+            const isCtrlKey = e.ctrlKey || e.metaKey
+            
+            if (!isNumber && !isAllowedChar && !isAllowedKey && !isCtrlKey) {
+              e.preventDefault()
+            }
+          }}
           autoFocus
           className="mt-4 w-full bg-transparent border-2 py-2 px-3 text-lg outline-none transition-colors focus:border-opacity-100"
           style={{

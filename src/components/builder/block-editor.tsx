@@ -291,6 +291,73 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Phone options */}
+      {block.type === 'phone' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="phoneFormat">Format du numéro</Label>
+            <select
+              id="phoneFormat"
+              value={block.attributes.phoneFormat || 'standard'}
+              onChange={(e) => {
+                const format = e.target.value as 'standard' | 'international'
+                updateAttribute('phoneFormat', format)
+                // Ajuster le nombre de chiffres par défaut selon le format
+                if (format === 'international' && !block.attributes.phoneDigitsCount) {
+                  updateAttribute('phoneDigitsCount', 11)
+                } else if (format === 'standard' && !block.attributes.phoneDigitsCount) {
+                  updateAttribute('phoneDigitsCount', 10)
+                }
+              }}
+              className="w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="standard">Standard (06 12 34 56 78)</option>
+              <option value="international">International (+33 6 12 34 56 78)</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phoneDigitsCount">Nombre de chiffres attendu</Label>
+            <Input
+              id="phoneDigitsCount"
+              type="number"
+              min={1}
+              max={20}
+              value={block.attributes.phoneDigitsCount ?? (block.attributes.phoneFormat === 'international' ? 11 : 10)}
+              onChange={(e) => updateAttribute('phoneDigitsCount', e.target.value ? Number(e.target.value) : undefined)}
+              placeholder={block.attributes.phoneFormat === 'international' ? '11' : '10'}
+            />
+            <p className="text-xs text-gray-500">
+              {block.attributes.phoneFormat === 'international' 
+                ? '💡 Format +33 : comptez 11 chiffres (33 + 9 chiffres)' 
+                : '💡 Format standard : 10 chiffres (06 12 34 56 78)'
+              }
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Email options */}
+      {block.type === 'email' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="validateEmail">Validation stricte de l'email</Label>
+              <p className="text-xs text-gray-500">Vérifie que l'email est au format valide (ex: test@exemple.fr)</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="validateEmail"
+                checked={block.attributes.validateEmail !== false}
+                onChange={(e) => updateAttribute('validateEmail', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* Choices editor */}
       {['dropdown', 'multiple-choice'].includes(block.type) && (
         <div className="space-y-3">

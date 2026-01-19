@@ -188,8 +188,8 @@ Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour dépl
 - **Écran d'accueil** - Introduction au formulaire
 - **Texte court** - Champ de saisie simple
 - **Texte long** - Zone de texte multi-lignes
-- **Email** - Champ email avec validation
-- **Téléphone** - Champ téléphone avec validation
+- **Email** - Champ email avec validation stricte configurable (format exemple@domaine.fr)
+- **Téléphone** - Champ téléphone avec validation (format standard ou international, nombre de chiffres configurable)
 - **Nombre** - Champ numérique
 - **Choix multiple** - Sélection unique ou multiple
 - **Menu déroulant** - Liste de choix déroulante

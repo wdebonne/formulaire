@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-01-19
+
+### Ajouts
+- **Validation avancée du bloc Téléphone** :
+  - Choix du format : Standard (06 12 34 56 78) ou International (+33 6 12 34 56 78)
+  - Nombre de chiffres attendu configurable (par défaut 10 ou 11 selon le format)
+  - Seuls les chiffres et caractères autorisés (+, espaces, tirets, points) sont acceptés
+  - Clavier numérique automatique sur mobile
+  - Validation en temps réel lors de la soumission
+- **Validation avancée du bloc Email** :
+  - Validation stricte de l'adresse email (activée par défaut)
+  - Support des formats complexes : `test@test.fr`, `didier.jean-marie@neuf.com`
+  - Option pour désactiver la validation dans les paramètres du bloc
+- **Validation dans tous les contextes** :
+  - Blocs simples
+  - Blocs dans les groupes
+  - Blocs dans les répéteurs (repeaters)
+
+---
+
 ## 2026-01-18 (nuit - update 2)
 
 ### Ajouts

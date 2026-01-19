@@ -556,10 +556,14 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   }
 
   const getJumpTarget = useCallback((): string | null => {
+    if (!currentBlock) return null
+    
     const blockLogicArray = Array.isArray(form.logic) ? form.logic : []
     
     // Trouver si une règle de jump s'applique pour le bloc courant
     for (const blockLogic of blockLogicArray) {
+      // Vérifier que la règle appartient au bloc actuellement affiché
+      if (blockLogic.blockId !== currentBlock.id) continue
       if (!blockLogic.rules) continue
       
       for (const rule of blockLogic.rules) {
@@ -574,7 +578,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       }
     }
     return null
-  }, [form.logic, answers])
+  }, [form.logic, answers, currentBlock])
 
   const goToNext = useCallback((skipValidation: boolean = false, currentValue?: any) => {
     if (isAnimating) return

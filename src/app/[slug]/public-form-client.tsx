@@ -576,7 +576,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     return finalResult
   }
 
-  const getJumpTarget = useCallback((): string | null => {
+  const getJumpTarget = useCallback((currentBlockId?: string, currentValue?: any): string | null => {
     if (!currentBlock) return null
     
     const blockLogicArray = Array.isArray(form.logic) ? form.logic : []
@@ -590,10 +590,17 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       currentBlock.innerBlocks.forEach(inner => blockIdsToCheck.add(inner.id))
     }
     
+    // Créer une copie des answers avec la valeur courante si fournie
+    // Cela permet d'évaluer les conditions avec la valeur qui vient d'être sélectionnée
+    // mais qui n'est pas encore dans le state React
+    const effectiveAnswers = currentBlockId && currentValue !== undefined
+      ? { ...answers, [currentBlockId]: currentValue }
+      : answers
+    
     console.log('[getJumpTarget] Current block:', currentBlock.id, 'Type:', currentBlock.type)
     console.log('[getJumpTarget] Block IDs to check:', Array.from(blockIdsToCheck))
     console.log('[getJumpTarget] All logic rules:', blockLogicArray)
-    console.log('[getJumpTarget] Current answers:', answers)
+    console.log('[getJumpTarget] Effective answers:', effectiveAnswers)
     
     // NOUVELLE LOGIQUE: Pour les sauts, on cherche les règles dont les conditions
     // référencent le bloc courant (ou ses blocs internes)
@@ -614,7 +621,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         
         if (!referencesCurrentBlock) continue
 
-        const shouldApply = evaluateConditions(rule.conditions, rule.conditionMatch, answers)
+        const shouldApply = evaluateConditions(rule.conditions, rule.conditionMatch, effectiveAnswers)
         console.log('[getJumpTarget] Rule should apply:', shouldApply)
 
         if (shouldApply && rule.targetBlockId) {
@@ -864,7 +871,11 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     }
 
     // Vérifier s'il y a un saut logique
-    const jumpTarget = getJumpTarget()
+    // On passe l'ID du bloc courant et la valeur courante pour que getJumpTarget
+    // puisse évaluer les conditions même si le state React n'est pas encore mis à jour
+    const currentBlockIdForJump = displayBlock?.id || currentBlock?.id
+    const currentValueForJump = currentValue ?? answers[currentBlockIdForJump || '']
+    const jumpTarget = getJumpTarget(currentBlockIdForJump, currentValueForJump)
     if (jumpTarget) {
       const targetIndex = visibleBlocks.findIndex((b) => b.id === jumpTarget)
       if (targetIndex !== -1) {
@@ -1422,7 +1433,7 @@ interface QuestionBlockProps {
   themeProps: ThemeProperties
   answer: any
   onAnswer: (value: any) => void
-  onNext: (skipValidation?: boolean) => void
+  onNext: (skipValidation?: boolean, currentValue?: any) => void
   isLast: boolean
   isSubmitting: boolean
   error: string | null
@@ -1610,7 +1621,8 @@ function QuestionBlock({
             onChange={(value) => onAnswer(value)}
             onSelect={(value) => {
               if (value) {
-                setTimeout(() => onNext(true), 300)
+                // Passer la valeur sélectionnée à onNext pour que la logique de saut fonctionne
+                setTimeout(() => onNext(true, value), 300)
               }
             }}
             placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}
@@ -1645,7 +1657,7 @@ function QuestionBlock({
                       }
                     } else {
                       onAnswer(choice.value)
-                      setTimeout(() => onNext(true), 300)
+                      setTimeout(() => onNext(true, choice.value), 300)
                     }
                   }}
                   className="w-full flex items-center px-4 py-3 sm:py-4 rounded-md border-2 transition-all active:scale-[0.98] hover:scale-[1.01]"
@@ -1721,7 +1733,7 @@ function QuestionBlock({
                           }
                         } else {
                           onAnswer(choice.value)
-                          setTimeout(() => onNext(true), 300)
+                          setTimeout(() => onNext(true, choice.value), 300)
                         }
                       }}
                       className="w-full flex items-center gap-4 p-3 rounded-lg border-2 transition-all active:scale-[0.99] hover:scale-[1.005]"
@@ -1792,7 +1804,7 @@ function QuestionBlock({
                           }
                         } else {
                           onAnswer(choice.value)
-                          setTimeout(() => onNext(true), 300)
+                          setTimeout(() => onNext(true, choice.value), 300)
                         }
                       }}
                       className="relative rounded-lg border-2 overflow-hidden transition-all active:scale-[0.98] hover:scale-[1.02]"

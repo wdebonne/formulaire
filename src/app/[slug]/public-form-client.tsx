@@ -100,6 +100,7 @@ interface DropdownWithAutocompleteProps {
   inputBorderRadius: string
   inputStyle: React.CSSProperties
   error?: boolean
+  allowCustomValue?: boolean // Si true, permet la saisie libre
 }
 
 function DropdownWithAutocomplete({
@@ -111,6 +112,7 @@ function DropdownWithAutocomplete({
   inputBorderRadius,
   inputStyle,
   error,
+  allowCustomValue = false,
 }: DropdownWithAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -120,7 +122,8 @@ function DropdownWithAutocomplete({
 
   // Trouver le label correspondant à la valeur actuelle
   const selectedChoice = choices.find((c) => c.value === value)
-  const displayValue = selectedChoice ? selectedChoice.label : value
+  // Si la valeur n'est pas dans la liste et qu'on autorise les valeurs personnalisées, afficher la valeur brute
+  const displayValue = selectedChoice ? selectedChoice.label : (allowCustomValue ? value : '')
 
   // Initialiser searchTerm avec displayValue quand value change
   useEffect(() => {
@@ -144,16 +147,26 @@ function DropdownWithAutocomplete({
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false)
-        // Si pas de sélection valide, garder la valeur saisie
+        // Si pas de sélection valide
         if (searchTerm && !selectedChoice) {
-          onChange(searchTerm)
+          if (allowCustomValue) {
+            // Saisie libre autorisée : garder la valeur saisie
+            onChange(searchTerm)
+          } else {
+            // Saisie libre non autorisée : revenir à la valeur précédente ou vider
+            if (exactMatch) {
+              onChange(exactMatch.value)
+            } else {
+              setSearchTerm(displayValue)
+            }
+          }
         }
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [searchTerm, selectedChoice, onChange])
+  }, [searchTerm, selectedChoice, onChange, allowCustomValue, exactMatch, displayValue])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
@@ -161,16 +174,17 @@ function DropdownWithAutocomplete({
     setIsOpen(true)
     setHighlightedIndex(-1)
     
-    // Mettre à jour la valeur en temps réel pour les saisies libres
+    // Mettre à jour la valeur
     if (newValue) {
       const match = choices.find(
         (c) => c.label.toLowerCase() === newValue.toLowerCase()
       )
       if (match) {
         onChange(match.value)
-      } else {
-        onChange(newValue) // Saisie libre
+      } else if (allowCustomValue) {
+        onChange(newValue) // Saisie libre uniquement si autorisée
       }
+      // Si pas de match et saisie libre non autorisée, on ne change pas la valeur
     } else {
       onChange('')
     }
@@ -208,9 +222,11 @@ function DropdownWithAutocomplete({
         if (highlightedIndex >= 0 && filteredChoices[highlightedIndex]) {
           handleSelect(filteredChoices[highlightedIndex])
         } else if (searchTerm) {
-          // Valider la saisie libre
+          // Valider la saisie
           setIsOpen(false)
-          if (!exactMatch) {
+          if (exactMatch) {
+            onChange(exactMatch.value)
+          } else if (allowCustomValue) {
             onChange(searchTerm)
           }
         }
@@ -296,7 +312,10 @@ function DropdownWithAutocomplete({
               className="px-4 py-3 text-sm"
               style={{ color: themeProps.answersColor + '80' }}
             >
-              Aucune option trouvée. Votre réponse "{searchTerm}" sera enregistrée.
+              {allowCustomValue 
+                ? `Aucune option trouvée. Votre réponse "${searchTerm}" sera enregistrée.`
+                : 'Aucune option correspondante. Veuillez sélectionner une option de la liste.'
+              }
             </div>
           ) : (
             <div
@@ -1528,61 +1547,24 @@ function QuestionBlock({
         const dropdownChoicesMain = block.attributes.choices || []
         const allowCustomValueMain = block.attributes.allowCustomValue || false
         
-        if (allowCustomValueMain) {
-          // Mode autocomplétion avec possibilité de saisie libre
-          return (
-            <DropdownWithAutocomplete
-              choices={dropdownChoicesMain}
-              value={answer || ''}
-              onChange={(value) => {
-                onAnswer(value)
-                if (value) {
-                  setTimeout(() => onNext(true), 300)
-                }
-              }}
-              placeholder={block.attributes.placeholder || 'Sélectionnez ou saisissez une option...'}
-              themeProps={themeProps}
-              inputBorderRadius={inputBorderRadius}
-              inputStyle={inputStyle}
-              error={!!error}
-            />
-          )
-        }
-        
-        // Mode select classique (liste fermée)
+        // Toujours utiliser le composant avec autocomplétion
         return (
-          <div className="mt-4 relative">
-            <select
-              value={answer || ''}
-              onChange={(e) => {
-                onAnswer(e.target.value)
-                if (e.target.value) {
-                  setTimeout(() => onNext(true), 300)
-                }
-              }}
-              className="w-full bg-transparent border-2 py-3 px-4 text-lg outline-none appearance-none cursor-pointer transition-colors"
-              style={{
-                color: themeProps.answersColor,
-                borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
-                borderRadius: inputBorderRadius,
-                ...inputStyle,
-              }}
-            >
-              <option value="" style={{ color: '#999' }}>
-                {block.attributes.placeholder || 'Sélectionnez une option...'}
-              </option>
-              {dropdownChoicesMain.map((choice: any) => (
-                <option key={choice.id || choice.value} value={choice.value} style={{ color: '#333' }}>
-                  {choice.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown 
-              className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" 
-              style={{ color: themeProps.answersColor }}
-              size={20}
-            />
-          </div>
+          <DropdownWithAutocomplete
+            choices={dropdownChoicesMain}
+            value={answer || ''}
+            onChange={(value) => {
+              onAnswer(value)
+              if (value) {
+                setTimeout(() => onNext(true), 300)
+              }
+            }}
+            placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+            inputStyle={inputStyle}
+            error={!!error}
+            allowCustomValue={allowCustomValueMain}
+          />
         )
 
       case 'multiple-choice':
@@ -2437,39 +2419,19 @@ function GroupBlock({
         const dropdownChoices = innerBlock.attributes.choices || []
         const allowCustomValueGroup = innerBlock.attributes.allowCustomValue || false
         
-        if (allowCustomValueGroup) {
-          return (
-            <DropdownWithAutocomplete
-              choices={dropdownChoices}
-              value={value || ''}
-              onChange={handleChange}
-              placeholder={innerBlock.attributes.placeholder || 'Sélectionnez ou saisissez...'}
-              themeProps={themeProps}
-              inputBorderRadius={inputBorderRadius}
-              inputStyle={inputStyle}
-              error={false}
-            />
-          )
-        }
-        
+        // Toujours utiliser le composant avec autocomplétion
         return (
-          <select
+          <DropdownWithAutocomplete
+            choices={dropdownChoices}
             value={value || ''}
-            onChange={(e) => handleChange(e.target.value)}
-            className="w-full bg-transparent border-2 py-2 px-3 text-base outline-none transition-colors"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: themeProps.buttonsBgColor + '60',
-              ...inputStyle,
-            }}
-          >
-            <option value="">{innerBlock.attributes.placeholder || 'Sélectionnez...'}</option>
-            {dropdownChoices.map((choice: any) => (
-              <option key={choice.id} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
+            onChange={handleChange}
+            placeholder={innerBlock.attributes.placeholder || 'Sélectionnez une option...'}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+            inputStyle={inputStyle}
+            error={false}
+            allowCustomValue={allowCustomValueGroup}
+          />
         )
 
       case 'date':
@@ -3314,59 +3276,24 @@ function InnerBlockInput({
       const innerDropdownChoices = block.attributes.choices || []
       const allowCustomValueInner = block.attributes.allowCustomValue || false
       
-      if (allowCustomValueInner) {
-        return (
-          <DropdownWithAutocomplete
-            choices={innerDropdownChoices}
-            value={answer || ''}
-            onChange={(value) => {
-              onAnswer(value)
-              if (value) {
-                setTimeout(() => onNext(true), 300)
-              }
-            }}
-            placeholder={block.attributes.placeholder || 'Sélectionnez ou saisissez une option...'}
-            themeProps={themeProps}
-            inputBorderRadius={buttonBorderRadius}
-            inputStyle={inputStyle}
-            error={!!error}
-          />
-        )
-      }
-      
+      // Toujours utiliser le composant avec autocomplétion
       return (
-        <div className="mt-4 relative">
-          <select
-            value={answer || ''}
-            onChange={(e) => {
-              onAnswer(e.target.value)
-              if (e.target.value) {
-                setTimeout(() => onNext(true), 300)
-              }
-            }}
-            className="w-full bg-transparent border-2 py-3 px-4 text-lg outline-none appearance-none cursor-pointer transition-colors"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
-              borderRadius: buttonBorderRadius,
-              ...inputStyle,
-            }}
-          >
-            <option value="" style={{ color: '#999' }}>
-              {block.attributes.placeholder || 'Sélectionnez une option...'}
-            </option>
-            {innerDropdownChoices.map((choice: any) => (
-              <option key={choice.id || choice.value} value={choice.value} style={{ color: '#333' }}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown 
-            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" 
-            style={{ color: themeProps.answersColor }}
-            size={20}
-          />
-        </div>
+        <DropdownWithAutocomplete
+          choices={innerDropdownChoices}
+          value={answer || ''}
+          onChange={(value) => {
+            onAnswer(value)
+            if (value) {
+              setTimeout(() => onNext(true), 300)
+            }
+          }}
+          placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}
+          themeProps={themeProps}
+          inputBorderRadius={buttonBorderRadius}
+          inputStyle={inputStyle}
+          error={!!error}
+          allowCustomValue={allowCustomValueInner}
+        />
       )
 
     case 'multiple-choice':

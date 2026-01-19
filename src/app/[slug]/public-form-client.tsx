@@ -520,39 +520,60 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       const answer = answers[condition.blockId]
       let value = condition.value
 
+      console.log('[evaluateConditions] Checking condition:', condition)
+      console.log('[evaluateConditions] Answer for block', condition.blockId, ':', answer)
+      console.log('[evaluateConditions] Condition value:', value)
+
       // Pour les blocs avec des choix, vérifier si la valeur de condition est un label
       // et la convertir en value si nécessaire (rétrocompatibilité)
       const sourceBlock = findBlockByIdGlobal(condition.blockId)
+      console.log('[evaluateConditions] Source block found:', sourceBlock?.id, sourceBlock?.type, 'Choices:', sourceBlock?.attributes.choices)
+      
       if (sourceBlock?.attributes.choices) {
         const choiceByLabel = sourceBlock.attributes.choices.find(c => c.label === value)
+        console.log('[evaluateConditions] Found choice by label:', choiceByLabel)
         if (choiceByLabel) {
           value = choiceByLabel.value
+          console.log('[evaluateConditions] Converted value to:', value)
         }
       }
 
+      let result = false
       switch (condition.operator) {
         case 'equals':
-          return answer === value
+          result = answer === value
+          console.log('[evaluateConditions] equals check:', answer, '===', value, '=>', result)
+          break
         case 'not_equals':
-          return answer !== value
+          result = answer !== value
+          break
         case 'contains':
-          return String(answer || '').includes(String(value))
+          result = String(answer || '').includes(String(value))
+          break
         case 'not_contains':
-          return !String(answer || '').includes(String(value))
+          result = !String(answer || '').includes(String(value))
+          break
         case 'greater_than':
-          return Number(answer) > Number(value)
+          result = Number(answer) > Number(value)
+          break
         case 'less_than':
-          return Number(answer) < Number(value)
+          result = Number(answer) < Number(value)
+          break
         case 'is_empty':
-          return !answer || answer === '' || (Array.isArray(answer) && answer.length === 0)
+          result = !answer || answer === '' || (Array.isArray(answer) && answer.length === 0)
+          break
         case 'is_not_empty':
-          return answer && answer !== '' && (!Array.isArray(answer) || answer.length > 0)
+          result = answer && answer !== '' && (!Array.isArray(answer) || answer.length > 0)
+          break
         default:
-          return false
+          result = false
       }
+      return result
     })
 
-    return match === 'all' ? results.every(Boolean) : results.some(Boolean)
+    const finalResult = match === 'all' ? results.every(Boolean) : results.some(Boolean)
+    console.log('[evaluateConditions] Results:', results, 'Match:', match, 'Final:', finalResult)
+    return finalResult
   }
 
   const getJumpTarget = useCallback((): string | null => {
@@ -569,19 +590,29 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       currentBlock.innerBlocks.forEach(inner => blockIdsToCheck.add(inner.id))
     }
     
+    console.log('[getJumpTarget] Current block:', currentBlock.id, 'Type:', currentBlock.type)
+    console.log('[getJumpTarget] Block IDs to check:', Array.from(blockIdsToCheck))
+    console.log('[getJumpTarget] All logic rules:', blockLogicArray)
+    console.log('[getJumpTarget] Current answers:', answers)
+    
     // Trouver si une règle de jump s'applique pour le bloc courant ou ses blocs internes
     for (const blockLogic of blockLogicArray) {
+      console.log('[getJumpTarget] Checking blockLogic:', blockLogic.blockId, 'in set:', blockIdsToCheck.has(blockLogic.blockId))
+      
       // Vérifier que la règle appartient au bloc actuellement affiché ou à un de ses blocs internes
       if (!blockIdsToCheck.has(blockLogic.blockId)) continue
       if (!blockLogic.rules) continue
       
       for (const rule of blockLogic.rules) {
+        console.log('[getJumpTarget] Checking rule:', rule)
         if (rule.enabled === false) continue
         if (rule.action !== 'jump') continue
 
         const shouldApply = evaluateConditions(rule.conditions, rule.conditionMatch, answers)
+        console.log('[getJumpTarget] Rule should apply:', shouldApply)
 
         if (shouldApply && rule.targetBlockId) {
+          console.log('[getJumpTarget] JUMP TO:', rule.targetBlockId)
           return rule.targetBlockId
         }
       }

@@ -3,6 +3,16 @@
 ## 2026-01-19
 
 ### Ajouts
+- **Autocomplétion avec saisie libre pour les listes déroulantes** :
+  - Nouvelle option "Autoriser les réponses personnalisées" dans l'éditeur de bloc
+  - Quand activée, transforme la liste déroulante en champ avec autocomplétion
+  - L'utilisateur peut :
+    - Taper pour filtrer les options disponibles
+    - Sélectionner une option de la liste
+    - Saisir une réponse personnalisée qui n'est pas dans la liste
+  - Navigation au clavier (flèches, Entrée, Échap)
+  - Message d'indication quand la saisie ne correspond à aucune option
+  - Fonctionne dans tous les contextes : blocs simples, groupes et répéteurs
 - **Nouveau bloc Sélection Image** :
   - Permet de créer des choix avec des images cliquables
   - Deux modes de disposition :

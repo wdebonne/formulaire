@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from '@/types/form'
 import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2 } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
@@ -88,6 +88,228 @@ function getYouTubeVideoId(url: string): string | null {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/
   const match = url.match(regExp)
   return (match && match[2].length === 11) ? match[2] : null
+}
+
+// Composant Dropdown avec autocomplétion et possibilité de saisie libre
+interface DropdownWithAutocompleteProps {
+  choices: { id?: string; label: string; value: string }[]
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  themeProps: ThemeProperties
+  inputBorderRadius: string
+  inputStyle: React.CSSProperties
+  error?: boolean
+}
+
+function DropdownWithAutocomplete({
+  choices,
+  value,
+  onChange,
+  placeholder,
+  themeProps,
+  inputBorderRadius,
+  inputStyle,
+  error,
+}: DropdownWithAutocompleteProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Trouver le label correspondant à la valeur actuelle
+  const selectedChoice = choices.find((c) => c.value === value)
+  const displayValue = selectedChoice ? selectedChoice.label : value
+
+  // Initialiser searchTerm avec displayValue quand value change
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm(displayValue)
+    }
+  }, [displayValue, isOpen])
+
+  // Filtrer les choix selon le terme de recherche
+  const filteredChoices = choices.filter((choice) =>
+    choice.label.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  // Vérifier si la saisie correspond exactement à une option
+  const exactMatch = choices.find(
+    (c) => c.label.toLowerCase() === searchTerm.toLowerCase()
+  )
+
+  // Fermer la liste quand on clique en dehors
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+        // Si pas de sélection valide, garder la valeur saisie
+        if (searchTerm && !selectedChoice) {
+          onChange(searchTerm)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [searchTerm, selectedChoice, onChange])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setSearchTerm(newValue)
+    setIsOpen(true)
+    setHighlightedIndex(-1)
+    
+    // Mettre à jour la valeur en temps réel pour les saisies libres
+    if (newValue) {
+      const match = choices.find(
+        (c) => c.label.toLowerCase() === newValue.toLowerCase()
+      )
+      if (match) {
+        onChange(match.value)
+      } else {
+        onChange(newValue) // Saisie libre
+      }
+    } else {
+      onChange('')
+    }
+  }
+
+  const handleSelect = (choice: { label: string; value: string }) => {
+    setSearchTerm(choice.label)
+    onChange(choice.value)
+    setIsOpen(false)
+    inputRef.current?.blur()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        setIsOpen(true)
+        e.preventDefault()
+      }
+      return
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setHighlightedIndex((prev) =>
+          prev < filteredChoices.length - 1 ? prev + 1 : prev
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev))
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (highlightedIndex >= 0 && filteredChoices[highlightedIndex]) {
+          handleSelect(filteredChoices[highlightedIndex])
+        } else if (searchTerm) {
+          // Valider la saisie libre
+          setIsOpen(false)
+          if (!exactMatch) {
+            onChange(searchTerm)
+          }
+        }
+        break
+      case 'Escape':
+        setIsOpen(false)
+        break
+    }
+  }
+
+  return (
+    <div className="mt-4 relative" ref={containerRef}>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          autoComplete="off"
+          className="w-full bg-transparent border-2 py-3 px-4 pr-10 text-lg outline-none transition-colors"
+          style={{
+            color: themeProps.answersColor,
+            borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+            borderRadius: inputBorderRadius,
+            fontSize: '16px',
+            ...inputStyle,
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setIsOpen(!isOpen)
+            if (!isOpen) inputRef.current?.focus()
+          }}
+          className="absolute right-3 top-1/2 -translate-y-1/2"
+          style={{ color: themeProps.answersColor }}
+        >
+          <ChevronDown
+            className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            size={20}
+          />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div
+          className="absolute z-50 w-full mt-1 max-h-60 overflow-auto border-2 shadow-lg"
+          style={{
+            backgroundColor: themeProps.backgroundColor || '#fff',
+            borderColor: themeProps.buttonsBgColor + '40',
+            borderRadius: inputBorderRadius,
+          }}
+        >
+          {filteredChoices.length > 0 ? (
+            filteredChoices.map((choice, index) => (
+              <button
+                key={choice.id || choice.value}
+                type="button"
+                onClick={() => handleSelect(choice)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                className="w-full text-left px-4 py-3 transition-colors"
+                style={{
+                  color: themeProps.answersColor,
+                  backgroundColor:
+                    highlightedIndex === index
+                      ? themeProps.buttonsBgColor + '20'
+                      : value === choice.value
+                      ? themeProps.buttonsBgColor + '10'
+                      : 'transparent',
+                }}
+              >
+                {choice.label}
+                {value === choice.value && (
+                  <Check className="inline-block ml-2 w-4 h-4" />
+                )}
+              </button>
+            ))
+          ) : searchTerm ? (
+            <div
+              className="px-4 py-3 text-sm"
+              style={{ color: themeProps.answersColor + '80' }}
+            >
+              Aucune option trouvée. Votre réponse "{searchTerm}" sera enregistrée.
+            </div>
+          ) : (
+            <div
+              className="px-4 py-3 text-sm"
+              style={{ color: themeProps.answersColor + '80' }}
+            >
+              Aucune option disponible
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface PublicFormClientProps {
@@ -1059,6 +1281,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
               allBlocks={form.blocks}
               inputStyle={inputStyle}
               buttonBorderRadius={buttonBorderRadius}
+              inputBorderRadius={inputBorderRadius}
               logic={form.logic}
             />
           ) : currentBlock ? (
@@ -1303,6 +1526,30 @@ function QuestionBlock({
 
       case 'dropdown':
         const dropdownChoicesMain = block.attributes.choices || []
+        const allowCustomValueMain = block.attributes.allowCustomValue || false
+        
+        if (allowCustomValueMain) {
+          // Mode autocomplétion avec possibilité de saisie libre
+          return (
+            <DropdownWithAutocomplete
+              choices={dropdownChoicesMain}
+              value={answer || ''}
+              onChange={(value) => {
+                onAnswer(value)
+                if (value) {
+                  setTimeout(() => onNext(true), 300)
+                }
+              }}
+              placeholder={block.attributes.placeholder || 'Sélectionnez ou saisissez une option...'}
+              themeProps={themeProps}
+              inputBorderRadius={inputBorderRadius}
+              inputStyle={inputStyle}
+              error={!!error}
+            />
+          )
+        }
+        
+        // Mode select classique (liste fermée)
         return (
           <div className="mt-4 relative">
             <select
@@ -1982,6 +2229,7 @@ interface GroupBlockProps {
   allBlocks: FormBlock[]
   inputStyle?: React.CSSProperties
   buttonBorderRadius?: string
+  inputBorderRadius?: string
   logic?: BlockLogic[]
 }
 
@@ -2000,6 +2248,7 @@ function GroupBlock({
   allBlocks,
   inputStyle = {},
   buttonBorderRadius = '8px',
+  inputBorderRadius = '8px',
   logic = [],
 }: GroupBlockProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -2186,6 +2435,23 @@ function GroupBlock({
 
       case 'dropdown':
         const dropdownChoices = innerBlock.attributes.choices || []
+        const allowCustomValueGroup = innerBlock.attributes.allowCustomValue || false
+        
+        if (allowCustomValueGroup) {
+          return (
+            <DropdownWithAutocomplete
+              choices={dropdownChoices}
+              value={value || ''}
+              onChange={handleChange}
+              placeholder={innerBlock.attributes.placeholder || 'Sélectionnez ou saisissez...'}
+              themeProps={themeProps}
+              inputBorderRadius={inputBorderRadius}
+              inputStyle={inputStyle}
+              error={false}
+            />
+          )
+        }
+        
         return (
           <select
             value={value || ''}
@@ -3046,6 +3312,28 @@ function InnerBlockInput({
 
     case 'dropdown':
       const innerDropdownChoices = block.attributes.choices || []
+      const allowCustomValueInner = block.attributes.allowCustomValue || false
+      
+      if (allowCustomValueInner) {
+        return (
+          <DropdownWithAutocomplete
+            choices={innerDropdownChoices}
+            value={answer || ''}
+            onChange={(value) => {
+              onAnswer(value)
+              if (value) {
+                setTimeout(() => onNext(true), 300)
+              }
+            }}
+            placeholder={block.attributes.placeholder || 'Sélectionnez ou saisissez une option...'}
+            themeProps={themeProps}
+            inputBorderRadius={buttonBorderRadius}
+            inputStyle={inputStyle}
+            error={!!error}
+          />
+        )
+      }
+      
       return (
         <div className="mt-4 relative">
           <select

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { DndContext, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -213,6 +213,7 @@ export function SortableBlock({
   onSelectInnerBlock,
 }: SortableBlockProps) {
   const { duplicateBlock, removeBlock, removeBlockFromGroup, reorderInnerBlocks, updateBlock } = useFormBuilder()
+  const [isCollapsed, setIsCollapsed] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -330,6 +331,22 @@ export function SortableBlock({
               </div>
             </div>
 
+            {/* Collapse toggle for groups and repeaters */}
+            {(isGroup || isRepeater) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 text-gray-400 hover:text-gray-600"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsCollapsed(!isCollapsed)
+                }}
+                title={isCollapsed ? 'Développer' : 'Réduire'}
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
+              </Button>
+            )}
+
             {/* Actions */}
             <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
@@ -359,9 +376,9 @@ export function SortableBlock({
             </div>
           </div>
         </div>
-        
-        {/* Sub-blocks for groups - always visible when it's a group */}
-        {isGroup && block.innerBlocks && block.innerBlocks.length > 0 && (
+
+        {/* Sub-blocks for groups - collapsible */}
+        {!isCollapsed && isGroup && block.innerBlocks && block.innerBlocks.length > 0 && (
           <div className="ml-4 mt-1 space-y-1.5 border-l-2 border-sky-200 pl-2">
             <DndContext
               sensors={sensors}
@@ -392,7 +409,7 @@ export function SortableBlock({
         )}
 
         {/* Empty drop zone for groups */}
-        {isGroup && (!block.innerBlocks || block.innerBlocks.length === 0) && (
+        {!isCollapsed && isGroup && (!block.innerBlocks || block.innerBlocks.length === 0) && (
           <div className={`ml-4 mt-1 border-l-2 border-sky-200 pl-2 ${isDropTarget ? 'border-sky-500' : ''}`}>
             <div className={`text-xs text-center py-2 px-2 rounded border-2 border-dashed ${isDropTarget ? 'border-sky-500 bg-sky-50 text-sky-600' : 'border-gray-200 text-gray-400'}`}>
               {isDropTarget ? 'Déposer ici' : 'Glissez des blocs ici'}
@@ -400,8 +417,8 @@ export function SortableBlock({
           </div>
         )}
         
-        {/* Sub-blocks for repeater - always visible when it's a repeater */}
-        {isRepeater && block.innerBlocks && block.innerBlocks.length > 0 && (
+        {/* Sub-blocks for repeater - collapsible */}
+        {!isCollapsed && isRepeater && block.innerBlocks && block.innerBlocks.length > 0 && (
           <div className="ml-4 mt-1 space-y-1.5 border-l-2 border-orange-200 pl-2">
             <DndContext
               sensors={sensors}
@@ -433,7 +450,7 @@ export function SortableBlock({
         )}
 
         {/* Empty drop zone for repeaters */}
-        {isRepeater && (!block.innerBlocks || block.innerBlocks.length === 0) && (
+        {!isCollapsed && isRepeater && (!block.innerBlocks || block.innerBlocks.length === 0) && (
           <div className={`ml-4 mt-1 border-l-2 border-orange-200 pl-2 ${isDropTarget ? 'border-orange-500' : ''}`}>
             <div className={`text-xs text-center py-2 px-2 rounded border-2 border-dashed ${isDropTarget ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-200 text-gray-400'}`}>
               {isDropTarget ? 'Déposer ici' : 'Glissez des blocs ici'}

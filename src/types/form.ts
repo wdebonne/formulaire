@@ -98,6 +98,8 @@ export interface BlockAttributes {
   // Attributs pour l'écran de remerciement (thankyou-screen)
   showRestartButton?: boolean // Afficher un bouton "Recommencer" pour relancer le formulaire
   restartButtonText?: string // Texte du bouton de recommencement
+  // Attributs pour le bloc Texte Court
+  textTransform?: 'none' | 'uppercase' | 'capitalize' // Formatage automatique de la réponse
 }
 
 export interface FormBlock {

@@ -1571,7 +1571,22 @@ function QuestionBlock({
             type={block.type === 'email' ? 'email' : block.type === 'number' ? 'number' : 'text'}
             placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
             value={answer || ''}
-            onChange={(e) => onAnswer(e.target.value)}
+            onChange={(e) => {
+              if (block.type === 'short-text') {
+                const transform = block.attributes.textTransform || 'none'
+                if (transform === 'uppercase') {
+                  onAnswer(e.target.value.toUpperCase())
+                } else if (transform === 'capitalize') {
+                  onAnswer(
+                    e.target.value.toLowerCase().replace(/(^|[\s-])\S/g, (c) => c.toUpperCase())
+                  )
+                } else {
+                  onAnswer(e.target.value)
+                }
+              } else {
+                onAnswer(e.target.value)
+              }
+            }}
             autoFocus
             className="mt-4 w-full bg-transparent border-2 py-3 px-4 text-base sm:text-lg outline-none transition-colors focus:border-opacity-100"
             style={{

@@ -184,6 +184,25 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Text transform (short-text only) */}
+      {block.type === 'short-text' && (
+        <div className="space-y-2">
+          <Label htmlFor="textTransform">Formatage de la réponse</Label>
+          <select
+            id="textTransform"
+            value={block.attributes.textTransform || 'none'}
+            onChange={(e) =>
+              updateAttribute('textTransform', e.target.value as 'none' | 'uppercase' | 'capitalize')
+            }
+            className="w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="none">Aucun (tel quel)</option>
+            <option value="uppercase">MAJUSCULES — ex : MARTIN, DA SILVA</option>
+            <option value="capitalize">Première lettre — ex : Martin, Jean-Marie</option>
+          </select>
+        </div>
+      )}
+
       {/* Required toggle */}
       {!['welcome-screen', 'thankyou-screen', 'statement'].includes(block.type) && (
         <div className="flex items-center justify-between">

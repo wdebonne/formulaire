@@ -12,11 +12,16 @@ export async function POST(request: NextRequest) {
 
     const importData = await request.json()
 
-    if (!importData.form) {
+    // Support both { form: {...} } (current format) and direct form object (legacy)
+    let formData
+    if (importData.form && typeof importData.form === 'object') {
+      formData = importData.form
+    } else if (importData.title || importData.blocks) {
+      formData = importData
+    } else {
+      console.error('Import: invalid format received, keys:', Object.keys(importData || {}))
       return NextResponse.json({ error: 'Format d\'import invalide' }, { status: 400 })
     }
-
-    const { form: formData } = importData
 
     // Generate unique slug
     let slug = generateSlug(formData.title || 'Formulaire importé')

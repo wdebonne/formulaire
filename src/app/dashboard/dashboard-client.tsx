@@ -175,7 +175,7 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `form-${data.slug}.json`
+      a.download = `form-${data.form?.slug || 'export'}.json`
       a.click()
       URL.revokeObjectURL(url)
 

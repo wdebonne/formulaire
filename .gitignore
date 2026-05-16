@@ -1,0 +1,46 @@
+# .gitignore
+# Node
+node_modules/
+.next/
+dist/
+.env
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# Build
+out/
+coverage/
+
+# Test
+*.test.ts.snap
+
+# Others
+*.local
+*.cache
+
+# Claude Code
+.claude/
+
+# Dependency directories
+yarn.lock
+package-lock.json
+pnpm-lock.yaml

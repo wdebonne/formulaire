@@ -1,0 +1,41 @@
+version: '3.8'
+
+# Configuration pour processeurs AMD64 (Intel/AMD x86_64)
+# Utilisez cette configuration sur les serveurs classiques
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    container_name: formbuilder
+    ports:
+      - "3110:3000"
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - APP_URL=${APP_URL:-http://localhost:3110}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@formbuilder.local}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-FormBuilder}
+    volumes:
+      - sqlite-data:/app/prisma
+      - uploads-data:/app/public/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  sqlite-data:
+    driver: local
+  uploads-data:
+    driver: local

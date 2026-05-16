@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String      @id @default(uuid())
+  email            String      @unique
+  password         String
+  name             String?
+  role             String      @default("user")
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  forms            Form[]
+  sharedForms      FormShare[]
+  themes           Theme[]
+}
+
+model Form {
+  id          String      @id @default(uuid())
+  title       String
+  slug        String      @unique
+  description String?
+  status      String      @default("draft")
+  blocks      String      @default("[]")
+  logic       String      @default("[]")
+  settings    String      @default("{}")
+  webhooks    String      @default("[]")
+  themeId     String?
+  userId      String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme       Theme?      @relation(fields: [themeId], references: [id])
+  shares      FormShare[]
+  responses   Response[]
+
+  @@index([userId])
+  @@index([slug])
+}
+
+model FormShare {
+  id         String   @id @default(uuid())
+  formId     String
+  userId     String
+  permission String   @default("view")
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  form       Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, userId])
+  @@index([formId])
+  @@index([userId])
+}
+
+model Theme {
+  id         String   @id @default(uuid())
+  name       String
+  properties String   @default("{}")
+  isDefault  Boolean  @default(false)
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  forms      Form[]
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Response {
+  id            String   @id @default(uuid())
+  formId        String
+  data          String   @default("{}")
+  status        String   @default("completed")
+  metadata      String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  webhookStatus String?  @default("{}")
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+}
+
+model SystemSettings {
+  id                  String   @id @default("system")
+  siteName            String   @default("FormBuilder")
+  siteLogo            String?
+  siteFavicon         String?
+  smtpHost            String?
+  smtpPort            Int      @default(587)
+  smtpUser            String?
+  smtpPass            String?
+  smtpFrom            String?
+  smtpSecure          Boolean  @default(false)
+  registrationEnabled Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+  smtpFromName        String?
+}
+
+model EmailTemplate {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  subject     String
+  htmlContent String
+  variables   String   @default("[]")
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Font {
+  id        String   @id @default(uuid())
+  name      String
+  family    String   @unique
+  source    String   @default("google")
+  url       String?
+  weights   String   @default("[400,700]")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

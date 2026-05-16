@@ -405,7 +405,6 @@ function AddressAutocomplete({
   const handleSelect = (feature: AddressFeature) => {
     const label = feature.properties.label
     onChange(label)
-    onSelect?.(label)
     setSuggestions([])
     setIsOpen(false)
   }
@@ -1815,7 +1814,7 @@ function QuestionBlock({
           <AddressAutocomplete
             value={answer || ''}
             onChange={onAnswer}
-            onSelect={(val) => { onAnswer(val); onNext() }}
+            onSelect={() => onNext()}
             placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius}
@@ -3538,7 +3537,7 @@ function InnerBlockInput({
         <AddressAutocomplete
           value={answer || ''}
           onChange={onAnswer}
-          onSelect={(val) => { onAnswer(val); onNext() }}
+          onSelect={() => onNext()}
           placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
           themeProps={themeProps}
           inputBorderRadius={buttonBorderRadius}

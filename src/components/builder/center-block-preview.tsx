@@ -1248,6 +1248,26 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
         {/* Rendu spécial pour les groupes */}
         {block.type === 'group' ? (
           <div className="space-y-8">
+            {/* Titre du groupe */}
+            {!block.attributes.hideLabel && (
+              <div>
+                <h1
+                  className="text-3xl md:text-4xl font-semibold leading-tight"
+                  style={{ color: themeProps.questionsColor }}
+                >
+                  {block.attributes.label || 'Groupe sans titre'}
+                </h1>
+                {block.attributes.description && (
+                  <p
+                    className="mt-3 text-lg leading-relaxed opacity-80"
+                    style={{ color: themeProps.answersColor }}
+                  >
+                    {block.attributes.description}
+                  </p>
+                )}
+              </div>
+            )}
+
             {block.innerBlocks?.map((innerBlock, innerIdx) => (
               <div key={innerBlock.id} className="pb-6 border-b border-gray-200/30 last:border-0">
                 {/* Question number for inner block */}

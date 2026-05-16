@@ -4,6 +4,13 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 
 ## 🆕 Nouveautés (Mai 2026)
 
+### 🗑️ Corbeille des formulaires (NOUVEAU)
+- La suppression d'un formulaire est désormais un **soft delete** : le formulaire disparaît du tableau de bord sans être définitivement effacé
+- Les administrateurs accèdent à la corbeille depuis le panneau d'administration (`/admin/trash`)
+- **Restaurer** un formulaire avec possibilité de le réassigner à un autre utilisateur
+- **Supprimer définitivement** avec confirmation et avertissement sur les réponses
+- Les droits admin permettent désormais de supprimer les formulaires de n'importe quel utilisateur
+
 ### Nouveau bloc Adresse
 - Autocomplétion en temps réel via l'API Adresse officielle (Base Adresse Nationale)
 - Saisie libre possible si l'adresse n'est pas trouvée
@@ -120,6 +127,24 @@ Voir le bloc "Heure" dans l'éditeur pour toutes les options.
 - **Shortcode** : Code personnalisable pour intégration
 - **Embed** : Code iframe pour sites externes
 - **QR Code** : Code QR téléchargeable
+
+## 🗑️ Corbeille des formulaires (NOUVEAU)
+
+Lorsqu'un utilisateur supprime un formulaire, celui-ci est placé dans la **corbeille** plutôt que d'être effacé immédiatement.
+
+### Pour les utilisateurs
+- Le formulaire disparaît du tableau de bord
+- Un message informe que le formulaire peut être restauré par un administrateur
+
+### Pour les administrateurs
+La section **Corbeille** dans le panneau d'administration (`/admin/trash`) permet de :
+
+| Action | Description |
+|--------|-------------|
+| **Restaurer** | Remet le formulaire en ligne pour son propriétaire d'origine ou un autre utilisateur au choix |
+| **Supprimer définitivement** | Efface le formulaire et toutes ses réponses de façon irréversible |
+
+> Les formulaires en corbeille n'apparaissent pas dans le dashboard des utilisateurs ni dans les listes admin du tableau de bord.
 
 ## 📊 Sélecteur de colonnes (NOUVEAU)
 

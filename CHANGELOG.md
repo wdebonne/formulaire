@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-05-16 (soir)
+
+### Ajouts
+- **Corbeille des formulaires** :
+  - La suppression d'un formulaire est désormais un **soft delete** : le formulaire disparaît du tableau de bord de l'utilisateur mais n'est pas réellement effacé
+  - Nouveau champ `deletedAt` sur le modèle `Form` en base de données
+  - Nouvelle section **Corbeille** dans le panneau d'administration (`/admin/trash`) :
+    - Liste de tous les formulaires supprimés avec propriétaire d'origine, date de suppression et nombre de réponses
+    - Bouton **Restaurer** : remet le formulaire en ligne, avec possibilité de le réassigner à un autre utilisateur via un sélecteur
+    - Bouton **Supprimer définitivement** : suppression réelle avec confirmation et avertissement sur les réponses associées
+  - Les formulaires en corbeille n'apparaissent plus dans le dashboard ni dans les listes API (ni pour l'utilisateur, ni pour les admins dans le dashboard)
+
+### Corrections
+- **Droits admin — suppression de formulaire** : Un administrateur système ne pouvait pas supprimer un formulaire appartenant à un autre utilisateur. La vérification utilisait un `findFirst({ userId })` direct au lieu de `checkFormAccess()` qui gère le rôle admin
+- **Import — formats et nom de fichier d'exportation** : Amélioration de la gestion des formats d'importation et correction du nom de fichier généré lors de l'export
+
+---
+
 ## 2026-05-16
 
 ### Ajouts

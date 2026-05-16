@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { form, hasAccess } = await checkFormAccess(params.id, session.userId, ['view', 'edit', 'admin'])
 
-    if (!hasAccess || !form) {
+    if (!hasAccess || !form || form.deletedAt) {
       return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
     }
 
@@ -122,7 +122,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE form (seul le propriétaire peut supprimer)
+// DELETE form — soft delete (propriétaire ou admin système)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getSession()
@@ -130,16 +130,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
 
-    // Seul le propriétaire peut supprimer
-    const form = await prisma.form.findFirst({
-      where: { id: params.id, userId: session.userId }
-    })
+    const { form, hasAccess, permission } = await checkFormAccess(params.id, session.userId)
 
-    if (!form) {
+    if (!hasAccess || !form || (permission !== 'owner' && permission !== 'admin')) {
       return NextResponse.json({ error: 'Formulaire non trouvé ou accès refusé' }, { status: 404 })
     }
 
-    await prisma.form.delete({ where: { id: params.id } })
+    await prisma.form.update({
+      where: { id: params.id },
+      data: { deletedAt: new Date() }
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

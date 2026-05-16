@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
   Type,
+  Trash2,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -66,6 +67,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: Settings,
       href: '/admin/general',
       color: 'bg-gray-500',
+    },
+    {
+      title: 'Corbeille',
+      description: 'Restaurer ou supprimer définitivement les formulaires supprimés',
+      icon: Trash2,
+      href: '/admin/trash',
+      color: 'bg-red-500',
     },
   ]
 

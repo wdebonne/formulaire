@@ -139,7 +139,7 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
   }
 
   const handleDeleteForm = async (formId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce formulaire ?')) return
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce formulaire ? Il sera placé dans la corbeille.')) return
 
     try {
       const res = await fetch(`/api/forms/${formId}`, {
@@ -154,8 +154,8 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
       setForms(forms.filter((f) => f.id !== formId))
 
       toast({
-        title: 'Formulaire supprimé',
-        description: 'Le formulaire a été supprimé avec succès',
+        title: 'Formulaire déplacé dans la corbeille',
+        description: 'Un administrateur peut le restaurer si nécessaire.',
       })
     } catch (error: any) {
       toast({

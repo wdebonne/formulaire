@@ -20,8 +20,9 @@ export async function GET() {
     let forms
 
     if (user?.role === 'admin') {
-      // Les admins voient tous les formulaires
+      // Les admins voient tous les formulaires non supprimés
       forms = await prisma.form.findMany({
+        where: { deletedAt: null },
         orderBy: { updatedAt: 'desc' },
         include: {
           _count: {
@@ -35,9 +36,9 @@ export async function GET() {
     } else {
       // Les utilisateurs voient leurs formulaires + ceux partagés avec eux
       const [ownForms, sharedForms] = await Promise.all([
-        // Formulaires propres
+        // Formulaires propres non supprimés
         prisma.form.findMany({
-          where: { userId: session.userId },
+          where: { userId: session.userId, deletedAt: null },
           orderBy: { updatedAt: 'desc' },
           include: {
             _count: {
@@ -48,9 +49,9 @@ export async function GET() {
             }
           }
         }),
-        // Formulaires partagés
+        // Formulaires partagés non supprimés
         prisma.formShare.findMany({
-          where: { userId: session.userId },
+          where: { userId: session.userId, form: { deletedAt: null } },
           include: {
             form: {
               include: {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Button } from '@/components/ui/button'
@@ -136,6 +136,58 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
 
   const [isPublishing, setIsPublishing] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
+  const [leftWidth, setLeftWidth] = useState(256)
+  const [rightWidth, setRightWidth] = useState(320)
+  const isResizingLeft = useRef(false)
+  const isResizingRight = useRef(false)
+
+  const handleLeftResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizingLeft.current = true
+    const startX = e.clientX
+    const startWidth = leftWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizingLeft.current) return
+      const newWidth = Math.min(Math.max(startWidth + ev.clientX - startX, 160), 480)
+      setLeftWidth(newWidth)
+    }
+    const onMouseUp = () => {
+      isResizingLeft.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [leftWidth])
+
+  const handleRightResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizingRight.current = true
+    const startX = e.clientX
+    const startWidth = rightWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isResizingRight.current) return
+      const newWidth = Math.min(Math.max(startWidth + startX - ev.clientX, 240), 560)
+      setRightWidth(newWidth)
+    }
+    const onMouseUp = () => {
+      isResizingRight.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }, [rightWidth])
   
   const handleTogglePublish = useCallback(async () => {
     setIsPublishing(true)
@@ -301,19 +353,35 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left panel - Blocks list */}
-        <div className="w-64 bg-white border-r overflow-auto p-3">
+        <div className="bg-white border-r overflow-auto p-3 shrink-0" style={{ width: leftWidth }}>
           <BlocksList />
         </div>
 
+        {/* Left resize handle */}
+        <div
+          className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40 transition-colors relative group"
+          onMouseDown={handleLeftResizeStart}
+        >
+          <div className="absolute inset-y-0 left-0 w-px bg-gray-200 group-hover:bg-primary/40 transition-colors" />
+        </div>
+
         {/* Center - Block Preview */}
-        <CenterBlockPreview 
-          block={selectedBlock || null} 
+        <CenterBlockPreview
+          block={selectedBlock || null}
           theme={themes.find(t => t.id === themeId) || null}
           blockIndex={selectedBlockIndex}
         />
 
+        {/* Right resize handle */}
+        <div
+          className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40 transition-colors relative group"
+          onMouseDown={handleRightResizeStart}
+        >
+          <div className="absolute inset-y-0 left-0 w-px bg-gray-200 group-hover:bg-primary/40 transition-colors" />
+        </div>
+
         {/* Right panel */}
-        <div className="w-80 bg-white border-l flex flex-col">
+        <div className="bg-white border-l flex flex-col shrink-0" style={{ width: rightWidth }}>
           {/* Panel tabs */}
           <div className="flex border-b shrink-0">
             <button

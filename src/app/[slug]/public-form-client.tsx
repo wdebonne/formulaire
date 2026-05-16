@@ -459,6 +459,17 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       }
     })
 
+    // Si TOUS les innerBlocks d'un groupe/répéteur sont masqués,
+    // masquer aussi le groupe lui-même pour éviter une page vide.
+    questionBlocks.forEach((block) => {
+      if ((block.type === 'group' || block.type === 'repeater') && block.innerBlocks?.length) {
+        const allInnerHidden = block.innerBlocks.every((inner) => hiddenBlockIds.has(inner.id))
+        if (allInnerHidden) {
+          hiddenBlockIds.add(block.id)
+        }
+      }
+    })
+
     const visible = questionBlocks.filter((b) => !hiddenBlockIds.has(b.id))
     visibleBlocksRef.current = visible
     setVisibleBlocks(visible)
@@ -2326,23 +2337,25 @@ function GroupBlock({
         }
       }
 
+      const hasAnswer = answer !== undefined && answer !== null && answer !== ''
+
       switch (condition.operator) {
         case 'equals':
-          return answer === value
+          return hasAnswer && answer === value
         case 'not_equals':
-          return answer !== value
+          return hasAnswer && answer !== value
         case 'contains':
-          return String(answer || '').includes(String(value))
+          return hasAnswer && String(answer).includes(String(value))
         case 'not_contains':
-          return !String(answer || '').includes(String(value))
+          return hasAnswer && !String(answer).includes(String(value))
         case 'greater_than':
-          return Number(answer) > Number(value)
+          return hasAnswer && Number(answer) > Number(value)
         case 'less_than':
-          return Number(answer) < Number(value)
+          return hasAnswer && Number(answer) < Number(value)
         case 'is_empty':
           return !answer || answer === '' || (Array.isArray(answer) && answer.length === 0)
         case 'is_not_empty':
-          return answer && answer !== '' && (!Array.isArray(answer) || answer.length > 0)
+          return !!(answer && answer !== '' && (!Array.isArray(answer) || answer.length > 0))
         default:
           return false
       }

@@ -775,8 +775,9 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
                   id="initialQuestion"
                   value={block.attributes.initialQuestion || ''}
                   onChange={(e) => {
-                    updateAttribute('initialQuestion', e.target.value)
-                    updateAttribute('label', e.target.value)
+                    updateBlock(block.id, {
+                      attributes: { ...block.attributes, initialQuestion: e.target.value, label: e.target.value },
+                    })
                   }}
                   placeholder="Avez-vous des éléments à ajouter ?"
                 />

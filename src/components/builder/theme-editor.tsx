@@ -246,6 +246,12 @@ export function ThemeEditor({ themes: initialThemes, onThemeChange }: ThemeEdito
       if (!res.ok) throw new Error()
 
       setThemes(themes.map((t) => (t.id === editingTheme.id ? editingTheme : t)))
+
+      // Notifier le parent pour que CenterBlockPreview reflète le thème sauvegardé
+      if (onThemeChange) {
+        onThemeChange(editingTheme)
+      }
+
       setEditingTheme(null)
 
       toast({
@@ -267,8 +273,8 @@ export function ThemeEditor({ themes: initialThemes, onThemeChange }: ThemeEdito
       properties: { ...editingTheme.properties, [property]: value },
     }
     setEditingTheme(updatedTheme)
-    // Notifier le parent pour le live preview
-    if (onThemeChange && editingTheme.id === themeId) {
+    // Notifier le parent pour le live preview (toujours, le thème édité est toujours le sélectionné)
+    if (onThemeChange) {
       onThemeChange(updatedTheme)
     }
   }
@@ -752,6 +758,8 @@ export function ThemeEditor({ themes: initialThemes, onThemeChange }: ThemeEdito
               <button
                 onClick={(e) => {
                   e.stopPropagation()
+                  // S'assurer que le thème édité est aussi le thème actif (pour le live preview)
+                  setTheme(theme.id)
                   setEditingTheme(theme)
                 }}
                 className="text-xs text-primary hover:underline"

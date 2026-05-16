@@ -2,25 +2,29 @@
 
 Un créateur de formulaires autonome avec éditeur visuel, logique conditionnelle, webhooks et personnalisation avancée des thèmes.
 
-## 🆕 Nouveautés (Janvier 2026)
+## 🆕 Nouveautés (Mai 2026)
 
-### Interface redessinée
-- **Dashboard moderne** : Cartes de statistiques, effets glassmorphism, animations fluides
-- **Page Réponses améliorée** : Statistiques visuelles, tableau élégant, pagination intuitive
-- **Sélecteur de colonnes** : Choisissez quelles colonnes afficher dans le tableau des réponses
+### Nouveau bloc Adresse
+- Autocomplétion en temps réel via l'API Adresse officielle (Base Adresse Nationale)
+- Saisie libre possible si l'adresse n'est pas trouvée
+- Compatible groupes et répéteurs
 
-### Partage et collaboration
-- **3 niveaux de permissions** : Lecture, Édition, Administrateur
-- **Autocomplete pour le partage** : Recherche d'utilisateurs avec suggestions
-- **Accès partagé** : Les utilisateurs partagés peuvent accéder au builder et aux réponses selon leurs droits
+### Webhooks améliorés
+- **Vue agrandie** : modal plein écran avec configuration et mapping côte à côte
+- **Valeur personnalisée** : templates avec champs `{field:id}`, dates, heures et identifiants
+- **Labels lisibles** : les webhooks envoient désormais les libellés des choix et les dates formatées (plus de valeurs slug ou ISO brutes)
+- **Blocs internes** : les champs dans les groupes et répéteurs sont maintenant accessibles dans le mapping
 
-### Options de partage
-- Lien direct
-- Shortcode personnalisable
-- Code Embed (iframe)
-- QR Code scannable et téléchargeable
+### Logique conditionnelle
+- Correction du saut décalé (race condition sur les indices après mise à jour des blocs visibles)
+- Correction du masquage prématuré au chargement (`not_equals` avec champ vide)
+- Masquage automatique d'un groupe si tous ses blocs internes sont cachés
 
-Consultez le fichier CHANGELOG.md pour le détail complet des évolutions.
+### Autres ajouts
+- **Texte Court** : transformation automatique en majuscules ou initiales pendant la frappe
+- **Écran de remerciement** : bouton "Recommencer" pour soumettre plusieurs fois de suite
+
+Consultez le fichier [CHANGELOG.md](CHANGELOG.md) pour le détail complet des évolutions.
 
 ## ✨ Fonctionnalités
 
@@ -124,15 +128,6 @@ Sur la page des réponses, un bouton **Colonnes** permet de :
 - Afficher toutes les colonnes ou réinitialiser à la vue par défaut
 - La colonne Date est toujours visible
 - Par défaut, les 4 premières questions sont affichées
-- **Niveau Administrateur** : Les utilisateurs avec ce droit peuvent eux-mêmes partager le formulaire
-- **Notification par email** : Les utilisateurs reçoivent un email lors du partage
-
-### Options de partage
-
-- **Lien direct** : URL publique du formulaire
-- **Shortcode** : Code personnalisable pour intégration
-- **Embed** : Code iframe pour sites externes
-- **QR Code** : Code QR téléchargeable
 
 ## 🚀 Installation
 
@@ -186,23 +181,27 @@ Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour dépl
 ## 📦 Types de blocs disponibles
 
 - **Écran d'accueil** - Introduction au formulaire
-- **Texte court** - Champ de saisie simple
+- **Texte court** - Champ de saisie simple (avec transformation optionnelle : majuscules, initiales)
 - **Texte long** - Zone de texte multi-lignes
 - **Email** - Champ email avec validation stricte configurable (format exemple@domaine.fr)
 - **Téléphone** - Champ téléphone avec validation (format standard ou international, nombre de chiffres configurable)
+- **Adresse** - Champ adresse avec autocomplétion (API Adresse / BAN, données officielles françaises)
 - **Nombre** - Champ numérique
 - **Choix multiple** - Sélection unique ou multiple
-- **Menu déroulant** - Liste de choix déroulante
+- **Sélection Image** - Choix illustrés par des images cliquables
+- **Menu déroulant** - Liste de choix avec autocomplétion et option de saisie libre
 - **Date** - Sélecteur de date
-- **Date avancée** - Calendrier visuel avec plage de dates
+- **Date avancée** - Calendrier visuel avec plage de dates et contraintes configurables
 - **Heure** - Sélecteur d'heure ou plage horaire
+- **Téléchargement** - Upload de fichiers
+- **Signature** - Zone de signature tactile/souris
 - **Curseur** - Valeur numérique avec slider
 - **Site web** - URL avec validation
 - **Mention légale** - Case à cocher obligatoire
-- **Déclaration** - Texte informatif
-- **Groupe** - Regroupement de questions
-- **Repeater** - Répétition dynamique de questions
-- **Écran de remerciement** - Page de fin personnalisée
+- **Énoncé** - Texte informatif sans saisie
+- **Groupe** - Regroupement de plusieurs questions sur une même page
+- **Bloc répétable** - Répétition dynamique d'un ensemble de questions
+- **Écran de remerciement** - Page de fin personnalisée (avec bouton "Recommencer" optionnel)
 
 ## 🔧 Configuration
 

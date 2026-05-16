@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026-05-16
+
+### Ajouts
+- **Nouveau bloc Adresse avec autocomplétion** :
+  - Champ de saisie d'adresse avec suggestions en temps réel via l'[API Adresse officielle](https://api-adresse.data.gouv.fr) (Base Adresse Nationale — gratuit, sans clé)
+  - Debounce 300ms pour limiter les appels réseau
+  - Navigation clavier dans les suggestions (↑↓ Entrée Échap)
+  - Sélection d'une suggestion → remplit l'adresse complète dans le champ
+  - Saisie libre toujours possible si l'adresse n'est pas trouvée par l'API
+  - Placeholder configurable dans l'éditeur
+  - Disponible dans les blocs simples, groupes et répéteurs
+- **Transformation automatique du texte (bloc Texte Court)** :
+  - Nouvelle option "Formatage de la réponse" dans l'éditeur : Aucun / MAJUSCULES / Première lettre
+  - Appliqué en temps réel pendant la frappe dans le formulaire public
+  - Utile pour standardiser la saisie (nom de famille en majuscules, etc.)
+- **Bouton "Recommencer" sur l'écran de remerciement** :
+  - Toggle activable dans les propriétés du bloc écran de fin
+  - Texte du bouton personnalisable (défaut : "Recommencer")
+  - Réinitialise complètement le formulaire (réponses, index, état des répéteurs) pour une nouvelle soumission
+  - Aperçu en temps réel dans l'éditeur
+- **Webhooks — Vue agrandie** :
+  - Bouton "Agrandir" dans l'en-tête de chaque webhook
+  - Modal plein écran avec 2 colonnes : configuration à gauche, mapping à droite
+  - Les blocs internes des groupes et répéteurs sont disponibles dans le sélecteur de champs
+- **Webhooks — Valeur personnalisée dans le mapping** :
+  - Nouveau type de valeur `_custom` avec un éditeur de template
+  - Insertion de champs via `{field:blockId}`, dates `{date:dd-MM-YYYY}`, heures `{time:HH-mm-ss}` et identifiants `{entry_id}`, `{form_id}`
+  - Aperçu en temps réel de la valeur résolue
+
+### Corrections
+- **Logique conditionnelle — Saut (jump) décalé** : Le saut vers un bloc cible utilisait l'index calculé au moment du clic, mais le `setTimeout(300ms)` se déclenchait après que `setAnswers` avait mis à jour `visibleBlocks` (indices décalés si un bloc était caché). Corrigé via une `ref` toujours synchronisée avec les blocs visibles
+- **Logique conditionnelle — Masquage prématuré** : L'opérateur `not_equals` avec une réponse `undefined` évaluait `undefined !== 'X' = true`, cachant les blocs dès le chargement avant toute interaction. Tous les opérateurs (sauf `is_empty` / `is_not_empty`) retournent désormais `false` si la réponse est absente
+- **Logique conditionnelle — Groupe masqué automatiquement** : Si tous les blocs internes d'un groupe sont cachés par la logique, le groupe lui-même est maintenant automatiquement masqué (évite l'affichage d'une page vide)
+- **Webhooks — TypeError sur blocs internes** : Le mapping webhook vers un bloc interne d'un groupe (ex : champ dans un groupe "Départ") retournait `undefined` car `blocks.find()` ne cherchait qu'au premier niveau. Ajout d'un `findBlockDeep()` qui cherche récursivement dans les `innerBlocks`
+- **Webhooks — Labels et dates formatés** : Les webhooks envoyaient les valeurs brutes (`peugeot-expert-2-(fn-492-fa)`, `2026-05-16`) au lieu des labels lisibles (`PEUGEOT EXPERT 2`, `16/05/2026`). Corrigé pour tous les contextes : mapping explicite, groupes, répéteurs et templates personnalisés
+- **Bloc Adresse — Valeur saisie ignorée lors de la sélection** : Condition de course résolue — quand l'utilisateur cliquait sur une suggestion, `onNext()` était appelé avec une fermeture React périmée sur `answers` (encore le texte tapé). La sélection met maintenant à jour la valeur sans auto-avancer ; l'utilisateur confirme avec OK ou Entrée
+
+---
+
 ## 2026-01-19
 
 ### Corrections

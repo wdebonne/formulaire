@@ -93,6 +93,8 @@ export interface BlockAttributes {
   imageColumns?: 2 | 3 | 4 // Nombre de colonnes pour l'affichage côte à côte
   showImageLabels?: boolean // Afficher les labels sous les images
   imageSize?: 'small' | 'medium' | 'large' // Taille des images
+  // Attributs pour le bloc Choix Multiple
+  allowOtherOption?: boolean // Afficher une option "Autre" avec saisie libre
   // Attributs pour le bloc Dropdown (Liste déroulante)
   allowCustomValue?: boolean // Autoriser les réponses personnalisées (saisie libre)
   customValuePlaceholder?: string // Placeholder pour la saisie personnalisée

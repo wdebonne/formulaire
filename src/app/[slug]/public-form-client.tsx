@@ -1869,6 +1869,15 @@ function QuestionBlock({
       case 'multiple-choice':
         const choices = block.attributes.choices || []
         const allowMultiple = block.attributes.allowMultiple || block.attributes.multiple
+        const allowOtherOption = block.attributes.allowOtherOption
+        const isOtherSelected = allowOtherOption && (allowMultiple
+          ? (answer || []).some((v: string) => typeof v === 'string' && v.startsWith('__other__:'))
+          : typeof answer === 'string' && answer.startsWith('__other__:'))
+        const otherText = isOtherSelected
+          ? allowMultiple
+            ? ((answer || []).find((v: string) => typeof v === 'string' && v.startsWith('__other__:')) as string || '').slice(10)
+            : (answer as string).slice(10)
+          : ''
         return (
           <div className="mt-4 space-y-2 sm:space-y-3">
             {choices.map((choice: any, idx: number) => {
@@ -1917,6 +1926,72 @@ function QuestionBlock({
                 </button>
               )
             })}
+            {allowOtherOption && (
+              <>
+                <button
+                  onClick={() => {
+                    if (allowMultiple) {
+                      const current = answer || []
+                      if (isOtherSelected) {
+                        onAnswer(current.filter((v: string) => !(typeof v === 'string' && v.startsWith('__other__:'))))
+                      } else {
+                        onAnswer([...current, '__other__:'])
+                      }
+                    } else {
+                      if (isOtherSelected) {
+                        onAnswer(null)
+                      } else {
+                        onAnswer('__other__:')
+                      }
+                    }
+                  }}
+                  className="w-full flex items-center px-4 py-3 sm:py-4 rounded-md border-2 transition-all active:scale-[0.98] hover:scale-[1.01]"
+                  style={{
+                    borderColor: isOtherSelected
+                      ? themeProps.buttonsBgColor
+                      : themeProps.answersColor + '30',
+                    backgroundColor: isOtherSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                  }}
+                >
+                  {showLetters && (
+                    <span
+                      className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
+                      style={{
+                        backgroundColor: isOtherSelected
+                          ? themeProps.buttonsBgColor
+                          : themeProps.answersColor + '20',
+                        color: isOtherSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
+                      }}
+                    >
+                      {isOtherSelected ? <Check className="w-4 h-4" /> : letters[choices.length]}
+                    </span>
+                  )}
+                  <span style={{ color: themeProps.answersColor }}>Autre</span>
+                </button>
+                {isOtherSelected && (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={otherText}
+                    onChange={(e) => {
+                      const text = e.target.value
+                      if (allowMultiple) {
+                        const current = (answer || []).filter((v: string) => !(typeof v === 'string' && v.startsWith('__other__:')))
+                        onAnswer([...current, `__other__:${text}`])
+                      } else {
+                        onAnswer(`__other__:${text}`)
+                      }
+                    }}
+                    placeholder="Précisez votre réponse..."
+                    className="w-full px-4 py-2 border-b-2 bg-transparent outline-none text-base transition-colors"
+                    style={{
+                      color: themeProps.answersColor,
+                      borderColor: themeProps.buttonsBgColor,
+                    }}
+                  />
+                )}
+              </>
+            )}
           </div>
         )
 
@@ -2679,7 +2754,16 @@ function GroupBlock({
       case 'multiple-choice':
         const choices = innerBlock.attributes.choices || []
         const allowMultiple = innerBlock.attributes.allowMultiple || innerBlock.attributes.multiple
+        const allowOtherOptionGroup = innerBlock.attributes.allowOtherOption
         const selectedValues = Array.isArray(value) ? value : value ? [value] : []
+        const isOtherSelectedGroup = allowOtherOptionGroup && (allowMultiple
+          ? selectedValues.some((v: string) => typeof v === 'string' && v.startsWith('__other__:'))
+          : typeof value === 'string' && value.startsWith('__other__:'))
+        const otherTextGroup = isOtherSelectedGroup
+          ? allowMultiple
+            ? (selectedValues.find((v: string) => typeof v === 'string' && v.startsWith('__other__:')) as string || '').slice(10)
+            : (value as string).slice(10)
+          : ''
 
         return (
           <div className="space-y-2">
@@ -2725,6 +2809,68 @@ function GroupBlock({
                 </button>
               )
             })}
+            {allowOtherOptionGroup && (
+              <>
+                <button
+                  onClick={() => {
+                    if (allowMultiple) {
+                      if (isOtherSelectedGroup) {
+                        handleChange(selectedValues.filter((v: string) => !(typeof v === 'string' && v.startsWith('__other__:'))))
+                      } else {
+                        handleChange([...selectedValues, '__other__:'])
+                      }
+                    } else {
+                      handleChange(isOtherSelectedGroup ? null : '__other__:')
+                    }
+                  }}
+                  className="w-full flex items-center px-3 py-2 border-2 transition-all hover:scale-[1.01] text-left"
+                  style={{
+                    borderColor: isOtherSelectedGroup
+                      ? themeProps.buttonsBgColor
+                      : themeProps.answersColor + '30',
+                    backgroundColor: isOtherSelectedGroup ? themeProps.buttonsBgColor + '10' : 'transparent',
+                    borderRadius: buttonBorderRadius,
+                  }}
+                >
+                  {showLetters && (
+                    <span
+                      className="w-5 h-5 rounded flex items-center justify-center text-xs font-medium mr-2 shrink-0"
+                      style={{
+                        backgroundColor: isOtherSelectedGroup
+                          ? themeProps.buttonsBgColor
+                          : themeProps.answersColor + '20',
+                        color: isOtherSelectedGroup ? themeProps.buttonsFontColor : themeProps.answersColor,
+                      }}
+                    >
+                      {isOtherSelectedGroup ? <Check className="w-3 h-3" /> : letters[choices.length]}
+                    </span>
+                  )}
+                  <span className="text-sm" style={{ color: themeProps.answersColor }}>Autre</span>
+                </button>
+                {isOtherSelectedGroup && (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={otherTextGroup}
+                    onChange={(e) => {
+                      const text = e.target.value
+                      if (allowMultiple) {
+                        const current = selectedValues.filter((v: string) => !(typeof v === 'string' && v.startsWith('__other__:')))
+                        handleChange([...current, `__other__:${text}`])
+                      } else {
+                        handleChange(`__other__:${text}`)
+                      }
+                    }}
+                    placeholder="Précisez votre réponse..."
+                    className="w-full px-3 py-2 border-b-2 bg-transparent outline-none text-sm transition-colors"
+                    style={{
+                      color: themeProps.answersColor,
+                      borderColor: themeProps.buttonsBgColor,
+                    }}
+                  />
+                )}
+              </>
+            )}
           </div>
         )
 
@@ -3626,6 +3772,15 @@ function InnerBlockInput({
     case 'multiple-choice':
       const innerChoices = block.attributes.choices || []
       const innerAllowMultiple = block.attributes.allowMultiple || block.attributes.multiple
+      const allowOtherOptionInner = block.attributes.allowOtherOption
+      const isOtherSelectedInner = allowOtherOptionInner && (innerAllowMultiple
+        ? (answer || []).some((v: string) => typeof v === 'string' && v.startsWith('__other__:'))
+        : typeof answer === 'string' && answer.startsWith('__other__:'))
+      const otherTextInner = isOtherSelectedInner
+        ? innerAllowMultiple
+          ? ((answer || []).find((v: string) => typeof v === 'string' && v.startsWith('__other__:')) as string || '').slice(10)
+          : (answer as string).slice(10)
+        : ''
       return (
         <div className="mt-4 space-y-2">
           {innerChoices.map((choice: any, idx: number) => {
@@ -3675,6 +3830,73 @@ function InnerBlockInput({
               </button>
             )
           })}
+          {allowOtherOptionInner && (
+            <>
+              <button
+                onClick={() => {
+                  if (innerAllowMultiple) {
+                    const current = answer || []
+                    if (isOtherSelectedInner) {
+                      onAnswer(current.filter((v: string) => !(typeof v === 'string' && v.startsWith('__other__:'))))
+                    } else {
+                      onAnswer([...current, '__other__:'])
+                    }
+                  } else {
+                    if (isOtherSelectedInner) {
+                      onAnswer(null)
+                    } else {
+                      onAnswer('__other__:')
+                    }
+                  }
+                }}
+                className="w-full flex items-center px-4 py-3 border-2 transition-all hover:scale-[1.02]"
+                style={{
+                  borderColor: isOtherSelectedInner
+                    ? themeProps.buttonsBgColor
+                    : themeProps.answersColor + '30',
+                  backgroundColor: isOtherSelectedInner ? themeProps.buttonsBgColor + '10' : 'transparent',
+                  borderRadius: buttonBorderRadius,
+                }}
+              >
+                {showLetters && (
+                  <span
+                    className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
+                    style={{
+                      backgroundColor: isOtherSelectedInner
+                        ? themeProps.buttonsBgColor
+                        : themeProps.answersColor + '20',
+                      color: isOtherSelectedInner ? themeProps.buttonsFontColor : themeProps.answersColor,
+                    }}
+                  >
+                    {isOtherSelectedInner ? <Check className="w-4 h-4" /> : letters[innerChoices.length]}
+                  </span>
+                )}
+                <span style={{ color: themeProps.answersColor }}>Autre</span>
+              </button>
+              {isOtherSelectedInner && (
+                <input
+                  autoFocus
+                  type="text"
+                  value={otherTextInner}
+                  onChange={(e) => {
+                    const text = e.target.value
+                    if (innerAllowMultiple) {
+                      const current = (answer || []).filter((v: string) => !(typeof v === 'string' && v.startsWith('__other__:')))
+                      onAnswer([...current, `__other__:${text}`])
+                    } else {
+                      onAnswer(`__other__:${text}`)
+                    }
+                  }}
+                  placeholder="Précisez votre réponse..."
+                  className="w-full px-4 py-2 border-b-2 bg-transparent outline-none text-base transition-colors"
+                  style={{
+                    color: themeProps.answersColor,
+                    borderColor: themeProps.buttonsBgColor,
+                  }}
+                />
+              )}
+            </>
+          )}
         </div>
       )
 

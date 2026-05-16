@@ -143,7 +143,8 @@ export interface WebhookHeader {
 
 export interface WebhookFieldMapping {
   key: string
-  blockId: string | 'entry_date' | 'entry_id'
+  blockId: string | 'entry_date' | 'entry_id' | '_custom'
+  customTemplate?: string // Used when blockId === '_custom'
 }
 
 export interface Webhook {

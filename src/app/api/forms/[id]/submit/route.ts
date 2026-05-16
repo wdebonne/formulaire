@@ -78,6 +78,41 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 }
 
+function resolveCustomTemplate(
+  template: string,
+  data: Record<string, any>,
+  responseId: string,
+  formId: string,
+  now: Date
+): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  const applyDateFmt = (fmt: string) =>
+    fmt
+      .replace('YYYY', String(now.getFullYear()))
+      .replace('YY', String(now.getFullYear()).slice(-2))
+      .replace('MM', pad(now.getMonth() + 1))
+      .replace('dd', pad(now.getDate()))
+
+  const applyTimeFmt = (fmt: string) =>
+    fmt
+      .replace('HH', pad(now.getHours()))
+      .replace('mm', pad(now.getMinutes()))
+      .replace('ss', pad(now.getSeconds()))
+
+  return template
+    .replace(/\{field:([^}]+)\}/g, (_, blockId) => {
+      const value = data[blockId]
+      if (value === undefined || value === null || value === '') return ''
+      if (Array.isArray(value)) return value.join(', ')
+      return String(value)
+    })
+    .replace(/\{date:([^}]+)\}/g, (_, fmt) => applyDateFmt(fmt))
+    .replace(/\{time:([^}]+)\}/g, (_, fmt) => applyTimeFmt(fmt))
+    .replace(/\{entry_id\}/g, responseId)
+    .replace(/\{form_id\}/g, formId)
+}
+
 async function triggerWebhook(webhook: any, data: Record<string, any>, form: any, responseId: string) {
   const { url, method, headers, bodyFormat, fieldMappings } = webhook
 
@@ -142,6 +177,10 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
           payload[mapping.key] = new Date().toISOString()
         } else if (mapping.blockId === 'entry_id') {
           payload[mapping.key] = responseId
+        } else if (mapping.blockId === '_custom') {
+          payload[mapping.key] = mapping.customTemplate
+            ? resolveCustomTemplate(mapping.customTemplate, data, responseId, form.id, new Date())
+            : ''
         } else {
           // Vérifier si c'est un repeater ou un group
           const block = blocks.find((b: any) => b.id === mapping.blockId)

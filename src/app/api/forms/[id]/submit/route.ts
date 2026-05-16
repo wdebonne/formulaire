@@ -78,9 +78,60 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 }
 
+// Formate une date YYYY-MM-DD selon le format configuré sur le bloc (ex: DD/MM/YYYY)
+function formatDateString(isoDate: string, format: string): string {
+  const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return isoDate
+  const [, year, month, day] = m
+  return format
+    .replace('YYYY', year)
+    .replace('YY', year.slice(-2))
+    .replace('MM', month)
+    .replace('DD', day)
+}
+
+// Convertit une valeur brute en valeur lisible selon le type du bloc :
+//  - date / advanced-date → format configuré (DD/MM/YYYY…)
+//  - multiple-choice / dropdown / image-selection → label du choix (pas la valeur slug)
+function formatBlockValue(block: any, rawValue: any): any {
+  if (rawValue === undefined || rawValue === null) return rawValue
+
+  // ── Dates ──────────────────────────────────────────────────────────────────
+  if (block.type === 'date' && typeof rawValue === 'string') {
+    const fmt = block.attributes?.format || 'DD/MM/YYYY'
+    return formatDateString(rawValue, fmt)
+  }
+
+  if (block.type === 'advanced-date') {
+    const fmt = block.attributes?.format || 'DD/MM/YYYY'
+    if (typeof rawValue === 'string') return formatDateString(rawValue, fmt)
+    // Plage de dates : { start, end }
+    if (rawValue && typeof rawValue === 'object' && rawValue.start) {
+      const start = formatDateString(rawValue.start, fmt)
+      const end   = rawValue.end ? formatDateString(rawValue.end, fmt) : ''
+      return end ? `${start} - ${end}` : start
+    }
+    return rawValue
+  }
+
+  // ── Choix (multiple-choice, dropdown, image-selection) ─────────────────────
+  const choices: any[] = block.attributes?.choices || []
+  if (choices.length) {
+    const findLabel = (v: string) => {
+      const c = choices.find((c: any) => c.value === v || c.id === v || c.label === v)
+      return c?.label ?? v
+    }
+    if (Array.isArray(rawValue)) return rawValue.map(findLabel).join(', ')
+    return findLabel(String(rawValue))
+  }
+
+  return rawValue
+}
+
 function resolveCustomTemplate(
   template: string,
   data: Record<string, any>,
+  blocks: any[],
   responseId: string,
   formId: string,
   now: Date
@@ -102,10 +153,12 @@ function resolveCustomTemplate(
 
   return template
     .replace(/\{field:([^}]+)\}/g, (_, blockId) => {
-      const value = data[blockId]
-      if (value === undefined || value === null || value === '') return ''
-      if (Array.isArray(value)) return value.join(', ')
-      return String(value)
+      const rawValue = data[blockId]
+      if (rawValue === undefined || rawValue === null || rawValue === '') return ''
+      const block = blocks.find((b: any) => b.id === blockId)
+      const formatted = block ? formatBlockValue(block, rawValue) : rawValue
+      if (Array.isArray(formatted)) return formatted.join(', ')
+      return String(formatted)
     })
     .replace(/\{date:([^}]+)\}/g, (_, fmt) => applyDateFmt(fmt))
     .replace(/\{time:([^}]+)\}/g, (_, fmt) => applyTimeFmt(fmt))
@@ -138,7 +191,7 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
         const key = `${repeaterId}_${repetition}_${innerBlock.id}`
         if (data[key] !== undefined) {
           const label = getBlockLabel(innerBlock)
-          repetitionData[label] = data[key]
+          repetitionData[label] = formatBlockValue(innerBlock, data[key])
           hasAnyValue = true
         }
       }
@@ -159,10 +212,9 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
     const groupData: Record<string, any> = {}
     
     for (const innerBlock of innerBlocks) {
-      // Les blocs dans un groupe sont stockés directement avec leur ID
       if (data[innerBlock.id] !== undefined) {
         const label = getBlockLabel(innerBlock)
-        groupData[label] = data[innerBlock.id]
+        groupData[label] = formatBlockValue(innerBlock, data[innerBlock.id])
       }
     }
     
@@ -179,7 +231,7 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
           payload[mapping.key] = responseId
         } else if (mapping.blockId === '_custom') {
           payload[mapping.key] = mapping.customTemplate
-            ? resolveCustomTemplate(mapping.customTemplate, data, responseId, form.id, new Date())
+            ? resolveCustomTemplate(mapping.customTemplate, data, blocks, responseId, form.id, new Date())
             : ''
         } else {
           // Vérifier si c'est un repeater ou un group
@@ -189,7 +241,7 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
           } else if (block?.type === 'group' && block.innerBlocks) {
             payload[mapping.key] = extractGroupData(mapping.blockId, block.innerBlocks)
           } else {
-            payload[mapping.key] = data[mapping.blockId]
+            payload[mapping.key] = formatBlockValue(block, data[mapping.blockId])
           }
         }
       }
@@ -213,7 +265,7 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
         }
       } else if (data[block.id] !== undefined) {
         const label = getBlockLabel(block)
-        payload[label] = data[block.id]
+        payload[label] = formatBlockValue(block, data[block.id])
       }
     }
     // Ajouter des métadonnées

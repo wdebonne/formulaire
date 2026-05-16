@@ -12,13 +12,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import {
   ArrowLeft,
@@ -242,19 +235,18 @@ export function TrashClient() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-2">Restaurer pour</p>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un utilisateur" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.map(u => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name ? `${u.name} (${u.email})` : u.email}
-                        {u.id === restoreDialog.user.id ? ' — propriétaire d\'origine' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={selectedUserId}
+                  onChange={e => setSelectedUserId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name ? `${u.name} (${u.email})` : u.email}
+                      {u.id === restoreDialog.user.id ? ' — propriétaire d\'origine' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           )}

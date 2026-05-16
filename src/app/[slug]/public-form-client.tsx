@@ -368,7 +368,9 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [visibleBlocks, setVisibleBlocks] = useState<FormBlock[]>([])
-  
+  // Ref toujours synchronisée avec visibleBlocks pour l'utiliser dans les timeouts
+  const visibleBlocksRef = useRef<FormBlock[]>([])
+
   // État pour les blocs répétables
   const [repeaterStates, setRepeaterStates] = useState<Record<string, RepeaterState>>({})
 
@@ -458,6 +460,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     })
 
     const visible = questionBlocks.filter((b) => !hiddenBlockIds.has(b.id))
+    visibleBlocksRef.current = visible
     setVisibleBlocks(visible)
   }, [allBlocks, form.logic, answers])
 
@@ -520,50 +523,47 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       const answer = answers[condition.blockId]
       let value = condition.value
 
-      console.log('[evaluateConditions] Checking condition:', condition)
-      console.log('[evaluateConditions] Answer for block', condition.blockId, ':', answer)
-      console.log('[evaluateConditions] Condition value:', value)
 
       // Pour les blocs avec des choix, vérifier si la valeur de condition est un label
       // et la convertir en value si nécessaire (rétrocompatibilité)
       const sourceBlock = findBlockByIdGlobal(condition.blockId)
-      console.log('[evaluateConditions] Source block found:', sourceBlock?.id, sourceBlock?.type, 'Choices:', sourceBlock?.attributes.choices)
       
       if (sourceBlock?.attributes.choices) {
         const choiceByLabel = sourceBlock.attributes.choices.find(c => c.label === value)
-        console.log('[evaluateConditions] Found choice by label:', choiceByLabel)
         if (choiceByLabel) {
           value = choiceByLabel.value
-          console.log('[evaluateConditions] Converted value to:', value)
         }
       }
+
+      // Si la réponse n'existe pas encore, seuls is_empty peut être vrai.
+      // Les autres opérateurs ne doivent pas s'appliquer avant que l'utilisateur ait répondu.
+      const hasAnswer = answer !== undefined && answer !== null && answer !== ''
 
       let result = false
       switch (condition.operator) {
         case 'equals':
-          result = answer === value
-          console.log('[evaluateConditions] equals check:', answer, '===', value, '=>', result)
+          result = hasAnswer && answer === value
           break
         case 'not_equals':
-          result = answer !== value
+          result = hasAnswer && answer !== value
           break
         case 'contains':
-          result = String(answer || '').includes(String(value))
+          result = hasAnswer && String(answer).includes(String(value))
           break
         case 'not_contains':
-          result = !String(answer || '').includes(String(value))
+          result = hasAnswer && !String(answer).includes(String(value))
           break
         case 'greater_than':
-          result = Number(answer) > Number(value)
+          result = hasAnswer && Number(answer) > Number(value)
           break
         case 'less_than':
-          result = Number(answer) < Number(value)
+          result = hasAnswer && Number(answer) < Number(value)
           break
         case 'is_empty':
           result = !answer || answer === '' || (Array.isArray(answer) && answer.length === 0)
           break
         case 'is_not_empty':
-          result = answer && answer !== '' && (!Array.isArray(answer) || answer.length > 0)
+          result = !!(answer && answer !== '' && (!Array.isArray(answer) || answer.length > 0))
           break
         default:
           result = false
@@ -571,14 +571,12 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       return result
     })
 
-    const finalResult = match === 'all' ? results.every(Boolean) : results.some(Boolean)
-    console.log('[evaluateConditions] Results:', results, 'Match:', match, 'Final:', finalResult)
-    return finalResult
+    return match === 'all' ? results.every(Boolean) : results.some(Boolean)
   }
 
   const getJumpTarget = useCallback((currentBlockId?: string, currentValue?: any): string | null => {
     if (!currentBlock) return null
-    
+
     const blockLogicArray = Array.isArray(form.logic) ? form.logic : []
     
     // Collecter les IDs des blocs à vérifier (bloc courant + ses blocs internes si c'est un groupe)
@@ -596,36 +594,21 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     const effectiveAnswers = currentBlockId && currentValue !== undefined
       ? { ...answers, [currentBlockId]: currentValue }
       : answers
-    
-    console.log('[getJumpTarget] Current block:', currentBlock.id, 'Type:', currentBlock.type)
-    console.log('[getJumpTarget] Block IDs to check:', Array.from(blockIdsToCheck))
-    console.log('[getJumpTarget] All logic rules:', blockLogicArray)
-    console.log('[getJumpTarget] Effective answers:', effectiveAnswers)
-    
-    // NOUVELLE LOGIQUE: Pour les sauts, on cherche les règles dont les conditions
-    // référencent le bloc courant (ou ses blocs internes)
-    // Cela permet de déclencher le saut APRÈS avoir répondu à la question
+
     for (const blockLogic of blockLogicArray) {
       if (!blockLogic.rules) continue
-      
+
       for (const rule of blockLogic.rules) {
         if (rule.enabled === false) continue
         if (rule.action !== 'jump') continue
-        
-        // Vérifier si au moins une condition référence le bloc courant
-        const referencesCurrentBlock = rule.conditions.some(cond => 
+
+        const referencesCurrentBlock = rule.conditions.some(cond =>
           blockIdsToCheck.has(cond.blockId)
         )
-        
-        console.log('[getJumpTarget] Checking rule on block:', blockLogic.blockId, 'References current:', referencesCurrentBlock)
-        
         if (!referencesCurrentBlock) continue
 
         const shouldApply = evaluateConditions(rule.conditions, rule.conditionMatch, effectiveAnswers)
-        console.log('[getJumpTarget] Rule should apply:', shouldApply)
-
         if (shouldApply && rule.targetBlockId) {
-          console.log('[getJumpTarget] JUMP TO:', rule.targetBlockId)
           return rule.targetBlockId
         }
       }
@@ -877,25 +860,35 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     const currentValueForJump = currentValue ?? answers[currentBlockIdForJump || '']
     const jumpTarget = getJumpTarget(currentBlockIdForJump, currentValueForJump)
     if (jumpTarget) {
-      const targetIndex = visibleBlocks.findIndex((b) => b.id === jumpTarget)
-      if (targetIndex !== -1) {
-        setIsAnimating(true)
-        setTimeout(() => {
-          setCurrentIndex(targetIndex)
-          setIsAnimating(false)
-        }, 300)
-        return
-      }
+      // On capture l'ID cible (pas l'index) pour le résoudre APRÈS que visibleBlocks
+      // se soit mis à jour suite au setAnswers qui va suivre.
+      const target = jumpTarget
+      setIsAnimating(true)
+      setTimeout(() => {
+        // Utiliser la ref pour obtenir les visibleBlocks les plus récents
+        const latestBlocks = visibleBlocksRef.current
+        const latestIndex = latestBlocks.findIndex((b) => b.id === target)
+        if (latestIndex !== -1) {
+          setCurrentIndex(latestIndex)
+        }
+        setIsAnimating(false)
+      }, 300)
+      return
     }
 
     if (currentIndex < visibleBlocks.length - 1) {
+      const capturedIndex = currentIndex
       setIsAnimating(true)
       setTimeout(() => {
-        setCurrentIndex(currentIndex + 1)
+        const latestBlocks = visibleBlocksRef.current
+        if (capturedIndex < latestBlocks.length - 1) {
+          setCurrentIndex(capturedIndex + 1)
+        } else {
+          handleSubmit()
+        }
         setIsAnimating(false)
       }, 300)
     } else {
-      // Soumettre le formulaire
       handleSubmit()
     }
   }, [currentIndex, visibleBlocks, currentBlock, answers, isAnimating, getJumpTarget])

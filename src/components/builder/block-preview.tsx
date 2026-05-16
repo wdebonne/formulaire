@@ -389,7 +389,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
                 </p>
               )}
             </div>
-            
+
             {/* Aperçu de la question Oui/Non */}
             <div className="p-2 border border-dashed border-orange-300 rounded-lg">
               <p className="text-[10px] font-medium mb-1" style={{ color: themeProps.questionsColor }}>
@@ -404,6 +404,34 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
                 </span>
               </div>
             </div>
+          </div>
+        )
+
+      case 'quantity':
+        const previewItems = (block.attributes.quantityItems || []).slice(0, 3)
+        return (
+          <div className="mt-2 space-y-1.5">
+            {previewItems.length > 0 ? (
+              previewItems.map((item: any) => (
+                <div key={item.choiceId} className="flex items-center justify-between p-1.5 rounded border text-xs" style={{ borderColor: themeProps.answersColor + '20' }}>
+                  <span style={{ color: themeProps.answersColor }}>{item.choiceLabel}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: themeProps.buttonsBgColor + '20', color: themeProps.buttonsBgColor }}>−</span>
+                    <span className="w-6 text-center text-[10px] font-semibold" style={{ color: themeProps.answersColor }}>{item.min ?? 1}</span>
+                    <span className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: themeProps.buttonsBgColor + '20', color: themeProps.buttonsBgColor }}>+</span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-[10px] text-center py-1" style={{ color: themeProps.answersColor + '60' }}>
+                Lier à un bloc de choix pour configurer
+              </p>
+            )}
+            {(block.attributes.quantityItems || []).length > 3 && (
+              <p className="text-[10px] text-center" style={{ color: themeProps.answersColor + '80' }}>
+                + {(block.attributes.quantityItems || []).length - 3} autres options
+              </p>
+            )}
           </div>
         )
 
@@ -435,6 +463,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       'signature': 'SIGNATURE',
       'group': 'GROUPE DE QUESTIONS',
       'repeater': 'BLOC RÉPÉTABLE',
+      'quantity': 'QUANTITÉ',
     }
     return labels[type] || type.toUpperCase()
   }

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -963,6 +963,11 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Quantity editor */}
+      {block.type === 'quantity' && (
+        <QuantityEditor block={block} updateAttribute={updateAttribute} isInnerBlock={isInnerBlock} parentGroupId={parentGroupId} />
+      )}
+
       {/* Custom HTML */}
       <div className="space-y-2 pt-4 border-t">
         <Label htmlFor="customHTML">HTML personnalisé (avancé)</Label>
@@ -1715,17 +1720,17 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
           {attachmentType === 'image' && attachmentUrl && (
             <div className="space-y-2">
               <Label>Point focal</Label>
-              <div 
+              <div
                 className="relative w-full h-32 rounded-md overflow-hidden cursor-crosshair border"
                 onClick={handleFocalPointClick}
               >
-                <img 
-                  src={attachmentUrl} 
-                  alt="Focal point" 
+                <img
+                  src={attachmentUrl}
+                  alt="Focal point"
                   className="w-full h-full object-cover"
                   style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
                 />
-                <div 
+                <div
                   className="absolute w-4 h-4 bg-white border-2 border-primary rounded-full -translate-x-1/2 -translate-y-1/2 shadow-lg"
                   style={{ left: `${focalPoint.x}%`, top: `${focalPoint.y}%` }}
                 />
@@ -1763,6 +1768,154 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
             </div>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+// Composant pour l'éditeur de Quantité
+interface QuantityEditorProps {
+  block: FormBlock
+  updateAttribute: (key: string, value: any) => void
+  isInnerBlock?: boolean
+  parentGroupId?: string
+}
+
+function QuantityEditor({ block, updateAttribute }: QuantityEditorProps) {
+  const { blocks } = useFormBuilder()
+
+  const getAvailableChoiceBlocks = () => {
+    const result: { id: string; label: string; typeName: string; choices: BlockChoice[] }[] = []
+    for (const b of blocks) {
+      if (b.id === block.id) break
+      if (['dropdown', 'multiple-choice', 'image-selection'].includes(b.type)) {
+        result.push({
+          id: b.id,
+          label: b.attributes.label || 'Sans titre',
+          typeName: b.type === 'dropdown' ? 'Liste déroulante' : b.type === 'multiple-choice' ? 'Choix multiple' : 'Sélection Image',
+          choices: b.attributes.choices || [],
+        })
+      }
+    }
+    return result
+  }
+
+  const availableBlocks = getAvailableChoiceBlocks()
+  const sourceBlockId = block.attributes.quantitySourceBlockId || ''
+  const sourceBlock = availableBlocks.find((b) => b.id === sourceBlockId)
+  const quantityItems: NonNullable<FormBlock['attributes']['quantityItems']> = block.attributes.quantityItems || []
+
+  const getItemConfig = (choiceId: string) =>
+    quantityItems.find((item) => item.choiceId === choiceId) || { choiceId, choiceLabel: '', choiceValue: '', min: 1, max: undefined }
+
+  const updateItemConfig = (
+    choiceId: string,
+    choiceLabel: string,
+    choiceValue: string,
+    updates: { min?: number; max?: number | undefined }
+  ) => {
+    const existing = quantityItems.find((item) => item.choiceId === choiceId)
+    const newItems = existing
+      ? quantityItems.map((item) => (item.choiceId === choiceId ? { ...item, ...updates } : item))
+      : [...quantityItems, { choiceId, choiceLabel, choiceValue, min: 1, ...updates }]
+    updateAttribute('quantityItems', newItems)
+  }
+
+  const handleSourceBlockChange = (newId: string) => {
+    updateAttribute('quantitySourceBlockId', newId)
+    updateAttribute('quantityItems', [])
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Bloc source */}
+      <div className="p-4 bg-lime-50 rounded-lg border border-lime-200 space-y-3">
+        <h4 className="font-medium text-lime-700 flex items-center gap-2">
+          <Package className="w-4 h-4" />
+          Bloc source
+        </h4>
+        <p className="text-xs text-gray-500">
+          Sélectionnez le bloc Liste déroulante, Choix multiple ou Sélection Image dont vous souhaitez gérer les quantités.
+        </p>
+        <div className="space-y-2">
+          <select
+            value={sourceBlockId}
+            onChange={(e) => handleSourceBlockChange(e.target.value)}
+            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">— Sélectionner un bloc —</option>
+            {availableBlocks.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.label} ({b.typeName})
+              </option>
+            ))}
+          </select>
+          {availableBlocks.length === 0 && (
+            <p className="text-xs text-amber-600">
+              Aucun bloc de choix trouvé avant ce bloc. Ajoutez d'abord une Liste déroulante, un Choix multiple ou une Sélection Image.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Configuration par option */}
+      {sourceBlock && sourceBlock.choices.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <Label>Quantités par option</Label>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Minimum par défaut : 1 — Laissez Maximum vide pour illimité.
+            </p>
+          </div>
+          {sourceBlock.choices.map((choice) => {
+            const config = getItemConfig(choice.id)
+            return (
+              <div key={choice.id} className="p-3 border rounded-lg bg-gray-50 space-y-2">
+                <p className="text-sm font-medium text-gray-700 truncate">{choice.label}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`qty-min-${choice.id}`} className="text-xs">Minimum</Label>
+                    <Input
+                      id={`qty-min-${choice.id}`}
+                      type="number"
+                      min={0}
+                      value={config.min ?? 1}
+                      onChange={(e) =>
+                        updateItemConfig(choice.id, choice.label, choice.value, {
+                          min: e.target.value !== '' ? Number(e.target.value) : 1,
+                          max: config.max,
+                        })
+                      }
+                      placeholder="1"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`qty-max-${choice.id}`} className="text-xs">Maximum</Label>
+                    <Input
+                      id={`qty-max-${choice.id}`}
+                      type="number"
+                      min={1}
+                      value={config.max ?? ''}
+                      onChange={(e) =>
+                        updateItemConfig(choice.id, choice.label, choice.value, {
+                          min: config.min ?? 1,
+                          max: e.target.value !== '' ? Number(e.target.value) : undefined,
+                        })
+                      }
+                      placeholder="Illimité"
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {sourceBlock && sourceBlock.choices.length === 0 && (
+        <p className="text-xs text-amber-600">
+          Le bloc source ne contient aucune option. Ajoutez des choix dans le bloc sélectionné.
+        </p>
       )}
     </div>
   )

@@ -35,6 +35,7 @@ import {
   LayoutList,
   Repeat,
   ImageIcon,
+  Package,
 } from 'lucide-react'
 
 interface BlockTypeConfig {
@@ -274,6 +275,19 @@ const blockTypes: BlockTypeConfig[] = [
       max: 10,
       step: 1,
       defaultValue: 5,
+    },
+  },
+  {
+    type: 'quantity',
+    label: 'Quantité',
+    icon: <Package className="w-5 h-5" />,
+    iconColor: 'text-lime-600 bg-lime-50',
+    category: 'choice',
+    defaultAttributes: {
+      label: 'Indiquez les quantités souhaitées',
+      required: false,
+      quantitySourceBlockId: '',
+      quantityItems: [],
     },
   },
   {

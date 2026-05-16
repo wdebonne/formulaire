@@ -22,6 +22,7 @@ export type BlockType =
   | 'thankyou-screen'
   | 'group'
   | 'repeater'
+  | 'quantity'
 
 export interface BlockChoice {
   id: string
@@ -105,6 +106,9 @@ export interface BlockAttributes {
   restartButtonText?: string // Texte du bouton de recommencement
   // Attributs pour le bloc Texte Court
   textTransform?: 'none' | 'uppercase' | 'capitalize' // Formatage automatique de la réponse
+  // Attributs pour le bloc Quantité
+  quantitySourceBlockId?: string // ID du bloc source (dropdown, multiple-choice, image-selection)
+  quantityItems?: { choiceId: string; choiceLabel: string; choiceValue: string; min?: number; max?: number }[] // Configuration par choix
 }
 
 export interface FormBlock {

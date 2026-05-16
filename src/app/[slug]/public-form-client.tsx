@@ -985,10 +985,39 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       return
     }
 
+    // Auto-initialiser les quantités par défaut si le bloc Quantité n'a pas encore de réponse
+    if (displayBlock && displayBlock.type === 'quantity' && !answers[displayBlock.id]) {
+      const qSrcId = displayBlock.attributes.quantitySourceBlockId
+      const qSrcBlock = visibleBlocks.find((b) => b.id === qSrcId)
+      const qSrcChoices = qSrcBlock?.attributes.choices || []
+      const qSrcAns = qSrcId ? answers[qSrcId] : null
+      let qSelectedVals: string[] = []
+      if (qSrcAns) {
+        if (Array.isArray(qSrcAns)) qSelectedVals = qSrcAns.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
+        else if (typeof qSrcAns === 'string') qSelectedVals = [qSrcAns]
+      }
+      const qChoicesToInit = qSelectedVals.length > 0
+        ? qSrcChoices.filter((c: any) => qSelectedVals.includes(c.value))
+        : qSrcChoices
+      if (qChoicesToInit.length > 0) {
+        const qItems = displayBlock.attributes.quantityItems || []
+        const defaultQtys: Record<string, number> = {}
+        qChoicesToInit.forEach((c: any) => {
+          const cfg = qItems.find((it) => it.choiceId === c.id || it.choiceValue === c.value)
+          defaultQtys[c.value] = cfg?.min ?? 1
+        })
+        const qBlockId = displayBlock.id
+        setAnswers((prev: Record<string, any>) => ({ ...prev, [qBlockId]: defaultQtys }))
+      }
+    }
+
     // Vérifier si le champ est requis (pour les blocs normaux)
     if (!skipValidation && displayBlock?.attributes.required && !answers[displayBlock.id]) {
-      setError('Ce champ est requis')
-      return
+      // Le bloc Quantité est toujours considéré rempli (les valeurs min sont appliquées par défaut)
+      if (displayBlock.type !== 'quantity') {
+        setError('Ce champ est requis')
+        return
+      }
     }
 
     // Validation spécifique pour les blocs email
@@ -2174,6 +2203,114 @@ function QuestionBlock({
             )}
           </div>
         )
+
+      case 'quantity': {
+        const qSourceBlockId = block.attributes.quantitySourceBlockId
+        const qItems: NonNullable<typeof block.attributes.quantityItems> = block.attributes.quantityItems || []
+        const qSourceBlock = allBlocks.find((b) => b.id === qSourceBlockId)
+        const qSourceChoices = qSourceBlock?.attributes.choices || []
+        const qSourceAnswer = qSourceBlockId ? allAnswers[qSourceBlockId] : null
+
+        let selectedValues: string[] = []
+        if (qSourceAnswer) {
+          if (Array.isArray(qSourceAnswer)) {
+            selectedValues = qSourceAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
+          } else if (typeof qSourceAnswer === 'string') {
+            selectedValues = [qSourceAnswer]
+          }
+        }
+
+        const choicesToShow = selectedValues.length > 0
+          ? qSourceChoices.filter((c: any) => selectedValues.includes(c.value))
+          : qSourceChoices
+
+        const currentQtys: Record<string, number> = answer || {}
+
+        if (!qSourceBlockId || qSourceChoices.length === 0) {
+          return (
+            <p className="mt-4 text-sm opacity-60" style={{ color: themeProps.answersColor }}>
+              Ce bloc de quantité n'est pas encore configuré.
+            </p>
+          )
+        }
+
+        if (choicesToShow.length === 0) {
+          return (
+            <p className="mt-4 text-sm opacity-60" style={{ color: themeProps.answersColor }}>
+              Aucun élément sélectionné dans le bloc précédent.
+            </p>
+          )
+        }
+
+        return (
+          <div className="mt-6 space-y-4 w-full max-w-md">
+            {choicesToShow.map((choice: any) => {
+              const itemCfg = qItems.find((it) => it.choiceId === choice.id || it.choiceValue === choice.value)
+              const minQty = itemCfg?.min ?? 1
+              const maxQty = itemCfg?.max
+              const qty = currentQtys[choice.value] ?? minQty
+
+              const decrement = () => {
+                if (qty > minQty) onAnswer({ ...currentQtys, [choice.value]: qty - 1 })
+              }
+              const increment = () => {
+                if (maxQty === undefined || qty < maxQty) onAnswer({ ...currentQtys, [choice.value]: qty + 1 })
+              }
+
+              return (
+                <div
+                  key={choice.value}
+                  className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border-2"
+                  style={{ borderColor: themeProps.buttonsBgColor + '40' }}
+                >
+                  <span className="text-base font-medium flex-1" style={{ color: themeProps.answersColor }}>
+                    {choice.label}
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={decrement}
+                      disabled={qty <= minQty}
+                      className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
+                      style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={minQty}
+                      max={maxQty}
+                      value={qty}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        if (!isNaN(val) && val >= minQty && (maxQty === undefined || val <= maxQty)) {
+                          onAnswer({ ...currentQtys, [choice.value]: val })
+                        }
+                      }}
+                      className="w-14 text-center bg-transparent border-2 py-1 text-lg font-semibold outline-none rounded-lg"
+                      style={{ color: themeProps.answersColor, borderColor: themeProps.buttonsBgColor + '50' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={increment}
+                      disabled={maxQty !== undefined && qty >= maxQty}
+                      className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
+                      style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
+                    >
+                      +
+                    </button>
+                    {maxQty !== undefined && (
+                      <span className="text-xs opacity-50 ml-1" style={{ color: themeProps.answersColor }}>
+                        /{maxQty}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
 
       case 'date':
         return (

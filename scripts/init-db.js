@@ -28,6 +28,21 @@ async function init() {
       }
     }
 
+    // Vérifier et ajouter la colonne deletedAt dans Form (corbeille)
+    try {
+      await prisma.$queryRaw`SELECT deletedAt FROM "Form" LIMIT 1`
+    } catch (columnError) {
+      console.log('⚠️  Adding missing column deletedAt to Form table...')
+      try {
+        await prisma.$executeRaw`ALTER TABLE "Form" ADD COLUMN "deletedAt" DATETIME`
+        console.log('✅ Column deletedAt added to Form table')
+      } catch (alterError) {
+        if (!alterError.message?.includes('duplicate column')) {
+          console.log('⚠️  Could not add deletedAt column:', alterError.message)
+        }
+      }
+    }
+
     // Créer les paramètres système si nécessaires
     const existingSettings = await prisma.systemSettings.findUnique({
       where: { id: 'system' }

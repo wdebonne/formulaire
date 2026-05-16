@@ -95,6 +95,9 @@ export interface BlockAttributes {
   // Attributs pour le bloc Dropdown (Liste déroulante)
   allowCustomValue?: boolean // Autoriser les réponses personnalisées (saisie libre)
   customValuePlaceholder?: string // Placeholder pour la saisie personnalisée
+  // Attributs pour l'écran de remerciement (thankyou-screen)
+  showRestartButton?: boolean // Afficher un bouton "Recommencer" pour relancer le formulaire
+  restartButtonText?: string // Texte du bouton de recommencement
 }
 
 export interface FormBlock {

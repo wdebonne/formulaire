@@ -214,6 +214,41 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Bouton Recommencer (thankyou-screen uniquement) */}
+      {block.type === 'thankyou-screen' && (
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="showRestartButton">Bouton Recommencer</Label>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Permet à l'utilisateur de soumettre plusieurs fois de suite
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="showRestartButton"
+                checked={block.attributes.showRestartButton || false}
+                onChange={(e) => updateAttribute('showRestartButton', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+          {block.attributes.showRestartButton && (
+            <div className="space-y-2">
+              <Label htmlFor="restartButtonText">Texte du bouton</Label>
+              <Input
+                id="restartButtonText"
+                value={block.attributes.restartButtonText || ''}
+                onChange={(e) => updateAttribute('restartButtonText', e.target.value)}
+                placeholder="Recommencer"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Attachment pour welcome-screen et thankyou-screen */}
       {['welcome-screen', 'thankyou-screen'].includes(block.type) && (
         <WelcomeScreenAttachment block={block} updateAttribute={updateAttribute} />

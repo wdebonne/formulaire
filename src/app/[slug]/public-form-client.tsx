@@ -987,8 +987,21 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [goToNext])
 
+  // Réinitialise complètement le formulaire pour une nouvelle soumission
+  const handleRestart = () => {
+    setAnswers({})
+    setCurrentIndex(0)
+    setIsSubmitted(false)
+    setIsSubmitting(false)
+    setError(null)
+    setRepeaterStates({})
+  }
+
   // Thank you screen
   if (isSubmitted) {
+    const showRestart = thankyouBlock?.attributes.showRestartButton
+    const restartLabel = thankyouBlock?.attributes.restartButtonText || 'Recommencer'
+
     return (
       <div
         className="min-h-screen flex items-center justify-center p-8"
@@ -1011,9 +1024,21 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
             {thankyouBlock?.attributes.label || 'Merci !'}
           </h1>
           {thankyouBlock?.attributes.description && (
-            <p className="text-lg" style={{ color: themeProps.answersColor }}>
+            <p className="text-lg mb-6" style={{ color: themeProps.answersColor }}>
               {thankyouBlock.attributes.description}
             </p>
+          )}
+          {showRestart && (
+            <button
+              onClick={handleRestart}
+              className="mt-4 px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2 mx-auto"
+              style={{
+                backgroundColor: themeProps.buttonsBgColor,
+                color: themeProps.buttonsFontColor,
+              }}
+            >
+              {restartLabel}
+            </button>
           )}
         </div>
       </div>

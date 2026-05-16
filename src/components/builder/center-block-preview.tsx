@@ -535,8 +535,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
 
       case 'thankyou-screen':
         return (
-          <div className="mt-6">
-            <div 
+          <div className="mt-6 flex flex-col items-start gap-3">
+            <div
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm"
               style={{
                 backgroundColor: themeProps.buttonsBgColor + '20',
@@ -546,6 +546,17 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
               <Check className="w-4 h-4" />
               Formulaire terminé
             </div>
+            {block.attributes.showRestartButton && (
+              <button
+                className="px-6 py-2 rounded-md text-sm font-medium transition-all hover:opacity-90 flex items-center gap-2"
+                style={{
+                  backgroundColor: themeProps.buttonsBgColor,
+                  color: themeProps.buttonsFontColor,
+                }}
+              >
+                {block.attributes.restartButtonText || 'Recommencer'}
+              </button>
+            )}
           </div>
         )
 

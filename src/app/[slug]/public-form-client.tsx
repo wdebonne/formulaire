@@ -336,6 +336,181 @@ function DropdownWithAutocomplete({
   )
 }
 
+// Composant d'autocomplétion d'adresse via l'API Adresse (BAN - data.gouv.fr)
+interface AddressFeature {
+  properties: {
+    label: string
+    postcode: string
+    city: string
+  }
+}
+
+interface AddressAutocompleteProps {
+  value: string
+  onChange: (value: string) => void
+  onSelect?: (value: string) => void
+  placeholder: string
+  themeProps: ThemeProperties
+  inputBorderRadius: string
+  inputStyle: React.CSSProperties
+  error?: boolean
+}
+
+function AddressAutocomplete({
+  value,
+  onChange,
+  onSelect,
+  placeholder,
+  themeProps,
+  inputBorderRadius,
+  inputStyle,
+  error,
+}: AddressAutocompleteProps) {
+  const [suggestions, setSuggestions] = useState<AddressFeature[]>([])
+  const [isOpen, setIsOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (query.length < 3) {
+      setSuggestions([])
+      setIsOpen(false)
+      return
+    }
+    setIsLoading(true)
+    try {
+      const res = await fetch(
+        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=6`
+      )
+      const data = await res.json()
+      setSuggestions(data.features || [])
+      setIsOpen(true)
+    } catch {
+      setSuggestions([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    onChange(newValue)
+    setHighlightedIndex(-1)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => fetchSuggestions(newValue), 300)
+  }
+
+  const handleSelect = (feature: AddressFeature) => {
+    const label = feature.properties.label
+    onChange(label)
+    onSelect?.(label)
+    setSuggestions([])
+    setIsOpen(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false)
+      return
+    }
+    if (!isOpen || suggestions.length === 0) {
+      if (e.key === 'Enter') onSelect?.(value)
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightedIndex((prev) => Math.min(prev + 1, suggestions.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (highlightedIndex >= 0) {
+        handleSelect(suggestions[highlightedIndex])
+      } else {
+        setIsOpen(false)
+        onSelect?.(value)
+      }
+    }
+  }
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
+
+  return (
+    <div className="mt-4 relative" ref={containerRef}>
+      <div className="relative">
+        <input
+          type="text"
+          value={value || ''}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          autoComplete="off"
+          className="w-full bg-transparent border-2 py-3 px-4 pr-10 text-base sm:text-lg outline-none transition-colors"
+          style={{
+            color: themeProps.answersColor,
+            borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
+            borderRadius: inputBorderRadius,
+            fontSize: '16px',
+            ...inputStyle,
+          }}
+        />
+        {isLoading && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: themeProps.answersColor }} />
+          </div>
+        )}
+      </div>
+
+      {isOpen && suggestions.length > 0 && (
+        <div
+          className="absolute z-50 w-full mt-1 max-h-60 overflow-auto border-2 shadow-lg"
+          style={{
+            backgroundColor: themeProps.backgroundColor || '#fff',
+            borderColor: themeProps.buttonsBgColor + '40',
+            borderRadius: inputBorderRadius,
+          }}
+        >
+          {suggestions.map((feature, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => handleSelect(feature)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              className="w-full text-left px-4 py-3 transition-colors"
+              style={{
+                color: themeProps.answersColor,
+                backgroundColor:
+                  highlightedIndex === index
+                    ? themeProps.buttonsBgColor + '20'
+                    : 'transparent',
+              }}
+            >
+              {feature.properties.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface PublicFormClientProps {
   form: {
     id: string
@@ -1635,6 +1810,20 @@ function QuestionBlock({
           />
         )
 
+      case 'address':
+        return (
+          <AddressAutocomplete
+            value={answer || ''}
+            onChange={onAnswer}
+            onSelect={(val) => { onAnswer(val); onNext() }}
+            placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+            inputStyle={inputStyle}
+            error={!!error}
+          />
+        )
+
       case 'long-text':
         return (
           <textarea
@@ -2244,7 +2433,7 @@ function QuestionBlock({
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
       {/* OK/Submit button for text inputs */}
-      {['short-text', 'long-text', 'email', 'number', 'website', 'phone', 'date', 'advanced-date', 'time', 'slider'].includes(
+      {['short-text', 'long-text', 'email', 'number', 'website', 'phone', 'address', 'date', 'advanced-date', 'time', 'slider'].includes(
         block.type
       ) && (
         <div className="mt-4 sm:mt-6">
@@ -2457,6 +2646,18 @@ function GroupBlock({
               borderColor: themeProps.buttonsBgColor + '60',
               ...inputStyle,
             }}
+          />
+        )
+
+      case 'address':
+        return (
+          <AddressAutocomplete
+            value={value || ''}
+            onChange={handleChange}
+            placeholder={innerBlock.attributes.placeholder || 'Commencez à saisir une adresse...'}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius || '8px'}
+            inputStyle={inputStyle}
           />
         )
 
@@ -3236,7 +3437,7 @@ function RepeaterBlock({
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
         {/* Bouton OK pour les champs texte */}
-        {['short-text', 'long-text', 'email', 'number', 'website', 'date', 'advanced-date', 'slider'].includes(
+        {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date', 'slider'].includes(
           currentInnerBlock.type
         ) && (
           <div className="mt-4">
@@ -3329,6 +3530,20 @@ function InnerBlockInput({
             borderColor: error ? '#ef4444' : themeProps.buttonsBgColor + '60',
             ...inputStyle,
           }}
+        />
+      )
+
+    case 'address':
+      return (
+        <AddressAutocomplete
+          value={answer || ''}
+          onChange={onAnswer}
+          onSelect={(val) => { onAnswer(val); onNext() }}
+          placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
+          themeProps={themeProps}
+          inputBorderRadius={buttonBorderRadius}
+          inputStyle={inputStyle}
+          error={!!error}
         />
       )
 

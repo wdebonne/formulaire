@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -22,6 +22,7 @@ const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }
   { type: 'number', label: 'Nombre', icon: <Hash className="w-4 h-4" /> },
   { type: 'email', label: 'Email', icon: <Mail className="w-4 h-4" /> },
   { type: 'phone', label: 'Téléphone', icon: <Phone className="w-4 h-4" /> },
+  { type: 'address', label: 'Adresse', icon: <MapPin className="w-4 h-4" /> },
   { type: 'date', label: 'Date', icon: <Calendar className="w-4 h-4" /> },
   { type: 'advanced-date', label: 'Date avancée', icon: <CalendarRange className="w-4 h-4" /> },
   { type: 'time', label: 'Heure', icon: <Clock className="w-4 h-4" /> },
@@ -172,7 +173,7 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
       )}
 
       {/* Placeholder (for text inputs) */}
-      {['short-text', 'long-text', 'number', 'email', 'phone'].includes(block.type) && (
+      {['short-text', 'long-text', 'number', 'email', 'phone', 'address'].includes(block.type) && (
         <div className="space-y-2">
           <Label htmlFor="placeholder">Placeholder</Label>
           <Input

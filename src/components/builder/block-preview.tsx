@@ -50,6 +50,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       case 'email':
       case 'number':
       case 'phone':
+      case 'address':
         return (
           <input
             type="text"
@@ -426,6 +427,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       'number': 'NOMBRE',
       'email': 'EMAIL',
       'phone': 'TÉLÉPHONE',
+      'address': 'ADRESSE',
       'slider': 'CURSEUR',
       'legal': 'CONDITIONS LÉGALES',
       'statement': 'ÉNONCÉ',
@@ -484,7 +486,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
         {renderInput()}
 
         {/* OK button for input types */}
-        {['short-text', 'long-text', 'email', 'number', 'phone', 'date', 'advanced-date', 'time'].includes(block.type) && (
+        {['short-text', 'long-text', 'email', 'number', 'phone', 'address', 'date', 'advanced-date', 'time'].includes(block.type) && (
           <div className="mt-3">
             <button
               className="px-3 py-1 rounded text-xs font-medium flex items-center"

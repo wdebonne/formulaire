@@ -1095,6 +1095,23 @@ function PreviewBlock({
           />
         )
 
+      case 'address':
+        return (
+          <input
+            type="text"
+            placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
+            value={answer || ''}
+            onChange={(e) => onAnswer(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onNext()}
+            className="mt-4 w-full bg-transparent border-b-2 py-2 text-lg outline-none transition-colors focus:border-opacity-100"
+            style={{
+              color: themeProps.answersColor,
+              borderColor: themeProps.buttonsBgColor + '60',
+              ...inputStyle,
+            }}
+          />
+        )
+
       case 'long-text':
         return (
           <textarea
@@ -1418,7 +1435,7 @@ function PreviewBlock({
       {renderInput()}
 
       {/* OK button for text inputs */}
-      {['short-text', 'long-text', 'email', 'number', 'website', 'date', 'advanced-date'].includes(block.type) && (
+      {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date'].includes(block.type) && (
         <div className="mt-4">
           <button
             onClick={onNext}

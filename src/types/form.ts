@@ -5,6 +5,7 @@ export type BlockType =
   | 'number'
   | 'email'
   | 'phone'
+  | 'address'
   | 'date'
   | 'advanced-date'
   | 'time'

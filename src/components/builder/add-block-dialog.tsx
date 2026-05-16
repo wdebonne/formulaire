@@ -18,6 +18,7 @@ import {
   Hash,
   Mail,
   Phone,
+  MapPin,
   Calendar,
   CalendarRange,
   Clock,
@@ -131,6 +132,18 @@ const blockTypes: BlockTypeConfig[] = [
       required: false,
       phoneFormat: 'standard',
       phoneDigitsCount: 10,
+    },
+  },
+  {
+    type: 'address',
+    label: 'Adresse',
+    icon: <MapPin className="w-5 h-5" />,
+    iconColor: 'text-lime-600 bg-lime-50',
+    category: 'input',
+    defaultAttributes: {
+      label: 'Votre adresse',
+      placeholder: 'Commencez à saisir une adresse...',
+      required: false,
     },
   },
   {

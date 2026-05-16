@@ -80,9 +80,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 // Formate une date YYYY-MM-DD selon le format configuré sur le bloc (ex: DD/MM/YYYY)
 function formatDateString(isoDate: string, format: string): string {
-  const m = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return isoDate
+  // Accepte YYYY-MM-DD mais aussi un objet { start, end } sérialisé comme chaîne
+  const m = String(isoDate).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return String(isoDate)
   const [, year, month, day] = m
+  // Remplacer les tokens les plus longs en premier pour éviter les collisions (YYYY avant YY, etc.)
   return format
     .replace('YYYY', year)
     .replace('YY', year.slice(-2))
@@ -90,11 +92,25 @@ function formatDateString(isoDate: string, format: string): string {
     .replace('DD', day)
 }
 
+// Cherche un bloc par ID dans les blocs de premier niveau ET dans leurs innerBlocks.
+// Nécessaire car les blocs internes d'un groupe/répéteur ne sont pas dans le tableau racine.
+function findBlockDeep(blocks: any[], blockId: string): any | undefined {
+  for (const block of blocks) {
+    if (block.id === blockId) return block
+    if (block.innerBlocks?.length) {
+      const inner = block.innerBlocks.find((ib: any) => ib.id === blockId)
+      if (inner) return inner
+    }
+  }
+  return undefined
+}
+
 // Convertit une valeur brute en valeur lisible selon le type du bloc :
 //  - date / advanced-date → format configuré (DD/MM/YYYY…)
 //  - multiple-choice / dropdown / image-selection → label du choix (pas la valeur slug)
 function formatBlockValue(block: any, rawValue: any): any {
   if (rawValue === undefined || rawValue === null) return rawValue
+  if (!block) return rawValue // bloc introuvable → valeur brute inchangée
 
   // ── Dates ──────────────────────────────────────────────────────────────────
   if (block.type === 'date' && typeof rawValue === 'string') {
@@ -155,8 +171,8 @@ function resolveCustomTemplate(
     .replace(/\{field:([^}]+)\}/g, (_, blockId) => {
       const rawValue = data[blockId]
       if (rawValue === undefined || rawValue === null || rawValue === '') return ''
-      const block = blocks.find((b: any) => b.id === blockId)
-      const formatted = block ? formatBlockValue(block, rawValue) : rawValue
+      const block = findBlockDeep(blocks, blockId)
+      const formatted = formatBlockValue(block, rawValue)
       if (Array.isArray(formatted)) return formatted.join(', ')
       return String(formatted)
     })
@@ -234,8 +250,8 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
             ? resolveCustomTemplate(mapping.customTemplate, data, blocks, responseId, form.id, new Date())
             : ''
         } else {
-          // Vérifier si c'est un repeater ou un group
-          const block = blocks.find((b: any) => b.id === mapping.blockId)
+          // Chercher le bloc (y compris dans les innerBlocks des groupes/répéteurs)
+          const block = findBlockDeep(blocks, mapping.blockId)
           if (block?.type === 'repeater' && block.innerBlocks) {
             payload[mapping.key] = extractRepeaterData(mapping.blockId, block.innerBlocks)
           } else if (block?.type === 'group' && block.innerBlocks) {

@@ -885,6 +885,24 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
                   onChange={(e) => updateAttribute('maxRepetitions', Number(e.target.value))}
                 />
               </div>
+
+              <div className="flex items-start gap-2 pt-1">
+                <input
+                  id="excludePreviousChoices"
+                  type="checkbox"
+                  checked={block.attributes.excludePreviousChoices || false}
+                  onChange={(e) => updateAttribute('excludePreviousChoices', e.target.checked)}
+                  className="mt-0.5 accent-orange-500"
+                />
+                <div>
+                  <Label htmlFor="excludePreviousChoices" className="cursor-pointer">
+                    Masquer les choix déjà sélectionnés
+                  </Label>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Pour les questions à choix (liste / choix multiple) dans ce répéteur : les valeurs déjà choisies dans les répétitions précédentes n'apparaissent plus.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

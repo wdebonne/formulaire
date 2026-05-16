@@ -95,6 +95,8 @@ export interface BlockAttributes {
   imageSize?: 'small' | 'medium' | 'large' // Taille des images
   // Attributs pour le bloc Choix Multiple
   allowOtherOption?: boolean // Afficher une option "Autre" avec saisie libre
+  // Attributs pour le bloc Repeater
+  excludePreviousChoices?: boolean // Masquer les choix déjà sélectionnés dans les répétitions précédentes
   // Attributs pour le bloc Dropdown (Liste déroulante)
   allowCustomValue?: boolean // Autoriser les réponses personnalisées (saisie libre)
   customValuePlaceholder?: string // Placeholder pour la saisie personnalisée
@@ -153,6 +155,7 @@ export interface WebhookFieldMapping {
   key: string
   blockId: string | 'entry_date' | 'entry_id' | '_custom'
   customTemplate?: string // Used when blockId === '_custom'
+  flatRepeater?: boolean // Développe un répéteur en clés plates : {clé}_{champ}_{N}
 }
 
 export interface Webhook {

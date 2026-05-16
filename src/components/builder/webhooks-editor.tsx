@@ -498,7 +498,7 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
   const renderFieldMappingsExpanded = (webhook: Webhook) => (
     <div className="space-y-3">
       <div className="grid grid-cols-[1fr_28px_1fr_36px] gap-2 px-1">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clé JSON</span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clé JSON / Préfixe</span>
         <span />
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Valeur</span>
         <span />
@@ -512,6 +512,17 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
         const block = allMappableBlocks.find((b) => b.id === mapping.blockId)
         const isCustom = mapping.blockId === '_custom'
         const hasKey = mapping.key.trim() !== ''
+        const isRepeater = block?.type === 'repeater'
+        const isFlatRepeater = isRepeater && mapping.flatRepeater
+
+        // Aperçu des clés plates générées
+        const flatPreviewKeys = isFlatRepeater && hasKey && block?.innerBlocks
+          ? block.innerBlocks.slice(0, 2).map((ib: any) => {
+              const slug = (ib.attributes?.label || ib.id || 'champ')
+                .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+              return `${mapping.key}_${slug}_1`
+            })
+          : []
 
         return (
           <div key={index} className="space-y-1">
@@ -521,7 +532,7 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
               <Input
                 value={mapping.key}
                 onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { key: e.target.value })}
-                placeholder="nom_du_champ"
+                placeholder={isFlatRepeater ? 'préfixe_clé' : 'nom_du_champ'}
                 className={`h-9 text-sm font-mono ${hasKey ? 'text-orange-600 border-orange-200 bg-orange-50/50' : ''}`}
               />
               {/* Flèche */}
@@ -542,6 +553,7 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
                   onChange={(e) => handleUpdateFieldMapping(webhook.id, index, {
                     blockId: e.target.value,
                     customTemplate: e.target.value !== '_custom' ? undefined : '',
+                    flatRepeater: false,
                   })}
                   className={`w-full pr-3 py-2 text-sm border rounded-md h-9 appearance-none bg-white ${isCustom ? 'pl-3 text-purple-700' : 'pl-8'}`}
                 >
@@ -576,6 +588,35 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Option clés plates pour les répéteurs */}
+            {isRepeater && (
+              <div className="col-span-4 pl-0 pr-10 ml-1">
+                <label className="flex items-start gap-2 cursor-pointer group/flat">
+                  <input
+                    type="checkbox"
+                    checked={!!mapping.flatRepeater}
+                    onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { flatRepeater: e.target.checked })}
+                    className="mt-0.5 accent-orange-500"
+                  />
+                  <div>
+                    <span className="text-xs text-gray-600 group-hover/flat:text-gray-800">
+                      Développer en clés plates <span className="font-mono text-orange-600">préfixe_champ_N</span>
+                    </span>
+                    {isFlatRepeater && flatPreviewKeys.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Ex : <span className="font-mono">{flatPreviewKeys.join(', ')}, …</span>
+                      </p>
+                    )}
+                    {!isFlatRepeater && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Par défaut : envoie un tableau d&apos;objets JSON
+                      </p>
+                    )}
+                  </div>
+                </label>
+              </div>
+            )}
 
             {/* Éditeur de valeur personnalisée */}
             {isCustom && (
@@ -655,28 +696,45 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
                         </Button>
                       </div>
                     </div>
-                    {webhook.fieldMappings.map((mapping, index) => (
-                      <div key={index} className="space-y-1">
-                        <div className="flex items-center space-x-2">
-                          <Input value={mapping.key}
-                            onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { key: e.target.value })}
-                            placeholder="Clé JSON" className={`h-7 text-xs flex-1 font-mono ${mapping.key ? 'text-orange-600' : ''}`} />
-                          <BlockSelector webhookId={webhook.id} mapping={mapping} index={index} className="flex-1 h-7" />
-                          <Button variant="ghost" size="sm" className="h-7 px-2 text-red-400"
-                            onClick={() => handleRemoveFieldMapping(webhook.id, index)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                    {webhook.fieldMappings.map((mapping, index) => {
+                      const compactBlock = allMappableBlocks.find((b) => b.id === mapping.blockId)
+                      const isCompactRepeater = compactBlock?.type === 'repeater'
+                      return (
+                        <div key={index} className="space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <Input value={mapping.key}
+                              onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { key: e.target.value })}
+                              placeholder={isCompactRepeater && mapping.flatRepeater ? 'préfixe' : 'Clé JSON'}
+                              className={`h-7 text-xs flex-1 font-mono ${mapping.key ? 'text-orange-600' : ''}`} />
+                            <BlockSelector webhookId={webhook.id} mapping={mapping} index={index} className="flex-1 h-7" />
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-red-400"
+                              onClick={() => handleRemoveFieldMapping(webhook.id, index)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                          {/* Toggle clés plates (compact) */}
+                          {isCompactRepeater && (
+                            <label className="flex items-center gap-1.5 cursor-pointer pl-0.5">
+                              <input
+                                type="checkbox"
+                                checked={!!mapping.flatRepeater}
+                                onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { flatRepeater: e.target.checked })}
+                                className="accent-orange-500 w-3 h-3"
+                              />
+                              <span className="text-xs text-gray-500">Clés plates <span className="font-mono text-orange-500">préfixe_champ_N</span></span>
+                            </label>
+                          )}
+                          {/* Éditeur compact pour valeur personnalisée */}
+                          {mapping.blockId === '_custom' && (
+                            <CustomValueEditor
+                              template={mapping.customTemplate || ''}
+                              allMappableBlocks={allMappableBlocks}
+                              onTemplateChange={(t) => handleUpdateFieldMapping(webhook.id, index, { customTemplate: t })}
+                            />
+                          )}
                         </div>
-                        {/* Éditeur compact pour valeur personnalisée */}
-                        {mapping.blockId === '_custom' && (
-                          <CustomValueEditor
-                            template={mapping.customTemplate || ''}
-                            allMappableBlocks={allMappableBlocks}
-                            onTemplateChange={(t) => handleUpdateFieldMapping(webhook.id, index, { customTemplate: t })}
-                          />
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </>
               )}

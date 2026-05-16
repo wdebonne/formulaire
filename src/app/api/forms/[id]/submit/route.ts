@@ -182,6 +182,17 @@ function resolveCustomTemplate(
     .replace(/\{form_id\}/g, formId)
 }
 
+// Convertit un label en slug utilisable comme clé JSON (ex: "Quel matériel ?" → "quel_materiel")
+function slugify(str: string): string {
+  return String(str)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    || 'champ'
+}
+
 async function triggerWebhook(webhook: any, data: Record<string, any>, form: any, responseId: string) {
   const { url, method, headers, bodyFormat, fieldMappings } = webhook
 
@@ -252,7 +263,23 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
         } else {
           // Chercher le bloc (y compris dans les innerBlocks des groupes/répéteurs)
           const block = findBlockDeep(blocks, mapping.blockId)
-          if (block?.type === 'repeater' && block.innerBlocks) {
+          if (block?.type === 'repeater' && block.innerBlocks && mapping.flatRepeater) {
+            // Mode clés plates : génère {préfixe}_{champ}_{N} pour chaque champ et chaque répétition
+            let rep = 1
+            let hasData = true
+            while (hasData) {
+              let hasAnyValue = false
+              for (const innerBlock of block.innerBlocks) {
+                const dataKey = `${mapping.blockId}_${rep}_${innerBlock.id}`
+                if (data[dataKey] !== undefined) {
+                  const fieldSlug = slugify(getBlockLabel(innerBlock))
+                  payload[`${mapping.key}_${fieldSlug}_${rep}`] = formatBlockValue(innerBlock, data[dataKey])
+                  hasAnyValue = true
+                }
+              }
+              if (hasAnyValue) { rep++ } else { hasData = false }
+            }
+          } else if (block?.type === 'repeater' && block.innerBlocks) {
             payload[mapping.key] = extractRepeaterData(mapping.blockId, block.innerBlocks)
           } else if (block?.type === 'group' && block.innerBlocks) {
             payload[mapping.key] = extractGroupData(mapping.blockId, block.innerBlocks)

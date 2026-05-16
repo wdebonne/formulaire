@@ -9,9 +9,19 @@ interface Webhook {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH'
   headers: { key: string; value: string }[]
   bodyFormat: 'JSON' | 'FORM'
-  fieldMappings: { key: string; blockId: string }[]
+  fieldMappings: { key: string; blockId: string; flatRepeater?: boolean }[]
   enabled: boolean
   triggerOn: string
+}
+
+function slugify(str: string): string {
+  return String(str)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    || 'champ'
 }
 
 // POST /api/forms/[id]/responses/[responseId]/webhook - Renvoyer le webhook pour une réponse
@@ -143,7 +153,23 @@ export async function POST(
               } else {
                 // Vérifier si c'est un repeater ou un group
                 const block = blocks.find((b: any) => b.id === mapping.blockId)
-                if (block?.type === 'repeater' && block.innerBlocks) {
+                if (block?.type === 'repeater' && block.innerBlocks && mapping.flatRepeater) {
+                  // Mode clés plates : génère {préfixe}_{champ}_{N}
+                  let rep = 1
+                  let hasData = true
+                  while (hasData) {
+                    let hasAnyValue = false
+                    for (const innerBlock of block.innerBlocks) {
+                      const dataKey = `${mapping.blockId}_${rep}_${innerBlock.id}`
+                      if (responseData[dataKey] !== undefined) {
+                        const fieldSlug = slugify(innerBlock.attributes?.label || innerBlock.id || 'champ')
+                        payload[`${mapping.key}_${fieldSlug}_${rep}`] = responseData[dataKey]
+                        hasAnyValue = true
+                      }
+                    }
+                    if (hasAnyValue) { rep++ } else { hasData = false }
+                  }
+                } else if (block?.type === 'repeater' && block.innerBlocks) {
                   payload[mapping.key] = extractRepeaterData(mapping.blockId, block.innerBlocks, responseData)
                 } else if (block?.type === 'group' && block.innerBlocks) {
                   payload[mapping.key] = extractGroupData(mapping.blockId, block.innerBlocks, responseData)

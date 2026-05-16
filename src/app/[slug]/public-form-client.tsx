@@ -3577,6 +3577,18 @@ function RepeaterBlock({
           error={error}
           inputStyle={inputStyle}
           allAnswers={answers}
+          excludedChoiceValues={(() => {
+            if (!block.attributes.excludePreviousChoices) return undefined
+            if (!['multiple-choice', 'dropdown'].includes(currentInnerBlock.type)) return undefined
+            const excluded = new Set<string>()
+            for (let rep = 1; rep < repeaterState.repetitionCount; rep++) {
+              const val = answers[`${block.id}_${rep}_${currentInnerBlock.id}`]
+              if (val === undefined || val === null) continue
+              if (Array.isArray(val)) val.forEach((v: string) => excluded.add(v))
+              else excluded.add(String(val))
+            }
+            return excluded
+          })()}
         />
 
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
@@ -3641,6 +3653,7 @@ interface InnerBlockInputProps {
   inputStyle?: React.CSSProperties
   buttonBorderRadius?: string
   allAnswers?: Record<string, any>
+  excludedChoiceValues?: Set<string>
 }
 
 function InnerBlockInput({
@@ -3654,6 +3667,7 @@ function InnerBlockInput({
   inputStyle = {},
   buttonBorderRadius = '8px',
   allAnswers = {},
+  excludedChoiceValues,
 }: InnerBlockInputProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -3746,31 +3760,42 @@ function InnerBlockInput({
       )
 
     case 'dropdown':
-      const innerDropdownChoices = block.attributes.choices || []
+      const innerDropdownChoices = (block.attributes.choices || []).filter(
+        (c: any) => !excludedChoiceValues?.has(c.value)
+      )
       const allowCustomValueInner = block.attributes.allowCustomValue || false
-      
+
       // Toujours utiliser le composant avec autocomplétion
       return (
-        <DropdownWithAutocomplete
-          choices={innerDropdownChoices}
-          value={answer || ''}
-          onChange={(value) => onAnswer(value)}
-          onSelect={(value) => {
-            if (value) {
-              setTimeout(() => onNext(true), 300)
-            }
-          }}
-          placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}
-          themeProps={themeProps}
-          inputBorderRadius={buttonBorderRadius}
-          inputStyle={inputStyle}
-          error={!!error}
-          allowCustomValue={allowCustomValueInner}
-        />
+        <>
+          <DropdownWithAutocomplete
+            choices={innerDropdownChoices}
+            value={answer || ''}
+            onChange={(value) => onAnswer(value)}
+            onSelect={(value) => {
+              if (value) {
+                setTimeout(() => onNext(true), 300)
+              }
+            }}
+            placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}
+            themeProps={themeProps}
+            inputBorderRadius={buttonBorderRadius}
+            inputStyle={inputStyle}
+            error={!!error}
+            allowCustomValue={allowCustomValueInner}
+          />
+          {excludedChoiceValues && excludedChoiceValues.size > 0 && innerDropdownChoices.length === 0 && (
+            <p className="mt-2 text-sm italic" style={{ color: themeProps.answersColor + '80' }}>
+              Tous les choix disponibles ont déjà été sélectionnés.
+            </p>
+          )}
+        </>
       )
 
     case 'multiple-choice':
-      const innerChoices = block.attributes.choices || []
+      const innerChoices = (block.attributes.choices || []).filter(
+        (c: any) => !excludedChoiceValues?.has(c.value)
+      )
       const innerAllowMultiple = block.attributes.allowMultiple || block.attributes.multiple
       const allowOtherOptionInner = block.attributes.allowOtherOption
       const isOtherSelectedInner = allowOtherOptionInner && (innerAllowMultiple
@@ -3830,6 +3855,11 @@ function InnerBlockInput({
               </button>
             )
           })}
+          {excludedChoiceValues && excludedChoiceValues.size > 0 && innerChoices.length === 0 && !allowOtherOptionInner && (
+            <p className="mt-2 text-sm italic" style={{ color: themeProps.answersColor + '80' }}>
+              Tous les choix disponibles ont déjà été sélectionnés.
+            </p>
+          )}
           {allowOtherOptionInner && (
             <>
               <button

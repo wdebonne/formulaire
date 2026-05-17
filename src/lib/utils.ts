@@ -166,15 +166,21 @@ function formatAnswer(answer: any): string {
   if (answer === undefined || answer === null || answer === '') {
     return '___'
   }
-  
+
   if (Array.isArray(answer)) {
-    return answer.join(', ')
+    return answer
+      .map((v: any) => typeof v === 'string' && v.startsWith('__other__:') ? v.slice(10) : String(v))
+      .join(', ')
   }
-  
+
   if (typeof answer === 'boolean') {
     return answer ? 'Oui' : 'Non'
   }
-  
+
+  if (typeof answer === 'string' && answer.startsWith('__other__:')) {
+    return answer.slice(10)
+  }
+
   return String(answer)
 }
 

@@ -92,24 +92,26 @@ export function replaceVariables(
       
       if (!innerBlock) return match
       
+      const innerChoices = innerBlock.attributes?.choices
+
       // Pour les repeaters avec le mode .all, collecter toutes les réponses cumulées
       if (targetBlock.type === 'repeater' && isAllMode) {
         const allAnswers: string[] = []
-        const maxRep = currentRepeaterId === targetBlock.id && currentRepetition 
-          ? currentRepetition 
+        const maxRep = currentRepeaterId === targetBlock.id && currentRepetition
+          ? currentRepetition
           : 10
-        
+
         for (let rep = 1; rep <= maxRep; rep++) {
           const answerKey = `${targetBlock.id}_${rep}_${innerBlock.id}`
           const answer = answers[answerKey]
           if (answer !== undefined && answer !== null && answer !== '') {
-            allAnswers.push(formatAnswer(answer))
+            allAnswers.push(formatAnswer(answer, innerChoices))
           }
         }
-        
+
         return allAnswers.length > 0 ? allAnswers.join(', ') : '___'
       }
-      
+
       // Pour les blocs internes du même repeater/groupe, vérifier qu'on ne référence pas un bloc futur
       if (currentRepeaterId === targetBlock.id && currentInnerBlockIndex !== undefined) {
         // On ne peut référencer que les blocs internes précédents (pas le courant ni les suivants)
@@ -120,7 +122,7 @@ export function replaceVariables(
         // Pour les autres blocs, on ne peut pas référencer les blocs futurs
         return match
       }
-      
+
       // Pour les repeaters, chercher la réponse avec différentes clés possibles
       if (targetBlock.type === 'repeater') {
         // Si on est dans le même repeater, utiliser la répétition courante
@@ -128,57 +130,64 @@ export function replaceVariables(
           const answerKey = `${targetBlock.id}_${currentRepetition}_${innerBlock.id}`
           const answer = answers[answerKey]
           if (answer !== undefined && answer !== null && answer !== '') {
-            return formatAnswer(answer)
+            return formatAnswer(answer, innerChoices)
           }
         }
-        
+
         // Sinon, chercher dans toutes les répétitions (de la plus récente à la plus ancienne)
         for (let rep = 10; rep >= 1; rep--) {
           const answerKey = `${targetBlock.id}_${rep}_${innerBlock.id}`
           const answer = answers[answerKey]
           if (answer !== undefined && answer !== null && answer !== '') {
-            return formatAnswer(answer)
+            return formatAnswer(answer, innerChoices)
           }
         }
         return formatAnswer(undefined)
       }
-      
+
       // Pour les groupes, utiliser simplement l'ID du bloc interne
       const answer = answers[innerBlock.id]
-      return formatAnswer(answer)
+      return formatAnswer(answer, innerChoices)
     }
-    
+
     // Ne pas remplacer les variables qui font référence à des questions futures (pour les blocs non-internes)
     if (currentBlockIndex !== undefined && blockIndex >= currentBlockIndex) {
       return match
     }
-    
+
     // Sinon, prendre la réponse du bloc principal
     const answer = answers[targetBlock.id]
-    return formatAnswer(answer)
+    return formatAnswer(answer, targetBlock.attributes?.choices)
   })
 }
 
 /**
  * Formate une réponse pour l'affichage
  */
-function formatAnswer(answer: any): string {
+function formatAnswer(answer: any, choices?: { label: string; value: string }[]): string {
   if (answer === undefined || answer === null || answer === '') {
     return '___'
   }
 
+  const resolveLabel = (v: string): string => {
+    if (v.startsWith('__other__:')) return v.slice(10)
+    if (choices) {
+      const found = choices.find((c) => c.value === v)
+      if (found) return found.label
+    }
+    return v
+  }
+
   if (Array.isArray(answer)) {
-    return answer
-      .map((v: any) => typeof v === 'string' && v.startsWith('__other__:') ? v.slice(10) : String(v))
-      .join(', ')
+    return answer.map((v: any) => resolveLabel(String(v))).join(', ')
   }
 
   if (typeof answer === 'boolean') {
     return answer ? 'Oui' : 'Non'
   }
 
-  if (typeof answer === 'string' && answer.startsWith('__other__:')) {
-    return answer.slice(10)
+  if (typeof answer === 'string') {
+    return resolveLabel(answer)
   }
 
   return String(answer)

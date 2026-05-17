@@ -1808,6 +1808,7 @@ function DropdownFilterEditor({ block, isInnerBlock = false, parentGroupId }: {
 }) {
   const { blocks, updateBlock, updateInnerBlock } = useFormBuilder()
   const [expandedSourceValue, setExpandedSourceValue] = useState<string | null>(null)
+  const [choiceSearchFilter, setChoiceSearchFilter] = useState('')
 
   const getAvailableSourceBlocks = () => {
     const result: { id: string; label: string; choices: BlockChoice[] }[] = []
@@ -1913,7 +1914,10 @@ function DropdownFilterEditor({ block, isInnerBlock = false, parentGroupId }: {
                 <button
                   type="button"
                   className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-sm text-left"
-                  onClick={() => setExpandedSourceValue(isExpanded ? null : srcChoice.value)}
+                  onClick={() => {
+                    setExpandedSourceValue(isExpanded ? null : srcChoice.value)
+                    setChoiceSearchFilter('')
+                  }}
                 >
                   <span className="font-medium">{srcChoice.label}</span>
                   <span className="flex items-center gap-1 text-xs text-gray-400">
@@ -1924,21 +1928,44 @@ function DropdownFilterEditor({ block, isInnerBlock = false, parentGroupId }: {
                   </span>
                 </button>
                 {isExpanded && (
-                  <div className="px-3 py-2 space-y-1.5 border-t bg-gray-50">
-                    {currentChoices.map((choice) => {
-                      const isHidden = hiddenIds.includes(choice.id)
-                      return (
-                        <label key={choice.id} className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isHidden}
-                            onChange={() => toggleHiddenChoice(srcChoice.value, choice.id)}
-                            className="rounded"
-                          />
-                          <span className={isHidden ? 'line-through text-gray-400' : ''}>{choice.label}</span>
-                        </label>
-                      )
-                    })}
+                  <div className="border-t bg-gray-50">
+                    <div className="px-3 pt-2 pb-1 relative">
+                      <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={choiceSearchFilter}
+                        onChange={(e) => setChoiceSearchFilter(e.target.value)}
+                        placeholder="Rechercher un choix..."
+                        className="w-full pl-7 pr-3 py-1.5 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                      />
+                    </div>
+                    <div className="px-3 pb-2 space-y-1.5 max-h-52 overflow-y-auto">
+                      {currentChoices
+                        .filter((c) =>
+                          choiceSearchFilter.trim() === '' ||
+                          c.label.toLowerCase().includes(choiceSearchFilter.toLowerCase())
+                        )
+                        .map((choice) => {
+                          const isHidden = hiddenIds.includes(choice.id)
+                          return (
+                            <label key={choice.id} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={isHidden}
+                                onChange={() => toggleHiddenChoice(srcChoice.value, choice.id)}
+                                className="rounded"
+                              />
+                              <span className={isHidden ? 'line-through text-gray-400' : ''}>{choice.label}</span>
+                            </label>
+                          )
+                        })}
+                      {choiceSearchFilter.trim() !== '' &&
+                        currentChoices.filter((c) =>
+                          c.label.toLowerCase().includes(choiceSearchFilter.toLowerCase())
+                        ).length === 0 && (
+                          <p className="text-xs text-gray-400 py-1">Aucun choix ne correspond.</p>
+                        )}
+                    </div>
                   </div>
                 )}
               </div>

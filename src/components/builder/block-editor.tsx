@@ -1782,7 +1782,7 @@ interface QuantityEditorProps {
 }
 
 function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }: QuantityEditorProps) {
-  const { blocks } = useFormBuilder()
+  const { blocks, updateBlock, updateInnerBlock } = useFormBuilder()
 
   const getAvailableChoiceBlocks = () => {
     const result: { id: string; label: string; typeName: string; choices: BlockChoice[] }[] = []
@@ -1858,8 +1858,14 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
   }
 
   const handleSourceBlockChange = (newId: string) => {
-    updateAttribute('quantitySourceBlockId', newId)
-    updateAttribute('quantityItems', [])
+    // Les deux champs doivent être mis à jour en une seule opération pour éviter
+    // que le deuxième appel écrase le premier avec les attributs périmés de la fermeture.
+    const newAttrs = { ...block.attributes, quantitySourceBlockId: newId, quantityItems: [] }
+    if (isInnerBlock && parentGroupId) {
+      updateInnerBlock(parentGroupId, block.id, { attributes: newAttrs })
+    } else {
+      updateBlock(block.id, { attributes: newAttrs })
+    }
   }
 
   return (

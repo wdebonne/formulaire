@@ -1018,8 +1018,14 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       }
 
       // Passer au bloc interne suivant visible ou afficher la question de répétition
+      // Fusionner currentValue dans answers pour éviter le problème de stale closure
+      // (onNext est appelé avec la valeur courante avant que setAnswers soit résolu)
+      const currentInnerBlockForVis = innerBlocks[state.currentInnerIndex]
+      const answersForVis = currentValue !== undefined && currentInnerBlockForVis
+        ? { ...answers, [`${currentBlock.id}_${state.repetitionCount}_${currentInnerBlockForVis.id}`]: currentValue }
+        : answers
       const nextVisibleIndex = getNextVisibleInnerIndex(
-        innerBlocks, state.currentInnerIndex + 1, currentBlock.id, state.repetitionCount, answers
+        innerBlocks, state.currentInnerIndex + 1, currentBlock.id, state.repetitionCount, answersForVis
       )
       if (nextVisibleIndex !== null) {
         setIsAnimating(true)

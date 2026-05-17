@@ -42,6 +42,7 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
   const [importText, setImportText] = useState('')
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [choicesSearchFilter, setChoicesSearchFilter] = useState('')
+  const [expandedConditionId, setExpandedConditionId] = useState<string | null>(null)
 
   const updateAttribute = (key: string, value: any) => {
     if (isInnerBlock && parentGroupId) {
@@ -947,38 +948,158 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
 
           {/* Liste simplifiée des questions */}
           <div className="space-y-2">
-            {(block.innerBlocks || []).map((innerBlock, index) => (
-              <div 
-                key={innerBlock.id} 
-                className="flex items-center justify-between p-2 border rounded-lg bg-white hover:bg-orange-50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 flex items-center justify-center bg-orange-100 text-orange-600 rounded text-xs font-medium">
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">
-                      {innerBlock.attributes.label || 'Sans titre'}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {innerBlockTypes.find(t => t.type === innerBlock.type)?.label || innerBlock.type}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                  onClick={() => {
-                    updateBlock(block.id, {
-                      innerBlocks: block.innerBlocks?.filter(b => b.id !== innerBlock.id),
-                    })
-                  }}
+            {(block.innerBlocks || []).map((innerBlock, index) => {
+              // Blocs frères précédents ayant des choix (peuvent servir de source de masquage)
+              const choiceSourceBlocks = (block.innerBlocks || []).slice(0, index).filter(
+                b => ['dropdown', 'multiple-choice', 'image-selection'].includes(b.type)
+              )
+              const hasCondition = !!innerBlock.attributes.visibilitySourceBlockId
+              const isExpanded = expandedConditionId === innerBlock.id
+              const sourceBlock = choiceSourceBlocks.find(b => b.id === innerBlock.attributes.visibilitySourceBlockId)
+
+              return (
+                <div
+                  key={innerBlock.id}
+                  className={`border rounded-lg bg-white transition-colors ${isExpanded ? 'border-orange-300' : 'hover:bg-orange-50'}`}
                 >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex items-center justify-between p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 flex items-center justify-center bg-orange-100 text-orange-600 rounded text-xs font-medium">
+                        {String.fromCharCode(65 + index)}
+                      </span>
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">
+                          {innerBlock.attributes.label || 'Sans titre'}
+                        </p>
+                        <p className="text-xs text-gray-400 flex items-center gap-1">
+                          {innerBlockTypes.find(t => t.type === innerBlock.type)?.label || innerBlock.type}
+                          {hasCondition && (
+                            <span className="inline-flex items-center gap-0.5 text-orange-500">
+                              <Filter className="w-3 h-3" />
+                              <span>conditionnel</span>
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {(index > 0 && choiceSourceBlocks.length > 0) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={`h-7 w-7 ${isExpanded ? 'text-orange-500 bg-orange-50' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}
+                          title="Masquage conditionnel"
+                          onClick={() => setExpandedConditionId(isExpanded ? null : innerBlock.id)}
+                        >
+                          <Filter className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => {
+                          updateBlock(block.id, {
+                            innerBlocks: block.innerBlocks?.filter(b => b.id !== innerBlock.id),
+                          })
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Panneau de condition de masquage */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 border-t border-orange-100 space-y-3">
+                      <p className="text-xs text-orange-600 font-medium">Masquage conditionnel</p>
+
+                      {/* Sélection du bloc source */}
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-500">Afficher ce bloc uniquement si :</label>
+                        <select
+                          className="w-full text-xs border rounded px-2 py-1.5 bg-white"
+                          value={innerBlock.attributes.visibilitySourceBlockId || ''}
+                          onChange={(e) => {
+                            const newSrcId = e.target.value
+                            updateBlock(block.id, {
+                              innerBlocks: block.innerBlocks?.map(b =>
+                                b.id === innerBlock.id
+                                  ? { ...b, attributes: { ...b.attributes, visibilitySourceBlockId: newSrcId || undefined, visibilityValues: [] } }
+                                  : b
+                              ),
+                            })
+                          }}
+                        >
+                          <option value="">— Toujours visible —</option>
+                          {choiceSourceBlocks.map(src => (
+                            <option key={src.id} value={src.id}>
+                              {String.fromCharCode(65 + (block.innerBlocks || []).indexOf(src))} — {src.attributes.label || 'Sans titre'}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Sélection des valeurs qui affichent ce bloc */}
+                      {innerBlock.attributes.visibilitySourceBlockId && sourceBlock && (
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-500">Valeurs qui affichent ce bloc :</label>
+                          <div className="space-y-1 max-h-40 overflow-y-auto">
+                            {(sourceBlock.attributes.choices || []).map(choice => {
+                              const isChecked = (innerBlock.attributes.visibilityValues || []).includes(choice.value)
+                              return (
+                                <label key={choice.id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-orange-50 px-1 py-0.5 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    className="accent-orange-500"
+                                    onChange={(e) => {
+                                      const current = innerBlock.attributes.visibilityValues || []
+                                      const next = e.target.checked
+                                        ? [...current, choice.value]
+                                        : current.filter(v => v !== choice.value)
+                                      updateBlock(block.id, {
+                                        innerBlocks: block.innerBlocks?.map(b =>
+                                          b.id === innerBlock.id
+                                            ? { ...b, attributes: { ...b.attributes, visibilityValues: next } }
+                                            : b
+                                        ),
+                                      })
+                                    }}
+                                  />
+                                  <span>{choice.label}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                          {(sourceBlock.attributes.choices || []).length === 0 && (
+                            <p className="text-xs text-gray-400 italic">Ce bloc n'a pas de choix définis.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Supprimer la condition */}
+                      {hasCondition && (
+                        <button
+                          className="text-xs text-red-500 hover:text-red-600 underline"
+                          onClick={() => {
+                            updateBlock(block.id, {
+                              innerBlocks: block.innerBlocks?.map(b =>
+                                b.id === innerBlock.id
+                                  ? { ...b, attributes: { ...b.attributes, visibilitySourceBlockId: undefined, visibilityValues: [] } }
+                                  : b
+                              ),
+                            })
+                          }}
+                        >
+                          Supprimer la condition
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {(!block.innerBlocks || block.innerBlocks.length === 0) && (
@@ -987,6 +1108,28 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
               Glissez des blocs ici pour les ajouter.
             </p>
           )}
+        </div>
+      )}
+
+      {/* Yes/No options */}
+      {block.type === 'yes-no' && (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="yesLabel">Label "Oui"</Label>
+            <Input
+              id="yesLabel"
+              value={block.attributes.yesLabel || 'Oui'}
+              onChange={(e) => updateAttribute('yesLabel', e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="noLabel">Label "Non"</Label>
+            <Input
+              id="noLabel"
+              value={block.attributes.noLabel || 'Non'}
+              onChange={(e) => updateAttribute('noLabel', e.target.value)}
+            />
+          </div>
         </div>
       )}
 

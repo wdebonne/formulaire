@@ -23,6 +23,7 @@ export type BlockType =
   | 'group'
   | 'repeater'
   | 'quantity'
+  | 'yes-no'
 
 export interface BlockChoice {
   id: string
@@ -112,6 +113,12 @@ export interface BlockAttributes {
   quantitySourceBlockId?: string // ID du bloc source (dropdown, multiple-choice, image-selection)
   quantityItems?: { choiceId: string; choiceLabel: string; choiceValue: string; min?: number; max?: number }[] // Configuration par choix
   quantityOutputFormat?: 'object' | 'value' // Format du JSON envoyé : objet {choix: qté} ou valeur simple
+  // Attributs pour le bloc Oui/Non
+  yesLabel?: string // Label du bouton "Oui"
+  noLabel?: string // Label du bouton "Non"
+  // Masquage conditionnel (blocs internes d'un répéteur)
+  visibilitySourceBlockId?: string // ID du bloc frère source dont la réponse détermine la visibilité
+  visibilityValues?: string[] // Valeurs du bloc source qui affichent ce bloc (vide = toujours visible)
 }
 
 export interface FormBlock {

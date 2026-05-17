@@ -36,6 +36,7 @@ import {
   Repeat,
   ImageIcon,
   Package,
+  ToggleLeft,
 } from 'lucide-react'
 
 interface BlockTypeConfig {
@@ -288,6 +289,19 @@ const blockTypes: BlockTypeConfig[] = [
       required: false,
       quantitySourceBlockId: '',
       quantityItems: [],
+    },
+  },
+  {
+    type: 'yes-no',
+    label: 'Oui / Non',
+    icon: <ToggleLeft className="w-5 h-5" />,
+    iconColor: 'text-sky-500 bg-sky-50',
+    category: 'choice',
+    defaultAttributes: {
+      label: 'Votre réponse',
+      required: false,
+      yesLabel: 'Oui',
+      noLabel: 'Non',
     },
   },
   {

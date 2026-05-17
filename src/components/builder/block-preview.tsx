@@ -407,6 +407,30 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
           </div>
         )
 
+      case 'yes-no':
+        return (
+          <div className="mt-2 flex gap-2">
+            <button
+              className="px-4 py-2 rounded border-2 text-sm font-medium transition-colors"
+              style={{
+                borderColor: themeProps.buttonsBgColor,
+                color: themeProps.answersColor,
+              }}
+            >
+              {block.attributes.yesLabel || 'Oui'}
+            </button>
+            <button
+              className="px-4 py-2 rounded border-2 text-sm font-medium transition-colors"
+              style={{
+                borderColor: themeProps.answersColor + '40',
+                color: themeProps.answersColor,
+              }}
+            >
+              {block.attributes.noLabel || 'Non'}
+            </button>
+          </div>
+        )
+
       case 'quantity':
         const previewItems = (block.attributes.quantityItems || []).slice(0, 3)
         return (
@@ -464,6 +488,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       'group': 'GROUPE DE QUESTIONS',
       'repeater': 'BLOC RÉPÉTABLE',
       'quantity': 'QUANTITÉ',
+      'yes-no': 'OUI / NON',
     }
     return labels[type] || type.toUpperCase()
   }

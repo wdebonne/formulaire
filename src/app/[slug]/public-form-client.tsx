@@ -806,6 +806,39 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     return null
   }, [form.logic, answers, currentBlock])
 
+  // Vérifie si un bloc interne d'un répéteur doit être affiché selon sa condition de masquage
+  const isInnerBlockVisible = (
+    innerBlock: FormBlock,
+    repeaterId: string,
+    repetitionCount: number,
+    currentAnswers: Record<string, any>
+  ): boolean => {
+    const srcId = innerBlock.attributes.visibilitySourceBlockId
+    const visValues = innerBlock.attributes.visibilityValues
+    if (!srcId || !visValues || visValues.length === 0) return true
+    const srcKey = `${repeaterId}_${repetitionCount}_${srcId}`
+    const srcAnswer = currentAnswers[srcKey]
+    if (srcAnswer === undefined || srcAnswer === null || srcAnswer === '') return false
+    if (Array.isArray(srcAnswer)) return srcAnswer.some((v) => visValues.includes(v))
+    return visValues.includes(String(srcAnswer))
+  }
+
+  // Trouve l'index du prochain bloc interne visible à partir de fromIndex
+  const getNextVisibleInnerIndex = (
+    innerBlocks: FormBlock[],
+    fromIndex: number,
+    repeaterId: string,
+    repetitionCount: number,
+    currentAnswers: Record<string, any>
+  ): number | null => {
+    for (let i = fromIndex; i < innerBlocks.length; i++) {
+      if (isInnerBlockVisible(innerBlocks[i], repeaterId, repetitionCount, currentAnswers)) {
+        return i
+      }
+    }
+    return null
+  }
+
   const goToNext = useCallback((skipValidation: boolean = false, currentValue?: any) => {
     if (isAnimating) return
     setError(null)
@@ -984,21 +1017,24 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         }
       }
 
-      // Passer au bloc interne suivant ou afficher la question de répétition
-      if (state.currentInnerIndex < innerBlocks.length - 1) {
+      // Passer au bloc interne suivant visible ou afficher la question de répétition
+      const nextVisibleIndex = getNextVisibleInnerIndex(
+        innerBlocks, state.currentInnerIndex + 1, currentBlock.id, state.repetitionCount, answers
+      )
+      if (nextVisibleIndex !== null) {
         setIsAnimating(true)
         setTimeout(() => {
           setRepeaterStates({
             ...repeaterStates,
             [currentBlock.id]: {
               ...state,
-              currentInnerIndex: state.currentInnerIndex + 1
+              currentInnerIndex: nextVisibleIndex
             }
           })
           setIsAnimating(false)
         }, 300)
       } else {
-        // Fin des blocs internes, afficher la question de répétition
+        // Fin des blocs internes visibles, afficher la question de répétition
         setIsAnimating(true)
         setTimeout(() => {
           setRepeaterStates({
@@ -2653,6 +2689,37 @@ function QuestionBlock({
           </div>
         )
 
+      case 'yes-no':
+        return (
+          <div className="mt-4 flex gap-3">
+            {[
+              { value: 'yes', label: block.attributes.yesLabel || 'Oui' },
+              { value: 'no', label: block.attributes.noLabel || 'Non' },
+            ].map(({ value: btnValue, label }) => {
+              const isSelected = answer === btnValue
+              return (
+                <button
+                  key={btnValue}
+                  type="button"
+                  onClick={() => {
+                    onAnswer(btnValue)
+                    setTimeout(() => onNext(true, btnValue), 300)
+                  }}
+                  className="px-6 py-3 font-medium transition-all active:scale-[0.97] hover:scale-[1.02] border-2"
+                  style={{
+                    backgroundColor: isSelected ? themeProps.buttonsBgColor : 'transparent',
+                    color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
+                    borderColor: isSelected ? themeProps.buttonsBgColor : themeProps.answersColor + '40',
+                    borderRadius: buttonBorderRadius,
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )
+
       case 'legal':
         return (
           <div className="mt-4">
@@ -3188,6 +3255,34 @@ function GroupBlock({
               ...inputStyle,
             }}
           />
+        )
+
+      case 'yes-no':
+        return (
+          <div className="flex gap-2">
+            {[
+              { btnValue: 'yes', label: innerBlock.attributes.yesLabel || 'Oui' },
+              { btnValue: 'no', label: innerBlock.attributes.noLabel || 'Non' },
+            ].map(({ btnValue, label }) => {
+              const isSelected = value === btnValue
+              return (
+                <button
+                  key={btnValue}
+                  type="button"
+                  onClick={() => handleChange(btnValue)}
+                  className="px-4 py-2 font-medium transition-all border-2 text-sm"
+                  style={{
+                    backgroundColor: isSelected ? themeProps.buttonsBgColor : 'transparent',
+                    color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
+                    borderColor: isSelected ? themeProps.buttonsBgColor : themeProps.answersColor + '40',
+                    borderRadius: buttonBorderRadius,
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         )
 
       case 'legal':

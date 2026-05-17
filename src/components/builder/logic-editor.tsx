@@ -298,10 +298,10 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
             : `${parentIndex + 1}`
 
         return (
-          <div key={block.id} className="border rounded-lg overflow-hidden">
+          <div key={block.id} className="border rounded-lg">
             <button
               onClick={() => toggleBlockExpanded(block.id)}
-              className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
+              className={`w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors ${isExpanded ? 'rounded-t-lg' : 'rounded-lg'}`}
             >
               <div className="flex items-center space-x-2">
                 {isExpanded ? (
@@ -330,7 +330,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
                 {blockLogic?.rules.map((rule, ruleIndex) => {
                   const ruleCollapsed = isRuleCollapsed(block.id, rule.id)
                   return (
-                    <div key={rule.id} className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                    <div key={rule.id} className="bg-gray-50 rounded-lg border border-gray-200">
                       {/* En-tête de règle cliquable */}
                       <div className="flex items-center justify-between px-3 py-2">
                         <button

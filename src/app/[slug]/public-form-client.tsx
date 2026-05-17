@@ -3864,10 +3864,62 @@ function RepeaterBlock({
           </div>
         )}
 
-        {/* Bouton OK pour les choix multiples */}
+        {/* Bouton OK pour les choix multiples (avec ou sans option Autre remplie) */}
         {['multiple-choice', 'dropdown', 'image-selection'].includes(currentInnerBlock.type) &&
           (currentInnerBlock.attributes.allowMultiple || currentInnerBlock.attributes.multiple) &&
-          (currentAnswer || []).length > 0 && (
+          (currentAnswer || []).length > 0 &&
+          // Si "Autre" est sélectionné, n'afficher OK que si le texte est renseigné
+          !(currentInnerBlock.attributes.allowOtherOption &&
+            Array.isArray(currentAnswer) &&
+            currentAnswer.some((v: string) => v === '__other__:' || v === '__other__') &&
+            !currentAnswer.some((v: string) => typeof v === 'string' && v.startsWith('__other__:') && v.length > 10)
+          ) && (
+            <div className="mt-4">
+              <button
+                onClick={() => onNext()}
+                disabled={isSubmitting}
+                className="px-6 py-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                style={{
+                  backgroundColor: themeProps.buttonsBgColor,
+                  color: themeProps.buttonsFontColor,
+                  borderRadius: buttonBorderRadius,
+                }}
+              >
+                OK
+                <span className="ml-2 text-xs opacity-70">Entrée ↵</span>
+              </button>
+            </div>
+          )}
+
+        {/* Bouton OK pour liste déroulante avec valeur personnalisée (hors liste) */}
+        {currentInnerBlock.type === 'dropdown' &&
+          currentInnerBlock.attributes.allowCustomValue &&
+          currentAnswer &&
+          !currentInnerBlock.attributes.choices?.some(
+            (c: any) => c.value === currentAnswer || c.label === currentAnswer
+          ) && (
+            <div className="mt-4">
+              <button
+                onClick={() => onNext()}
+                disabled={isSubmitting}
+                className="px-6 py-2 font-medium transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                style={{
+                  backgroundColor: themeProps.buttonsBgColor,
+                  color: themeProps.buttonsFontColor,
+                  borderRadius: buttonBorderRadius,
+                }}
+              >
+                OK
+                <span className="ml-2 text-xs opacity-70">Entrée ↵</span>
+              </button>
+            </div>
+          )}
+
+        {/* Bouton OK pour choix multiple avec option "Autre" remplie */}
+        {currentInnerBlock.type === 'multiple-choice' &&
+          currentInnerBlock.attributes.allowOtherOption &&
+          Array.isArray(currentAnswer) &&
+          currentAnswer.some((v: string) => typeof v === 'string' && v.startsWith('__other__:') && v.length > 10) && (
             <div className="mt-4">
               <button
                 onClick={() => onNext()}

@@ -4212,9 +4212,8 @@ function InnerBlockInput({
             onSelect={(value) => {
               // Pas de setTimeout ici : le contexte répéteur change rapidement et un callback
               // différé (300ms) pourrait s'exécuter dans le mauvais contexte de bloc.
-              // onNext est appelé directement pour les choix de liste uniquement.
               if (value && innerDropdownChoices.some((c: any) => c.value === value)) {
-                onNext(true)
+                onNext(true, value)
               }
             }}
             placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}

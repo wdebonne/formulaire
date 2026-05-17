@@ -2692,7 +2692,7 @@ function QuestionBlock({
       )}
 
       {/* Submit button for multiple choice */}
-      {['multiple-choice', 'dropdown'].includes(block.type) &&
+      {['multiple-choice', 'dropdown', 'image-selection'].includes(block.type) &&
         (block.attributes.allowMultiple || block.attributes.multiple) &&
         (answer || []).length > 0 && (
           <div className="mt-4 sm:mt-6">

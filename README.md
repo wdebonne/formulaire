@@ -4,6 +4,12 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 
 ## 🆕 Nouveautés (Mai 2026)
 
+### 🔽 Filtrage des choix dans la Liste déroulante (NOUVEAU)
+- Masquez certains choix selon la réponse d'un **bloc précédent** (liste déroulante, choix multiple ou sélection image)
+- Configuration par valeur source : pour chaque option du bloc de référence, cochez les choix à masquer
+- **Champ de recherche intégré** dans le panneau de configuration — indispensable pour les listes de 100 choix ou plus
+- Fonctionne dans les blocs simples, les groupes et les répéteurs
+
 ### 🗑️ Corbeille des formulaires (NOUVEAU)
 - La suppression d'un formulaire est désormais un **soft delete** : le formulaire disparaît du tableau de bord sans être définitivement effacé
 - Les administrateurs accèdent à la corbeille depuis le panneau d'administration (`/admin/trash`)
@@ -214,7 +220,7 @@ Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour dépl
 - **Nombre** - Champ numérique
 - **Choix multiple** - Sélection unique ou multiple
 - **Sélection Image** - Choix illustrés par des images cliquables
-- **Menu déroulant** - Liste de choix avec autocomplétion et option de saisie libre
+- **Menu déroulant** - Liste de choix avec autocomplétion, saisie libre optionnelle et filtrage dynamique des choix selon un bloc précédent
 - **Date** - Sélecteur de date
 - **Date avancée** - Calendrier visuel avec plage de dates et contraintes configurables
 - **Heure** - Sélecteur d'heure ou plage horaire

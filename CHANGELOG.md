@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-05-17
+
+### Ajouts
+- **Filtrage des choix dans le bloc Liste déroulante** :
+  - Nouvelle section "Filtrage des choix" (panneau violet) dans l'éditeur de chaque liste déroulante
+  - Sélection d'un **bloc source unique** (liste déroulante, choix multiple ou sélection image situé avant le bloc) dont la réponse pilote le masquage
+  - Pour chaque valeur possible du bloc source, un panneau dépliable liste les choix de la liste déroulante avec des **cases à cocher** (coché = masqué à l'utilisateur final)
+  - Compteur "N masqué(s)" affiché sur le panneau replié pour avoir un aperçu sans l'ouvrir
+  - **Champ de recherche** dans chaque panneau dépliable : filtre les choix en temps réel, insensible à la casse — indispensable pour les listes de 100 choix ou plus
+  - Zone de liste avec hauteur maximale et défilement vertical pour ne pas surcharger l'interface
+  - Le filtrage s'applique dans tous les contextes d'affichage : bloc principal, bloc dans un groupe et bloc dans un répéteur
+  - Les données de configuration sont stockées dans deux nouveaux attributs : `choiceFilterSourceBlockId` et `choiceFilters`
+
+---
+
 ## 2026-05-16 (soir)
 
 ### Ajouts

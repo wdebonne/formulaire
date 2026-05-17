@@ -3046,7 +3046,22 @@ function GroupBlock({
             type={innerBlock.type === 'email' ? 'email' : innerBlock.type === 'number' ? 'number' : 'text'}
             placeholder={innerBlock.attributes.placeholder || 'Tapez votre réponse ici...'}
             value={value || ''}
-            onChange={(e) => handleChange(e.target.value)}
+            onChange={(e) => {
+              if (innerBlock.type === 'short-text') {
+                const transform = innerBlock.attributes.textTransform || 'none'
+                if (transform === 'uppercase') {
+                  handleChange(e.target.value.toUpperCase())
+                } else if (transform === 'capitalize') {
+                  handleChange(
+                    e.target.value.toLowerCase().replace(/(^|[\s-])\S/g, (c) => c.toUpperCase())
+                  )
+                } else {
+                  handleChange(e.target.value)
+                }
+              } else {
+                handleChange(e.target.value)
+              }
+            }}
             className="w-full bg-transparent border-2 py-2 px-3 text-base outline-none transition-colors focus:border-opacity-100"
             style={{
               color: themeProps.answersColor,

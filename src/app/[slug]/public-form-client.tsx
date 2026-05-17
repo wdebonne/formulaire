@@ -955,6 +955,33 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         }
       }
       
+      // Auto-initialiser les quantités si le bloc interne est un bloc Quantité sans réponse
+      if (currentInnerBlock?.type === 'quantity' && !innerAnswer) {
+        const qKey = `${currentBlock.id}_${state.repetitionCount}_${currentInnerBlock.id}`
+        const qSrcId = currentInnerBlock.attributes.quantitySourceBlockId
+        const qSrcBlock = innerBlocks.find((b) => b.id === qSrcId)
+        const qSrcChoices = qSrcBlock?.attributes.choices || []
+        const qSrcAnswerKey = `${currentBlock.id}_${state.repetitionCount}_${qSrcId}`
+        const qSrcAnswer = qSrcId ? answers[qSrcAnswerKey] : null
+        let qSelectedVals: string[] = []
+        if (qSrcAnswer) {
+          if (Array.isArray(qSrcAnswer)) qSelectedVals = qSrcAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
+          else if (typeof qSrcAnswer === 'string') qSelectedVals = [qSrcAnswer]
+        }
+        const qChoices = qSelectedVals.length > 0
+          ? qSrcChoices.filter((c: any) => qSelectedVals.includes(c.value))
+          : qSrcChoices
+        if (qChoices.length > 0) {
+          const qItems = currentInnerBlock.attributes.quantityItems || []
+          const defaultQtys: Record<string, number> = {}
+          qChoices.forEach((c: any) => {
+            const cfg = qItems.find((it: any) => it.choiceId === c.id || it.choiceValue === c.value)
+            defaultQtys[c.value] = cfg?.min ?? 1
+          })
+          setAnswers((prev: Record<string, any>) => ({ ...prev, [qKey]: defaultQtys }))
+        }
+      }
+
       // Passer au bloc interne suivant ou afficher la question de répétition
       if (state.currentInnerIndex < innerBlocks.length - 1) {
         setIsAnimating(true)
@@ -1130,11 +1157,61 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     setError(null)
 
     try {
+      // Construire un objet de données complet en ajoutant les valeurs par défaut
+      // pour les blocs Quantité dont l'utilisateur n'a pas modifié la valeur.
+      const completeData = { ...answers }
+
+      const fillQuantityDefaults = (qBlock: FormBlock, answerKey: string, srcAnswerKey: string, srcChoices: any[]) => {
+        if (completeData[answerKey] && Object.keys(completeData[answerKey]).length > 0) return
+        const srcAns = completeData[srcAnswerKey]
+        let selectedVals: string[] = []
+        if (srcAns) {
+          if (Array.isArray(srcAns)) selectedVals = srcAns.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
+          else if (typeof srcAns === 'string') selectedVals = [srcAns]
+        }
+        const choices = selectedVals.length > 0
+          ? srcChoices.filter((c: any) => selectedVals.includes(c.value))
+          : srcChoices
+        if (choices.length === 0) return
+        const qItems = qBlock.attributes.quantityItems || []
+        const defaults: Record<string, number> = {}
+        choices.forEach((c: any) => {
+          const cfg = qItems.find((it) => it.choiceId === c.id || it.choiceValue === c.value)
+          defaults[c.value] = cfg?.min ?? 1
+        })
+        completeData[answerKey] = defaults
+      }
+
+      for (const block of form.blocks) {
+        if (block.type === 'quantity') {
+          const srcId = block.attributes.quantitySourceBlockId || ''
+          const srcBlock = form.blocks.find((b) => b.id === srcId)
+          fillQuantityDefaults(block, block.id, srcId, srcBlock?.attributes.choices || [])
+        }
+        if ((block.type === 'repeater' || block.type === 'group') && block.innerBlocks) {
+          for (const inner of block.innerBlocks) {
+            if (inner.type !== 'quantity') continue
+            const srcId = inner.attributes.quantitySourceBlockId || ''
+            const srcInner = block.innerBlocks.find((b) => b.id === srcId)
+            const srcChoices = srcInner?.attributes.choices || []
+            // Itérer sur toutes les répétitions actives
+            let rep = 1
+            while (completeData[`${block.id}_${rep}_${srcId}`] !== undefined ||
+                   completeData[`${block.id}_${rep}_${inner.id}`] !== undefined) {
+              const answerKey = `${block.id}_${rep}_${inner.id}`
+              const srcAnswerKey = `${block.id}_${rep}_${srcId}`
+              fillQuantityDefaults(inner, answerKey, srcAnswerKey, srcChoices)
+              rep++
+            }
+          }
+        }
+      }
+
       const res = await fetch(`/api/forms/${form.id}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: answers,
+          data: completeData,
           metadata: {
             userAgent: navigator.userAgent,
             submittedAt: new Date().toISOString(),

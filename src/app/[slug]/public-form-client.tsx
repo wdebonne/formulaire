@@ -279,7 +279,8 @@ function DropdownWithAutocomplete({
         </button>
       </div>
 
-      {isOpen && (
+      {/* Panneau de suggestions — masqué quand c'est une valeur personnalisée sans correspondance */}
+      {isOpen && !(allowCustomValue && filteredChoices.length === 0 && searchTerm) && (
         <div
           className="absolute z-50 w-full mt-1 max-h-60 overflow-auto border-2 shadow-lg"
           style={{
@@ -317,10 +318,7 @@ function DropdownWithAutocomplete({
               className="px-4 py-3 text-sm"
               style={{ color: themeProps.answersColor + '80' }}
             >
-              {allowCustomValue 
-                ? `Aucune option trouvée. Votre réponse "${searchTerm}" sera enregistrée.`
-                : 'Aucune option correspondante. Veuillez sélectionner une option de la liste.'
-              }
+              Aucune option correspondante. Veuillez sélectionner une option de la liste.
             </div>
           ) : (
             <div
@@ -331,6 +329,13 @@ function DropdownWithAutocomplete({
             </div>
           )}
         </div>
+      )}
+
+      {/* Message inline pour valeur personnalisée (hors panneau z-50 pour ne pas masquer le bouton OK) */}
+      {allowCustomValue && filteredChoices.length === 0 && searchTerm && (
+        <p className="mt-1 text-xs" style={{ color: themeProps.answersColor + '70' }}>
+          Votre réponse &quot;{searchTerm}&quot; sera enregistrée.
+        </p>
       )}
     </div>
   )
@@ -3864,14 +3869,13 @@ function RepeaterBlock({
           </div>
         )}
 
-        {/* Bouton OK pour les choix multiples (avec ou sans option Autre remplie) */}
+        {/* Bouton OK pour les choix multiples sélectionnés (hors cas "Autre" seul non rempli) */}
         {['multiple-choice', 'dropdown', 'image-selection'].includes(currentInnerBlock.type) &&
           (currentInnerBlock.attributes.allowMultiple || currentInnerBlock.attributes.multiple) &&
-          (currentAnswer || []).length > 0 &&
-          // Si "Autre" est sélectionné, n'afficher OK que si le texte est renseigné
+          Array.isArray(currentAnswer) && currentAnswer.length > 0 &&
+          // Masquer si "Autre" est l'unique sélection et le texte n'est pas encore saisi
           !(currentInnerBlock.attributes.allowOtherOption &&
-            Array.isArray(currentAnswer) &&
-            currentAnswer.some((v: string) => v === '__other__:' || v === '__other__') &&
+            currentAnswer.every((v: string) => typeof v === 'string' && v.startsWith('__other__:')) &&
             !currentAnswer.some((v: string) => typeof v === 'string' && v.startsWith('__other__:') && v.length > 10)
           ) && (
             <div className="mt-4">
@@ -3915,11 +3919,13 @@ function RepeaterBlock({
             </div>
           )}
 
-        {/* Bouton OK pour choix multiple avec option "Autre" remplie */}
+        {/* Bouton OK pour choix multiple avec option "Autre" remplie (allowMultiple ou non) */}
         {currentInnerBlock.type === 'multiple-choice' &&
           currentInnerBlock.attributes.allowOtherOption &&
-          Array.isArray(currentAnswer) &&
-          currentAnswer.some((v: string) => typeof v === 'string' && v.startsWith('__other__:') && v.length > 10) && (
+          (
+            (Array.isArray(currentAnswer) && currentAnswer.some((v: string) => typeof v === 'string' && v.startsWith('__other__:') && v.length > 10)) ||
+            (typeof currentAnswer === 'string' && currentAnswer.startsWith('__other__:') && currentAnswer.length > 10)
+          ) && (
             <div className="mt-4">
               <button
                 onClick={() => onNext()}

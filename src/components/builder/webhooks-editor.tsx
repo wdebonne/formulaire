@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import {
   Plus, Trash2, ChevronDown, ChevronRight, Webhook as WebhookIcon,
   Play, Maximize2, X, ArrowRight, Calendar, Clock, AtSign,
   AlignLeft, Hash, Mail, Phone, List, CheckSquare, Layers,
-  ToggleLeft, Globe, FileText, PenLine, Image, LayoutList,
+  ToggleLeft, Globe, FileText, PenLine, Image, LayoutList, Search,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -252,6 +252,157 @@ function CustomValueEditor({
   )
 }
 
+// ─── Sélecteur de bloc avec recherche ────────────────────────────────────────
+function BlockValueSelect({
+  value,
+  onChange,
+  questionBlocks,
+  placeholder = 'Choisir une valeur…',
+  size = 'sm',
+  className = '',
+}: {
+  value: string
+  onChange: (v: string) => void
+  questionBlocks: FormBlock[]
+  placeholder?: string
+  size?: 'sm' | 'md'
+  className?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setSearch('')
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const q = search.toLowerCase().trim()
+
+  type Item = { value: string; label: string; indent?: boolean }
+
+  const metaItems: Item[] = [
+    { value: 'entry_id', label: 'ID de la réponse' },
+    { value: 'entry_date', label: 'Date de soumission' },
+  ]
+
+  const questionItems: Item[] = questionBlocks.flatMap((b) => [
+    { value: b.id, label: b.attributes.label || 'Sans titre' },
+    ...((b.type === 'group' || b.type === 'repeater') && b.innerBlocks?.length
+      ? b.innerBlocks.map((ib: any) => ({
+          value: ib.id,
+          label: ib.attributes?.label || 'Sans titre',
+          indent: true,
+        }))
+      : []),
+  ])
+
+  const filteredMeta = q ? metaItems.filter((i) => i.label.toLowerCase().includes(q)) : metaItems
+  const filteredQuestions = q ? questionItems.filter((i) => i.label.toLowerCase().includes(q)) : questionItems
+  const showCustom = !q || 'personnalisée'.includes(q) || 'texte'.includes(q)
+
+  const allItems: Item[] = [
+    ...metaItems,
+    ...questionItems,
+    { value: '_custom', label: '✏️  Personnalisée (texte + champs + date…)' },
+  ]
+  const selected = value ? allItems.find((i) => i.value === value) : null
+
+  const isSmall = size === 'sm'
+  const triggerH = isSmall ? 'h-7' : 'h-9'
+  const textSz = isSmall ? 'text-xs' : 'text-sm'
+
+  const handleSelect = (v: string) => {
+    onChange(v)
+    setOpen(false)
+    setSearch('')
+  }
+
+  const noResults = filteredMeta.length === 0 && filteredQuestions.length === 0 && !showCustom
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full flex items-center justify-between px-2 border rounded bg-white hover:bg-gray-50 ${triggerH} ${textSz}`}
+      >
+        <span className={`truncate ${!value ? 'text-gray-400' : value === '_custom' ? 'text-purple-700' : 'text-gray-700'}`}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown className={`flex-shrink-0 ml-1 text-gray-400 ${isSmall ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border rounded-md shadow-lg overflow-hidden min-w-[200px]">
+          <div className="p-1.5 border-b">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher…"
+                autoFocus
+                className="w-full pl-6 pr-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {!value && !q && (
+              <button type="button" onClick={() => handleSelect('')}
+                className="w-full text-left px-3 py-1.5 text-xs text-gray-400 italic hover:bg-gray-50">
+                {placeholder}
+              </button>
+            )}
+            {filteredMeta.length > 0 && (
+              <>
+                <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50">Métadonnées</div>
+                {filteredMeta.map((item) => (
+                  <button key={item.value} type="button" onClick={() => handleSelect(item.value)}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-blue-50 transition-colors ${value === item.value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}>
+                    {item.label}
+                  </button>
+                ))}
+              </>
+            )}
+            {filteredQuestions.length > 0 && (
+              <>
+                <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50">Questions</div>
+                {filteredQuestions.map((item) => (
+                  <button key={item.value} type="button" onClick={() => handleSelect(item.value)}
+                    className={`w-full text-left text-xs hover:bg-blue-50 transition-colors py-1.5 ${item.indent ? 'pl-6' : 'pl-3'} pr-3 ${value === item.value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}>
+                    {item.indent && <span className="text-gray-400">↳ </span>}{item.label}
+                  </button>
+                ))}
+              </>
+            )}
+            {showCustom && (
+              <>
+                <div className="px-3 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider bg-gray-50">Valeur personnalisée</div>
+                <button type="button" onClick={() => handleSelect('_custom')}
+                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-purple-50 transition-colors ${value === '_custom' ? 'bg-purple-50 text-purple-700 font-medium' : 'text-purple-600'}`}>
+                  ✏️  Personnalisée (texte + champs + date…)
+                </button>
+              </>
+            )}
+            {noResults && (
+              <p className="px-3 py-4 text-xs text-gray-400 text-center">Aucun résultat pour &quot;{search}&quot;</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
   const { webhooks, addWebhook, updateWebhook, removeWebhook } = useFormBuilder()
@@ -463,33 +614,17 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
   const BlockSelector = ({ webhookId, mapping, index, className = '' }: {
     webhookId: string; mapping: WebhookFieldMapping; index: number; className?: string
   }) => (
-    <select
+    <BlockValueSelect
       value={mapping.blockId}
-      onChange={(e) => handleUpdateFieldMapping(webhookId, index, {
-        blockId: e.target.value,
-        customTemplate: e.target.value !== '_custom' ? undefined : (mapping.customTemplate || ''),
+      onChange={(v) => handleUpdateFieldMapping(webhookId, index, {
+        blockId: v,
+        customTemplate: v !== '_custom' ? undefined : (mapping.customTemplate || ''),
       })}
-      className={`w-full px-2 py-1 text-xs border rounded h-7 ${className}`}
-    >
-      <option value="">Sélectionner…</option>
-      <optgroup label="Métadonnées">
-        <option value="entry_id">ID de la réponse</option>
-        <option value="entry_date">Date de soumission</option>
-      </optgroup>
-      <optgroup label="Questions">
-        {questionBlocks.flatMap((b) => [
-          <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>,
-          ...((b.type === 'group' || b.type === 'repeater') && b.innerBlocks?.length
-            ? b.innerBlocks.map((ib: any) => (
-                <option key={ib.id} value={ib.id}>{'  ↳ '}{ib.attributes?.label || 'Sans titre'}</option>
-              ))
-            : [])
-        ])}
-      </optgroup>
-      <optgroup label="Valeur personnalisée">
-        <option value="_custom">✏️  Personnalisée (texte + champs + date…)</option>
-      </optgroup>
-    </select>
+      questionBlocks={questionBlocks}
+      placeholder="Sélectionner…"
+      size="sm"
+      className={className}
+    />
   )
 
   // ─── Mapping agrandi (deux colonnes) ────────────────────────────────────────
@@ -538,44 +673,16 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
                 <ArrowRight className="w-4 h-4 text-gray-400" />
               </div>
               {/* Sélecteur de valeur */}
-              <div className="relative">
-                {!isCustom && (
-                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none z-10">
-                    {mapping.blockId === 'entry_date' ? <Calendar className="w-3.5 h-3.5" /> :
-                     mapping.blockId === 'entry_id'   ? <Hash className="w-3.5 h-3.5" /> :
-                     block ? getBlockTypeIcon(block.type) : <AlignLeft className="w-3.5 h-3.5 opacity-30" />}
-                  </div>
-                )}
-                <select
-                  value={mapping.blockId}
-                  onChange={(e) => handleUpdateFieldMapping(webhook.id, index, {
-                    blockId: e.target.value,
-                    customTemplate: e.target.value !== '_custom' ? undefined : '',
-                    flatRepeater: false,
-                  })}
-                  className={`w-full pr-3 py-2 text-sm border rounded-md h-9 appearance-none bg-white ${isCustom ? 'pl-3 text-purple-700' : 'pl-8'}`}
-                >
-                  <option value="">Choisir une valeur…</option>
-                  <optgroup label="Métadonnées">
-                    <option value="entry_id">ID de la réponse</option>
-                    <option value="entry_date">Date de soumission</option>
-                  </optgroup>
-                  <optgroup label="Questions">
-                    {questionBlocks.flatMap((b) => [
-                      <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>,
-                      ...((b.type === 'group' || b.type === 'repeater') && b.innerBlocks?.length
-                        ? b.innerBlocks.map((ib: any) => (
-                            <option key={ib.id} value={ib.id}>{'  ↳ '}{ib.attributes?.label || 'Sans titre'}</option>
-                          ))
-                        : [])
-                    ])}
-                  </optgroup>
-                  <optgroup label="Valeur personnalisée">
-                    <option value="_custom">✏️  Personnalisée (texte + champs + date…)</option>
-                  </optgroup>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-              </div>
+              <BlockValueSelect
+                value={mapping.blockId}
+                onChange={(v) => handleUpdateFieldMapping(webhook.id, index, {
+                  blockId: v,
+                  customTemplate: v !== '_custom' ? undefined : '',
+                  flatRepeater: false,
+                })}
+                questionBlocks={questionBlocks}
+                size="md"
+              />
               {/* Supprimer */}
               <Button variant="ghost" size="sm"
                 className="h-9 px-2 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"

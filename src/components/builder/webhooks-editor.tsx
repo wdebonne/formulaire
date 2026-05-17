@@ -12,8 +12,13 @@ import {
   Play, Maximize2, X, ArrowRight, Calendar, Clock, AtSign,
   AlignLeft, Hash, Mail, Phone, List, CheckSquare, Layers,
   ToggleLeft, Globe, FileText, PenLine, Image, LayoutList, Search,
+  GripVertical,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface WebhooksEditorProps {
   blocks: FormBlock[]
@@ -403,13 +408,144 @@ function BlockValueSelect({
   )
 }
 
+// ─── Ligne de mapping triable (drag & drop) ──────────────────────────────────
+interface SortableMappingRowProps {
+  id: string
+  index: number
+  mapping: WebhookFieldMapping
+  allMappableBlocks: FormBlock[]
+  questionBlocks: FormBlock[]
+  isDragDisabled: boolean
+  onUpdate: (index: number, updates: Partial<WebhookFieldMapping>) => void
+  onRemove: (index: number) => void
+}
+
+function SortableMappingRow({
+  id, index, mapping, allMappableBlocks, questionBlocks,
+  isDragDisabled, onUpdate, onRemove,
+}: SortableMappingRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: isDragDisabled,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: isDragging ? 'relative' as const : undefined,
+  }
+
+  const block = allMappableBlocks.find((b) => b.id === mapping.blockId)
+  const isCustom = mapping.blockId === '_custom'
+  const hasKey = mapping.key.trim() !== ''
+  const isRepeater = block?.type === 'repeater'
+  const isFlatRepeater = isRepeater && mapping.flatRepeater
+
+  const flatPreviewKeys = isFlatRepeater && hasKey && block?.innerBlocks
+    ? block.innerBlocks.slice(0, 2).map((ib: any) => {
+        const slug = (ib.attributes?.label || ib.id || 'champ')
+          .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+        return `${mapping.key}_${slug}_1`
+      })
+    : []
+
+  return (
+    <div ref={setNodeRef} style={style} className="space-y-1">
+      <div className="grid grid-cols-[20px_1fr_28px_1fr_36px] gap-2 items-center group">
+        {/* Poignée de tri */}
+        <div
+          className={`flex items-center justify-center h-9 text-gray-300 hover:text-gray-500 transition-colors ${isDragDisabled ? 'opacity-0 pointer-events-none' : 'cursor-grab active:cursor-grabbing'}`}
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="w-4 h-4" />
+        </div>
+        {/* Clé JSON */}
+        <Input
+          value={mapping.key}
+          onChange={(e) => onUpdate(index, { key: e.target.value })}
+          placeholder={isFlatRepeater ? 'préfixe_clé' : 'nom_du_champ'}
+          className={`h-9 text-sm font-mono ${hasKey ? 'text-orange-600 border-orange-200 bg-orange-50/50' : ''}`}
+        />
+        {/* Flèche */}
+        <div className="flex items-center justify-center">
+          <ArrowRight className="w-4 h-4 text-gray-400" />
+        </div>
+        {/* Sélecteur de valeur */}
+        <BlockValueSelect
+          value={mapping.blockId}
+          onChange={(v) => onUpdate(index, {
+            blockId: v,
+            customTemplate: v !== '_custom' ? undefined : '',
+            flatRepeater: false,
+          })}
+          questionBlocks={questionBlocks}
+          size="md"
+        />
+        {/* Supprimer */}
+        <Button
+          variant="ghost" size="sm"
+          className="h-9 px-2 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => onRemove(index)}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Option clés plates pour les répéteurs */}
+      {isRepeater && (
+        <div className="pl-7 pr-10 ml-1">
+          <label className="flex items-start gap-2 cursor-pointer group/flat">
+            <input
+              type="checkbox"
+              checked={!!mapping.flatRepeater}
+              onChange={(e) => onUpdate(index, { flatRepeater: e.target.checked })}
+              className="mt-0.5 accent-orange-500"
+            />
+            <div>
+              <span className="text-xs text-gray-600 group-hover/flat:text-gray-800">
+                Développer en clés plates <span className="font-mono text-orange-600">préfixe_champ_N</span>
+              </span>
+              {isFlatRepeater && flatPreviewKeys.length > 0 && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Ex : <span className="font-mono">{flatPreviewKeys.join(', ')}, …</span>
+                </p>
+              )}
+              {!isFlatRepeater && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Par défaut : envoie un tableau d&apos;objets JSON
+                </p>
+              )}
+            </div>
+          </label>
+        </div>
+      )}
+
+      {/* Éditeur de valeur personnalisée */}
+      {isCustom && (
+        <div className="pl-7 pr-10">
+          <CustomValueEditor
+            template={mapping.customTemplate || ''}
+            allMappableBlocks={allMappableBlocks}
+            onTemplateChange={(t) => onUpdate(index, { customTemplate: t })}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
   const { webhooks, addWebhook, updateWebhook, removeWebhook } = useFormBuilder()
   const [expandedWebhooks, setExpandedWebhooks] = useState<string[]>([])
   const [maximizedWebhookId, setMaximizedWebhookId] = useState<string | null>(null)
   const [testing, setTesting] = useState<string | null>(null)
+  const [mappingSearch, setMappingSearch] = useState('')
   const { toast } = useToast()
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   const questionBlocks = blocks.filter(
     (b) => !['welcome-screen', 'thankyou-screen', 'statement'].includes(b.type)
@@ -423,6 +559,8 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
       b.innerBlocks.forEach((inner) => allMappableBlocks.push(inner))
     }
   })
+
+  useEffect(() => { setMappingSearch('') }, [maximizedWebhookId])
 
   const toggleExpanded = (webhookId: string) => {
     setExpandedWebhooks((prev) =>
@@ -484,6 +622,12 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
     const webhook = webhooks.find((w) => w.id === webhookId)
     if (!webhook) return
     updateWebhook(webhookId, { fieldMappings: webhook.fieldMappings.filter((_, idx) => idx !== i) })
+  }
+
+  const handleReorderFieldMappings = (webhookId: string, oldIndex: number, newIndex: number) => {
+    const webhook = webhooks.find((w) => w.id === webhookId)
+    if (!webhook) return
+    updateWebhook(webhookId, { fieldMappings: arrayMove(webhook.fieldMappings, oldIndex, newIndex) })
   }
 
   const handleTestWebhook = async (webhook: Webhook) => {
@@ -627,119 +771,103 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
     />
   )
 
-  // ─── Mapping agrandi (deux colonnes) ────────────────────────────────────────
-  const renderFieldMappingsExpanded = (webhook: Webhook) => (
-    <div className="space-y-3">
-      <div className="grid grid-cols-[1fr_28px_1fr_36px] gap-2 px-1">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clé JSON / Préfixe</span>
-        <span />
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Valeur</span>
-        <span />
-      </div>
+  // ─── Mapping agrandi (deux colonnes, recherche + drag & drop) ───────────────
+  const renderFieldMappingsExpanded = (webhook: Webhook) => {
+    const isSearching = mappingSearch.trim() !== ''
+    const q = mappingSearch.toLowerCase()
 
-      {webhook.fieldMappings.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-6">Aucun mapping — cliquez sur &quot;+ Ajouter&quot;</p>
-      )}
-
-      {webhook.fieldMappings.map((mapping, index) => {
+    const filteredMappings = webhook.fieldMappings
+      .map((m, i) => ({ mapping: m, originalIndex: i }))
+      .filter(({ mapping }) => {
+        if (!isSearching) return true
+        if (mapping.key.toLowerCase().includes(q)) return true
         const block = allMappableBlocks.find((b) => b.id === mapping.blockId)
-        const isCustom = mapping.blockId === '_custom'
-        const hasKey = mapping.key.trim() !== ''
-        const isRepeater = block?.type === 'repeater'
-        const isFlatRepeater = isRepeater && mapping.flatRepeater
+        if (block && (block.attributes.label || '').toLowerCase().includes(q)) return true
+        if (mapping.blockId === 'entry_date' && 'date entrée'.includes(q)) return true
+        if (mapping.blockId === 'entry_id' && 'id entrée'.includes(q)) return true
+        if (mapping.blockId === '_custom' && (mapping.customTemplate || '').toLowerCase().includes(q)) return true
+        return false
+      })
 
-        // Aperçu des clés plates générées
-        const flatPreviewKeys = isFlatRepeater && hasKey && block?.innerBlocks
-          ? block.innerBlocks.slice(0, 2).map((ib: any) => {
-              const slug = (ib.attributes?.label || ib.id || 'champ')
-                .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
-              return `${mapping.key}_${slug}_1`
-            })
-          : []
+    const items = webhook.fieldMappings.map((_, i) => String(i))
 
-        return (
-          <div key={index} className="space-y-1">
-            {/* Ligne principale */}
-            <div className="grid grid-cols-[1fr_28px_1fr_36px] gap-2 items-center group">
-              {/* Clé JSON */}
-              <Input
-                value={mapping.key}
-                onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { key: e.target.value })}
-                placeholder={isFlatRepeater ? 'préfixe_clé' : 'nom_du_champ'}
-                className={`h-9 text-sm font-mono ${hasKey ? 'text-orange-600 border-orange-200 bg-orange-50/50' : ''}`}
-              />
-              {/* Flèche */}
-              <div className="flex items-center justify-center">
-                <ArrowRight className="w-4 h-4 text-gray-400" />
-              </div>
-              {/* Sélecteur de valeur */}
-              <BlockValueSelect
-                value={mapping.blockId}
-                onChange={(v) => handleUpdateFieldMapping(webhook.id, index, {
-                  blockId: v,
-                  customTemplate: v !== '_custom' ? undefined : '',
-                  flatRepeater: false,
-                })}
+    const handleDragEnd = (event: DragEndEvent) => {
+      const { active, over } = event
+      if (over && active.id !== over.id) {
+        handleReorderFieldMappings(webhook.id, Number(active.id), Number(over.id))
+      }
+    }
+
+    return (
+      <div className="space-y-3">
+        {/* Barre de recherche */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <Input
+            value={mappingSearch}
+            onChange={(e) => setMappingSearch(e.target.value)}
+            placeholder="Rechercher un champ ou une valeur…"
+            className="h-8 text-sm pl-8 pr-8 bg-gray-50 focus:bg-white"
+          />
+          {isSearching && (
+            <button
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              onClick={() => setMappingSearch('')}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* En-têtes colonnes */}
+        <div className="grid grid-cols-[20px_1fr_28px_1fr_36px] gap-2 px-1">
+          <span />
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clé JSON / Préfixe</span>
+          <span />
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Valeur</span>
+          <span />
+        </div>
+
+        {/* États vides */}
+        {webhook.fieldMappings.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-6">Aucun mapping — cliquez sur &quot;+ Ajouter&quot;</p>
+        )}
+        {isSearching && filteredMappings.length === 0 && webhook.fieldMappings.length > 0 && (
+          <p className="text-sm text-gray-400 text-center py-4">Aucun résultat pour &quot;{mappingSearch}&quot;</p>
+        )}
+
+        {/* Compteur de résultats filtrage */}
+        {isSearching && filteredMappings.length > 0 && (
+          <p className="text-xs text-gray-400 px-1">
+            {filteredMappings.length} résultat{filteredMappings.length !== 1 ? 's' : ''} sur {webhook.fieldMappings.length}
+          </p>
+        )}
+
+        {/* Liste triable */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items} strategy={verticalListSortingStrategy}>
+            {filteredMappings.map(({ mapping, originalIndex }) => (
+              <SortableMappingRow
+                key={originalIndex}
+                id={String(originalIndex)}
+                index={originalIndex}
+                mapping={mapping}
+                allMappableBlocks={allMappableBlocks}
                 questionBlocks={questionBlocks}
-                size="md"
+                isDragDisabled={isSearching}
+                onUpdate={(i, updates) => handleUpdateFieldMapping(webhook.id, i, updates)}
+                onRemove={(i) => handleRemoveFieldMapping(webhook.id, i)}
               />
-              {/* Supprimer */}
-              <Button variant="ghost" size="sm"
-                className="h-9 px-2 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => handleRemoveFieldMapping(webhook.id, index)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
+            ))}
+          </SortableContext>
+        </DndContext>
 
-            {/* Option clés plates pour les répéteurs */}
-            {isRepeater && (
-              <div className="col-span-4 pl-0 pr-10 ml-1">
-                <label className="flex items-start gap-2 cursor-pointer group/flat">
-                  <input
-                    type="checkbox"
-                    checked={!!mapping.flatRepeater}
-                    onChange={(e) => handleUpdateFieldMapping(webhook.id, index, { flatRepeater: e.target.checked })}
-                    className="mt-0.5 accent-orange-500"
-                  />
-                  <div>
-                    <span className="text-xs text-gray-600 group-hover/flat:text-gray-800">
-                      Développer en clés plates <span className="font-mono text-orange-600">préfixe_champ_N</span>
-                    </span>
-                    {isFlatRepeater && flatPreviewKeys.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Ex : <span className="font-mono">{flatPreviewKeys.join(', ')}, …</span>
-                      </p>
-                    )}
-                    {!isFlatRepeater && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Par défaut : envoie un tableau d&apos;objets JSON
-                      </p>
-                    )}
-                  </div>
-                </label>
-              </div>
-            )}
-
-            {/* Éditeur de valeur personnalisée */}
-            {isCustom && (
-              <div className="col-span-4 pl-0 pr-10">
-                <CustomValueEditor
-                  template={mapping.customTemplate || ''}
-                  allMappableBlocks={allMappableBlocks}
-                  onTemplateChange={(t) => handleUpdateFieldMapping(webhook.id, index, { customTemplate: t })}
-                />
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      <Button variant="outline" size="sm" className="w-full border-dashed text-gray-500 hover:text-gray-700 mt-2" onClick={() => handleAddFieldMapping(webhook.id)}>
-        <Plus className="w-4 h-4 mr-2" />Ajouter un mapping
-      </Button>
-    </div>
-  )
+        <Button variant="outline" size="sm" className="w-full border-dashed text-gray-500 hover:text-gray-700 mt-2" onClick={() => handleAddFieldMapping(webhook.id)}>
+          <Plus className="w-4 h-4 mr-2" />Ajouter un mapping
+        </Button>
+      </div>
+    )
+  }
 
   // ─── Modal agrandie ──────────────────────────────────────────────────────────
   const maximizedWebhook = webhooks.find((w) => w.id === maximizedWebhookId)

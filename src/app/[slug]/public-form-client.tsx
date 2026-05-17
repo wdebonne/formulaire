@@ -539,6 +539,39 @@ interface RepeaterState {
   showRepeatQuestion: boolean
 }
 
+// Vérifie si un bloc interne d'un répéteur doit être affiché selon sa condition de masquage
+function isInnerBlockVisible(
+  innerBlock: FormBlock,
+  repeaterId: string,
+  repetitionCount: number,
+  currentAnswers: Record<string, any>
+): boolean {
+  const srcId = innerBlock.attributes.visibilitySourceBlockId
+  const visValues = innerBlock.attributes.visibilityValues
+  if (!srcId || !visValues || visValues.length === 0) return true
+  const srcKey = `${repeaterId}_${repetitionCount}_${srcId}`
+  const srcAnswer = currentAnswers[srcKey]
+  if (srcAnswer === undefined || srcAnswer === null || srcAnswer === '') return false
+  if (Array.isArray(srcAnswer)) return (srcAnswer as string[]).some((v) => visValues.includes(v))
+  return visValues.includes(String(srcAnswer))
+}
+
+// Trouve l'index du prochain bloc interne visible à partir de fromIndex
+function getNextVisibleInnerIndex(
+  innerBlocks: FormBlock[],
+  fromIndex: number,
+  repeaterId: string,
+  repetitionCount: number,
+  currentAnswers: Record<string, any>
+): number | null {
+  for (let i = fromIndex; i < innerBlocks.length; i++) {
+    if (isInnerBlockVisible(innerBlocks[i], repeaterId, repetitionCount, currentAnswers)) {
+      return i
+    }
+  }
+  return null
+}
+
 export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
@@ -805,39 +838,6 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     }
     return null
   }, [form.logic, answers, currentBlock])
-
-  // Vérifie si un bloc interne d'un répéteur doit être affiché selon sa condition de masquage
-  const isInnerBlockVisible = (
-    innerBlock: FormBlock,
-    repeaterId: string,
-    repetitionCount: number,
-    currentAnswers: Record<string, any>
-  ): boolean => {
-    const srcId = innerBlock.attributes.visibilitySourceBlockId
-    const visValues = innerBlock.attributes.visibilityValues
-    if (!srcId || !visValues || visValues.length === 0) return true
-    const srcKey = `${repeaterId}_${repetitionCount}_${srcId}`
-    const srcAnswer = currentAnswers[srcKey]
-    if (srcAnswer === undefined || srcAnswer === null || srcAnswer === '') return false
-    if (Array.isArray(srcAnswer)) return srcAnswer.some((v) => visValues.includes(v))
-    return visValues.includes(String(srcAnswer))
-  }
-
-  // Trouve l'index du prochain bloc interne visible à partir de fromIndex
-  const getNextVisibleInnerIndex = (
-    innerBlocks: FormBlock[],
-    fromIndex: number,
-    repeaterId: string,
-    repetitionCount: number,
-    currentAnswers: Record<string, any>
-  ): number | null => {
-    for (let i = fromIndex; i < innerBlocks.length; i++) {
-      if (isInnerBlockVisible(innerBlocks[i], repeaterId, repetitionCount, currentAnswers)) {
-        return i
-      }
-    }
-    return null
-  }
 
   const goToNext = useCallback((skipValidation: boolean = false, currentValue?: any) => {
     if (isAnimating) return

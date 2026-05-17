@@ -321,8 +321,8 @@ export function SortableBlock({
               <div className="flex items-center gap-1">
                 {!isGroup && !isRepeater && <span className="text-gray-400 scale-75">{blockIcons[block.type]}</span>}
                 <p className="text-xs font-medium text-gray-900 truncate">
-                  {isGroup ? `Groupe (${block.innerBlocks?.length || 0} questions)` : 
-                   isRepeater ? `Répétable (${block.innerBlocks?.length || 0} questions)` : 
+                  {isGroup ? `${block.attributes.label || 'Groupe'} (${block.innerBlocks?.length || 0} questions)` :
+                   isRepeater ? `${block.attributes.label || 'Répétable'} (${block.innerBlocks?.length || 0} questions)` :
                    (block.attributes.label || 'Sans titre')}
                 </p>
                 {block.attributes.required && (

@@ -988,7 +988,15 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     // Auto-initialiser les quantités par défaut si le bloc Quantité n'a pas encore de réponse
     if (displayBlock && displayBlock.type === 'quantity' && !answers[displayBlock.id]) {
       const qSrcId = displayBlock.attributes.quantitySourceBlockId
-      const qSrcBlock = visibleBlocks.find((b) => b.id === qSrcId)
+      let qSrcBlock = visibleBlocks.find((b) => b.id === qSrcId)
+      if (!qSrcBlock) {
+        for (const b of visibleBlocks) {
+          if (b.innerBlocks) {
+            qSrcBlock = b.innerBlocks.find((ib) => ib.id === qSrcId)
+            if (qSrcBlock) break
+          }
+        }
+      }
       const qSrcChoices = qSrcBlock?.attributes.choices || []
       const qSrcAns = qSrcId ? answers[qSrcId] : null
       let qSelectedVals: string[] = []
@@ -2207,7 +2215,17 @@ function QuestionBlock({
       case 'quantity': {
         const qSourceBlockId = block.attributes.quantitySourceBlockId
         const qItems: NonNullable<typeof block.attributes.quantityItems> = block.attributes.quantityItems || []
-        const qSourceBlock = allBlocks.find((b) => b.id === qSourceBlockId)
+
+        // Chercher le bloc source dans les blocs de haut niveau et dans les innerBlocks des groupes/répéteurs
+        let qSourceBlock = allBlocks.find((b) => b.id === qSourceBlockId)
+        if (!qSourceBlock) {
+          for (const b of allBlocks) {
+            if (b.innerBlocks) {
+              qSourceBlock = b.innerBlocks.find((ib) => ib.id === qSourceBlockId)
+              if (qSourceBlock) break
+            }
+          }
+        }
         const qSourceChoices = qSourceBlock?.attributes.choices || []
         const qSourceAnswer = qSourceBlockId ? allAnswers[qSourceBlockId] : null
 
@@ -3714,6 +3732,9 @@ function RepeaterBlock({
           error={error}
           inputStyle={inputStyle}
           allAnswers={answers}
+          parentInnerBlocks={block.innerBlocks}
+          repeaterBlockId={block.id}
+          repetitionCount={repeaterState.repetitionCount}
           excludedChoiceValues={(() => {
             if (!block.attributes.excludePreviousChoices) return undefined
             if (!['multiple-choice', 'dropdown'].includes(currentInnerBlock.type)) return undefined
@@ -3730,8 +3751,8 @@ function RepeaterBlock({
 
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
-        {/* Bouton OK pour les champs texte */}
-        {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date', 'slider'].includes(
+        {/* Bouton OK pour les champs texte et quantité */}
+        {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date', 'slider', 'quantity'].includes(
           currentInnerBlock.type
         ) && (
           <div className="mt-4">
@@ -3791,6 +3812,9 @@ interface InnerBlockInputProps {
   buttonBorderRadius?: string
   allAnswers?: Record<string, any>
   excludedChoiceValues?: Set<string>
+  parentInnerBlocks?: FormBlock[]
+  repeaterBlockId?: string
+  repetitionCount?: number
 }
 
 function InnerBlockInput({
@@ -3805,6 +3829,9 @@ function InnerBlockInput({
   buttonBorderRadius = '8px',
   allAnswers = {},
   excludedChoiceValues,
+  parentInnerBlocks = [],
+  repeaterBlockId,
+  repetitionCount,
 }: InnerBlockInputProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -4295,6 +4322,112 @@ function InnerBlockInput({
           )}
         </div>
       )
+
+    case 'quantity': {
+      const qSourceBlockId = block.attributes.quantitySourceBlockId
+      const qItems = block.attributes.quantityItems || []
+
+      // Chercher le bloc source parmi les blocs frères du répéteur
+      const qSourceBlock = parentInnerBlocks.find((b) => b.id === qSourceBlockId)
+      const qSourceChoices = qSourceBlock?.attributes.choices || []
+
+      // La clé de réponse du bloc source dans un répéteur est: parentId_repetition_sourceBlockId
+      const qSourceAnswerKey = repeaterBlockId && repetitionCount !== undefined && qSourceBlockId
+        ? `${repeaterBlockId}_${repetitionCount}_${qSourceBlockId}`
+        : qSourceBlockId || ''
+      const qSourceAnswer = allAnswers[qSourceAnswerKey]
+
+      let selectedValues: string[] = []
+      if (qSourceAnswer) {
+        if (Array.isArray(qSourceAnswer)) {
+          selectedValues = qSourceAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
+        } else if (typeof qSourceAnswer === 'string') {
+          selectedValues = [qSourceAnswer]
+        }
+      }
+
+      const choicesToShow = selectedValues.length > 0
+        ? qSourceChoices.filter((c: any) => selectedValues.includes(c.value))
+        : qSourceChoices
+
+      const currentQtys: Record<string, number> = answer || {}
+
+      if (!qSourceBlockId || qSourceChoices.length === 0) {
+        return (
+          <p className="mt-4 text-sm opacity-60" style={{ color: themeProps.answersColor }}>
+            Ce bloc de quantité n'est pas encore configuré.
+          </p>
+        )
+      }
+
+      if (choicesToShow.length === 0) {
+        return (
+          <p className="mt-4 text-sm opacity-60" style={{ color: themeProps.answersColor }}>
+            Aucun élément sélectionné dans le bloc précédent.
+          </p>
+        )
+      }
+
+      return (
+        <div className="mt-6 space-y-4 w-full max-w-md">
+          {choicesToShow.map((choice: any) => {
+            const itemCfg = qItems.find((it: any) => it.choiceId === choice.id || it.choiceValue === choice.value)
+            const minQty = itemCfg?.min ?? 1
+            const maxQty = itemCfg?.max
+            const qty = currentQtys[choice.value] ?? minQty
+
+            return (
+              <div
+                key={choice.value}
+                className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border-2"
+                style={{ borderColor: themeProps.buttonsBgColor + '40' }}
+              >
+                <span className="text-base font-medium flex-1" style={{ color: themeProps.answersColor }}>
+                  {choice.label}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { if (qty > minQty) onAnswer({ ...currentQtys, [choice.value]: qty - 1 }) }}
+                    disabled={qty <= minQty}
+                    className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
+                    style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={minQty}
+                    max={maxQty}
+                    value={qty}
+                    onChange={(e) => {
+                      const val = Number(e.target.value)
+                      if (!isNaN(val) && val >= minQty && (maxQty === undefined || val <= maxQty)) {
+                        onAnswer({ ...currentQtys, [choice.value]: val })
+                      }
+                    }}
+                    className="w-14 text-center bg-transparent border-2 py-1 text-lg font-semibold outline-none rounded-lg"
+                    style={{ color: themeProps.answersColor, borderColor: themeProps.buttonsBgColor + '50' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { if (maxQty === undefined || qty < maxQty) onAnswer({ ...currentQtys, [choice.value]: qty + 1 }) }}
+                    disabled={maxQty !== undefined && qty >= maxQty}
+                    className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
+                    style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
+                  >
+                    +
+                  </button>
+                  {maxQty !== undefined && (
+                    <span className="text-xs opacity-50 ml-1" style={{ color: themeProps.answersColor }}>/{maxQty}</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )
+    }
 
     default:
       return null

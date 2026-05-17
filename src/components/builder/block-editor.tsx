@@ -1781,22 +1781,58 @@ interface QuantityEditorProps {
   parentGroupId?: string
 }
 
-function QuantityEditor({ block, updateAttribute }: QuantityEditorProps) {
+function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }: QuantityEditorProps) {
   const { blocks } = useFormBuilder()
 
   const getAvailableChoiceBlocks = () => {
     const result: { id: string; label: string; typeName: string; choices: BlockChoice[] }[] = []
+    const choiceTypes = ['dropdown', 'multiple-choice', 'image-selection']
+    const typeName = (t: string) =>
+      t === 'dropdown' ? 'Liste déroulante' : t === 'multiple-choice' ? 'Choix multiple' : 'Sélection Image'
+
+    // Si le bloc est à l'intérieur d'un groupe/répéteur, chercher parmi les blocs frères qui le précèdent
+    if (isInnerBlock && parentGroupId) {
+      const parentBlock = blocks.find((b) => b.id === parentGroupId)
+      if (parentBlock?.innerBlocks) {
+        for (const inner of parentBlock.innerBlocks) {
+          if (inner.id === block.id) break
+          if (choiceTypes.includes(inner.type)) {
+            result.push({
+              id: inner.id,
+              label: inner.attributes.label || 'Sans titre',
+              typeName: typeName(inner.type),
+              choices: inner.attributes.choices || [],
+            })
+          }
+        }
+      }
+    }
+
+    // Chercher aussi dans les blocs de haut niveau (et leurs innerBlocks) qui précèdent le bloc courant ou son parent
     for (const b of blocks) {
-      if (b.id === block.id) break
-      if (['dropdown', 'multiple-choice', 'image-selection'].includes(b.type)) {
+      if (b.id === block.id || b.id === parentGroupId) break
+      if (choiceTypes.includes(b.type)) {
         result.push({
           id: b.id,
           label: b.attributes.label || 'Sans titre',
-          typeName: b.type === 'dropdown' ? 'Liste déroulante' : b.type === 'multiple-choice' ? 'Choix multiple' : 'Sélection Image',
+          typeName: typeName(b.type),
           choices: b.attributes.choices || [],
         })
       }
+      if ((b.type === 'group' || b.type === 'repeater') && b.innerBlocks) {
+        for (const inner of b.innerBlocks) {
+          if (choiceTypes.includes(inner.type)) {
+            result.push({
+              id: inner.id,
+              label: `${b.attributes.label || 'Groupe'} › ${inner.attributes.label || 'Sans titre'}`,
+              typeName: typeName(inner.type),
+              choices: inner.attributes.choices || [],
+            })
+          }
+        }
+      }
     }
+
     return result
   }
 

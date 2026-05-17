@@ -1231,7 +1231,9 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   const handleAnswer = (value: any, customKey?: string) => {
     const key = customKey || displayBlock?.id || currentBlock?.id
     if (key) {
-      setAnswers({ ...answers, [key]: value })
+      // Forme fonctionnelle : garantit que prev est toujours l'état le plus récent,
+      // évitant les écrasements quand plusieurs appels se chevauchent entre deux rendus.
+      setAnswers(prev => ({ ...prev, [key]: value }))
       setError(null)
     }
   }
@@ -4087,8 +4089,11 @@ function InnerBlockInput({
             value={answer || ''}
             onChange={(value) => onAnswer(value)}
             onSelect={(value) => {
-              if (value) {
-                setTimeout(() => onNext(true), 300)
+              // Pas de setTimeout ici : le contexte répéteur change rapidement et un callback
+              // différé (300ms) pourrait s'exécuter dans le mauvais contexte de bloc.
+              // onNext est appelé directement pour les choix de liste uniquement.
+              if (value && innerDropdownChoices.some((c: any) => c.value === value)) {
+                onNext(true)
               }
             }}
             placeholder={block.attributes.placeholder || 'Sélectionnez une option...'}

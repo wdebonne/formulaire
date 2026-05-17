@@ -93,26 +93,38 @@ export async function POST(
     // Helper pour obtenir le label d'un bloc
     const getBlockLabel = (block: any) => block?.attributes?.label || block?.id || 'unknown'
 
+    // Formate la valeur d'un bloc quantité selon son quantityOutputFormat
+    const formatQuantityValue = (block: any, rawValue: any): any => {
+      if (block?.type !== 'quantity' || !rawValue || typeof rawValue !== 'object') return rawValue
+      const outputFormat = block.attributes?.quantityOutputFormat || 'object'
+      if (outputFormat === 'value') {
+        const quantities = Object.values(rawValue) as number[]
+        if (quantities.length === 1) return String(quantities[0])
+        return quantities.join(', ')
+      }
+      return rawValue
+    }
+
     // Helper pour extraire les données des repeaters
     const extractRepeaterData = (repeaterId: string, innerBlocks: any[], data: Record<string, any>) => {
       const repeaterData: Record<string, any>[] = []
-      
+
       let repetition = 1
       let hasData = true
-      
+
       while (hasData) {
         const repetitionData: Record<string, any> = {}
         let hasAnyValue = false
-        
+
         for (const innerBlock of innerBlocks) {
           const key = `${repeaterId}_${repetition}_${innerBlock.id}`
           if (data[key] !== undefined) {
             const label = getBlockLabel(innerBlock)
-            repetitionData[label] = data[key]
+            repetitionData[label] = formatQuantityValue(innerBlock, data[key])
             hasAnyValue = true
           }
         }
-        
+
         if (hasAnyValue) {
           repeaterData.push(repetitionData)
           repetition++
@@ -120,21 +132,21 @@ export async function POST(
           hasData = false
         }
       }
-      
+
       return repeaterData
     }
 
     // Helper pour extraire les données des groupes
     const extractGroupData = (groupId: string, innerBlocks: any[], data: Record<string, any>) => {
       const groupData: Record<string, any> = {}
-      
+
       for (const innerBlock of innerBlocks) {
         if (data[innerBlock.id] !== undefined) {
           const label = getBlockLabel(innerBlock)
-          groupData[label] = data[innerBlock.id]
+          groupData[label] = formatQuantityValue(innerBlock, data[innerBlock.id])
         }
       }
-      
+
       return groupData
     }
 
@@ -163,7 +175,7 @@ export async function POST(
                       const dataKey = `${mapping.blockId}_${rep}_${innerBlock.id}`
                       if (responseData[dataKey] !== undefined) {
                         const fieldSlug = slugify(innerBlock.attributes?.label || innerBlock.id || 'champ')
-                        payload[`${mapping.key}_${fieldSlug}_${rep}`] = responseData[dataKey]
+                        payload[`${mapping.key}_${fieldSlug}_${rep}`] = formatQuantityValue(innerBlock, responseData[dataKey])
                         hasAnyValue = true
                       }
                     }
@@ -174,7 +186,7 @@ export async function POST(
                 } else if (block?.type === 'group' && block.innerBlocks) {
                   payload[mapping.key] = extractGroupData(mapping.blockId, block.innerBlocks, responseData)
                 } else {
-                  payload[mapping.key] = responseData[mapping.blockId]
+                  payload[mapping.key] = formatQuantityValue(block, responseData[mapping.blockId])
                 }
               }
             }
@@ -196,7 +208,7 @@ export async function POST(
               }
             } else if (responseData[block.id] !== undefined) {
               const label = getBlockLabel(block)
-              payload[label] = responseData[block.id]
+              payload[label] = formatQuantityValue(block, responseData[block.id])
             }
           }
           payload._responseId = response.id

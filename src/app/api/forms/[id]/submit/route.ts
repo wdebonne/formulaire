@@ -130,6 +130,18 @@ function formatBlockValue(block: any, rawValue: any): any {
     return rawValue
   }
 
+  // ── Quantité ───────────────────────────────────────────────────────────────
+  if (block.type === 'quantity' && rawValue && typeof rawValue === 'object') {
+    const outputFormat = block.attributes?.quantityOutputFormat || 'object'
+    if (outputFormat === 'value') {
+      const quantities = Object.values(rawValue) as number[]
+      if (quantities.length === 1) return String(quantities[0])
+      return quantities.join(', ')
+    }
+    // Format objet : retourner tel quel
+    return rawValue
+  }
+
   // ── Choix (multiple-choice, dropdown, image-selection) ─────────────────────
   const choices: any[] = block.attributes?.choices || []
   if (choices.length) {

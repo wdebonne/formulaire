@@ -1959,6 +1959,42 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
           Le bloc source ne contient aucune option. Ajoutez des choix dans le bloc sélectionné.
         </p>
       )}
+
+      {/* Format de sortie JSON */}
+      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-3">
+        <h4 className="font-medium text-gray-700 text-sm">Format d'export JSON</h4>
+        <div className="space-y-2">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`qty-format-${block.id}`}
+              value="object"
+              checked={(block.attributes.quantityOutputFormat || 'object') === 'object'}
+              onChange={() => updateAttribute('quantityOutputFormat', 'object')}
+              className="mt-0.5 accent-primary"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Objet (par défaut)</p>
+              <p className="text-xs text-gray-500 font-mono">{"{ \"colle\": 2, \"stylo\": 1 }"}</p>
+            </div>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`qty-format-${block.id}`}
+              value="value"
+              checked={block.attributes.quantityOutputFormat === 'value'}
+              onChange={() => updateAttribute('quantityOutputFormat', 'value')}
+              className="mt-0.5 accent-primary"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Valeur simple</p>
+              <p className="text-xs text-gray-500 font-mono">"2"&nbsp;&nbsp;ou&nbsp;&nbsp;"2, 1"</p>
+              <p className="text-xs text-gray-400 mt-0.5">Idéal avec une liste déroulante (choix unique)</p>
+            </div>
+          </label>
+        </div>
+      </div>
     </div>
   )
 }

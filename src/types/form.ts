@@ -109,6 +109,7 @@ export interface BlockAttributes {
   // Attributs pour le bloc Quantité
   quantitySourceBlockId?: string // ID du bloc source (dropdown, multiple-choice, image-selection)
   quantityItems?: { choiceId: string; choiceLabel: string; choiceValue: string; min?: number; max?: number }[] // Configuration par choix
+  quantityOutputFormat?: 'object' | 'value' // Format du JSON envoyé : objet {choix: qté} ou valeur simple
 }
 
 export interface FormBlock {

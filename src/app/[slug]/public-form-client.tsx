@@ -582,6 +582,8 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   const [visibleBlocks, setVisibleBlocks] = useState<FormBlock[]>([])
   // Ref toujours synchronisée avec visibleBlocks pour l'utiliser dans les timeouts
   const visibleBlocksRef = useRef<FormBlock[]>([])
+  // Ref toujours synchronisée avec answers pour éviter le stale closure dans handleSubmit
+  const answersRef = useRef<Record<string, any>>({})
 
   // État pour les blocs répétables
   const [repeaterStates, setRepeaterStates] = useState<Record<string, RepeaterState>>({})
@@ -1013,6 +1015,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
               defaultQtys[c.value] = cfg?.min ?? 1
             }
           })
+          answersRef.current = { ...answersRef.current, [qKey]: defaultQtys }
           setAnswers((prev: Record<string, any>) => ({ ...prev, [qKey]: defaultQtys }))
         }
       }
@@ -1083,6 +1086,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
           }
         })
         const qBlockId = displayBlock.id
+        answersRef.current = { ...answersRef.current, [qBlockId]: defaultQtys }
         setAnswers((prev: Record<string, any>) => ({ ...prev, [qBlockId]: defaultQtys }))
       }
     }
@@ -1200,7 +1204,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
     try {
       // Construire un objet de données complet en ajoutant les valeurs par défaut
       // pour les blocs Quantité dont l'utilisateur n'a pas modifié la valeur.
-      const completeData = { ...answers }
+      const completeData = { ...answersRef.current }
 
       const fillQuantityDefaults = (qBlock: FormBlock, answerKey: string, srcAnswerKey: string, srcChoices: any[]) => {
         if (completeData[answerKey] && Object.keys(completeData[answerKey]).length > 0) return
@@ -1273,6 +1277,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   const handleAnswer = (value: any, customKey?: string) => {
     const key = customKey || displayBlock?.id || currentBlock?.id
     if (key) {
+      answersRef.current = { ...answersRef.current, [key]: value }
       // Forme fonctionnelle : garantit que prev est toujours l'état le plus récent,
       // évitant les écrasements quand plusieurs appels se chevauchent entre deux rendus.
       setAnswers(prev => ({ ...prev, [key]: value }))
@@ -1317,6 +1322,7 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
 
   // Réinitialise complètement le formulaire pour une nouvelle soumission
   const handleRestart = () => {
+    answersRef.current = {}
     setAnswers({})
     setCurrentIndex(0)
     setIsSubmitted(false)

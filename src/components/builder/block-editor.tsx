@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -41,6 +41,7 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
   const { updateBlock, updateInnerBlock, selectInnerBlock } = useFormBuilder()
   const [importText, setImportText] = useState('')
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [choicesSearchFilter, setChoicesSearchFilter] = useState('')
 
   const updateAttribute = (key: string, value: any) => {
     if (isInnerBlock && parentGroupId) {
@@ -516,29 +517,54 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
             </div>
           )}
 
+          {(block.attributes.choices || []).length > 5 && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={choicesSearchFilter}
+                onChange={(e) => setChoicesSearchFilter(e.target.value)}
+                placeholder="Rechercher une option..."
+                className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
-            {(block.attributes.choices || []).map((choice, index) => (
-              <div key={choice.id} className="flex items-center space-x-2 group">
-                <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
-                <span className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-xs font-medium">
-                  {String.fromCharCode(65 + index)}
-                </span>
-                <Input
-                  value={choice.label}
-                  onChange={(e) => updateChoice(choice.id, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                  placeholder={`Option ${index + 1}`}
-                  className="flex-1"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50"
-                  onClick={() => removeChoice(choice.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            ))}
+            {(block.attributes.choices || [])
+              .map((choice, index) => ({ choice, index }))
+              .filter(({ choice }) =>
+                choicesSearchFilter.trim() === '' ||
+                choice.label.toLowerCase().includes(choicesSearchFilter.toLowerCase())
+              )
+              .map(({ choice, index }) => (
+                <div key={choice.id} className="flex items-center space-x-2 group">
+                  <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                  <span className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-xs font-medium">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <Input
+                    value={choice.label}
+                    onChange={(e) => updateChoice(choice.id, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                    placeholder={`Option ${index + 1}`}
+                    className="flex-1"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => removeChoice(choice.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            {choicesSearchFilter.trim() !== '' &&
+              (block.attributes.choices || []).filter((c) =>
+                c.label.toLowerCase().includes(choicesSearchFilter.toLowerCase())
+              ).length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-2">Aucune option ne correspond à votre recherche.</p>
+              )}
           </div>
         </div>
       )}
@@ -1783,6 +1809,7 @@ interface QuantityEditorProps {
 
 function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }: QuantityEditorProps) {
   const { blocks, updateBlock, updateInnerBlock } = useFormBuilder()
+  const [quantitySearchFilter, setQuantitySearchFilter] = useState('')
 
   const getAvailableChoiceBlocks = () => {
     const result: { id: string; label: string; typeName: string; choices: BlockChoice[] }[] = []
@@ -1909,48 +1936,74 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
               Minimum par défaut : 1 — Laissez Maximum vide pour illimité.
             </p>
           </div>
-          {sourceBlock.choices.map((choice) => {
-            const config = getItemConfig(choice.id)
-            return (
-              <div key={choice.id} className="p-3 border rounded-lg bg-gray-50 space-y-2">
-                <p className="text-sm font-medium text-gray-700 truncate">{choice.label}</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor={`qty-min-${choice.id}`} className="text-xs">Minimum</Label>
-                    <Input
-                      id={`qty-min-${choice.id}`}
-                      type="number"
-                      min={0}
-                      value={config.min ?? 1}
-                      onChange={(e) =>
-                        updateItemConfig(choice.id, choice.label, choice.value, {
-                          min: e.target.value !== '' ? Number(e.target.value) : 1,
-                          max: config.max,
-                        })
-                      }
-                      placeholder="1"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor={`qty-max-${choice.id}`} className="text-xs">Maximum</Label>
-                    <Input
-                      id={`qty-max-${choice.id}`}
-                      type="number"
-                      min={1}
-                      value={config.max ?? ''}
-                      onChange={(e) =>
-                        updateItemConfig(choice.id, choice.label, choice.value, {
-                          min: config.min ?? 1,
-                          max: e.target.value !== '' ? Number(e.target.value) : undefined,
-                        })
-                      }
-                      placeholder="Illimité"
-                    />
+
+          {sourceBlock.choices.length > 5 && (
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={quantitySearchFilter}
+                onChange={(e) => setQuantitySearchFilter(e.target.value)}
+                placeholder="Rechercher une option..."
+                className="w-full pl-8 pr-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
+
+          {sourceBlock.choices
+            .filter((choice) =>
+              quantitySearchFilter.trim() === '' ||
+              choice.label.toLowerCase().includes(quantitySearchFilter.toLowerCase())
+            )
+            .map((choice) => {
+              const config = getItemConfig(choice.id)
+              return (
+                <div key={choice.id} className="p-3 border rounded-lg bg-gray-50 space-y-2">
+                  <p className="text-sm font-medium text-gray-700 truncate">{choice.label}</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor={`qty-min-${choice.id}`} className="text-xs">Minimum</Label>
+                      <Input
+                        id={`qty-min-${choice.id}`}
+                        type="number"
+                        min={0}
+                        value={config.min ?? 1}
+                        onChange={(e) =>
+                          updateItemConfig(choice.id, choice.label, choice.value, {
+                            min: e.target.value !== '' ? Number(e.target.value) : 1,
+                            max: config.max,
+                          })
+                        }
+                        placeholder="1"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor={`qty-max-${choice.id}`} className="text-xs">Maximum</Label>
+                      <Input
+                        id={`qty-max-${choice.id}`}
+                        type="number"
+                        min={1}
+                        value={config.max ?? ''}
+                        onChange={(e) =>
+                          updateItemConfig(choice.id, choice.label, choice.value, {
+                            min: config.min ?? 1,
+                            max: e.target.value !== '' ? Number(e.target.value) : undefined,
+                          })
+                        }
+                        placeholder="Illimité"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+
+          {quantitySearchFilter.trim() !== '' &&
+            sourceBlock.choices.filter((c) =>
+              c.label.toLowerCase().includes(quantitySearchFilter.toLowerCase())
+            ).length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-2">Aucune option ne correspond à votre recherche.</p>
+            )}
         </div>
       )}
 

@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-05-17 (suite)
+
+### Ajouts
+- **Bloc "Oui / Non"** :
+  - Nouveau type de question avec deux boutons Oui / Non
+  - Option de masquage conditionnel : définir les blocs suivants à masquer selon la réponse choisie
+  - Disponible dans les blocs simples, groupes et répéteurs
+  - Aperçu en temps réel dans l'éditeur
+- **Recherche dans l'éditeur de logique** :
+  - Champ de recherche pour filtrer les blocs disponibles dans le panneau de logique conditionnelle
+  - Filtre en temps réel par label, insensible à la casse
+  - Facilite la gestion des formulaires comportant de nombreuses questions
+- **Webhooks — Glisser-déposer des mappings (vue agrandie)** :
+  - Poignée `⠿` en début de chaque ligne — glisser pour réordonner les mappings
+  - La poignée se désactive automatiquement quand un filtre de recherche est actif (évite la confusion)
+- **Webhooks — Champ de recherche des mappings (vue agrandie)** :
+  - Barre de recherche au-dessus des colonnes dans la modale agrandie
+  - Filtre simultanément sur la clé JSON et sur le label du champ sélectionné en valeur
+  - Compteur "X résultat(s) sur N" affiché pendant le filtrage
+  - Bouton × pour vider la recherche en un clic
+  - La recherche se réinitialise à chaque ouverture de la modale
+
+### Corrections
+- **GroupBlock — Transformation du texte** : La transformation automatique (MAJUSCULES / Première lettre) du bloc Texte Court n'était pas appliquée lorsque le champ était situé dans un groupe. Corrigé.
+- **InnerBlockInput — Stale closure** : `onNext()` était appelé avec une fermeture React périmée sur `answers` dans les blocs internes — la réponse courante n'était pas encore dans le store. Correction par fusion de `currentValue` dans les réponses avant l'appel.
+- **InnerBlockInput — Valeur non transmise à onNext** : La valeur sélectionnée n'était pas passée en second argument de `onNext()`, causant des incohérences dans la navigation entre blocs internes.
+- **isInnerBlockVisible / getNextVisibleInnerIndex** : Fonctions déplacées hors du composant React pour éviter les avertissements `react-hooks/exhaustive-deps` et supprimer les recrétations inutiles à chaque rendu.
+- **Type de onNext dans InnerBlockInputProps** : La prop `onNext` n'acceptait qu'un argument (`skipValidation`), générant une erreur TypeScript `TS2554` lors de l'appel `onNext(true, value)`.
+- **Éditeur de logique — Affichage** : Ajustements CSS pour améliorer la lisibilité des blocs et des règles dans le panneau de logique conditionnelle.
+
+---
+
 ## 2026-05-17
 
 ### Ajouts

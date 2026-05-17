@@ -4,6 +4,21 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 
 ## 🆕 Nouveautés (Mai 2026)
 
+### ↕️ Webhooks — Glisser-déposer + recherche dans la vue agrandie (NOUVEAU)
+- Réorganisez vos mappings par **glisser-déposer** directement dans la modale agrandie (poignée `⠿` en début de ligne)
+- **Champ de recherche** pour trouver instantanément un mapping parmi des dizaines — filtre sur la clé JSON et le label du champ
+- La poignée de tri se désactive pendant la recherche pour éviter toute confusion
+- Compteur de résultats et bouton × pour vider le filtre en un clic
+
+### ✅ Nouveau bloc "Oui / Non" (NOUVEAU)
+- Question avec deux boutons Oui / Non
+- Option de **masquage conditionnel** : définir les blocs à masquer selon la réponse
+- Compatible blocs simples, groupes et répéteurs
+
+### 🔍 Recherche dans l'éditeur de logique conditionnelle (NOUVEAU)
+- Filtrez les blocs disponibles dans le panneau de logique conditionnelle
+- Indispensable sur les formulaires avec de nombreuses questions
+
 ### 🔍 Champ de recherche dans la liste des blocs (NOUVEAU)
 - Filtrez instantanément vos blocs par nom directement dans le panneau latéral de l'éditeur
 - Recherche insensible à la casse, remonte également les blocs internes des groupes et répéteurs
@@ -46,6 +61,8 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 
 ### Webhooks améliorés
 - **Vue agrandie** : modal plein écran avec configuration et mapping côte à côte
+- **Glisser-déposer** : réorganisez l'ordre des mappings par drag & drop dans la vue agrandie
+- **Recherche de mappings** : filtrez la liste par clé JSON ou label de champ dans la vue agrandie
 - **Valeur personnalisée** : templates avec champs `{field:id}`, dates, heures et identifiants
 - **Labels lisibles** : les webhooks envoient désormais les libellés des choix et les dates formatées (plus de valeurs slug ou ISO brutes)
 - **Blocs internes** : les champs dans les groupes et répéteurs sont maintenant accessibles dans le mapping

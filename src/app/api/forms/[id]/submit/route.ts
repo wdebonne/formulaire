@@ -23,11 +23,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       )
     }
 
+    // Résoudre les valeurs de choix (slugs → labels) avant stockage
+    const blocks = JSON.parse(form.blocks || '[]') as any[]
+    const resolvedData = resolveDataLabels(data, blocks)
+
     // Créer la réponse
     const response = await prisma.response.create({
       data: {
         formId: id,
-        data: JSON.stringify(data),
+        data: JSON.stringify(resolvedData),
         metadata: metadata ? JSON.stringify(metadata) : undefined,
       },
     })
@@ -90,6 +94,35 @@ function formatDateString(isoDate: string, format: string): string {
     .replace('YY', year.slice(-2))
     .replace('MM', month)
     .replace('DD', day)
+}
+
+// Résout les valeurs brutes (slugs de choix, dates) en valeurs lisibles pour tous les champs soumis.
+function resolveDataLabels(data: Record<string, any>, blocks: any[]): Record<string, any> {
+  const resolved: Record<string, any> = {}
+
+  for (const [key, value] of Object.entries(data)) {
+    // Clés de contrôle du répéteur (_initial, _repeat_N) : on garde as-is
+    if (/_initial$/.test(key) || /_repeat_\d+$/.test(key)) {
+      resolved[key] = value
+      continue
+    }
+
+    // Clé directe (bloc de premier niveau ou groupe)
+    let block = findBlockDeep(blocks, key)
+
+    // Clé de répéteur : format {repeaterId}_{repNum}_{innerBlockId}
+    if (!block) {
+      const match = key.match(/^(.+)_(\d+)_(.+)$/)
+      if (match) {
+        const [, , , innerBlockId] = match
+        block = findBlockDeep(blocks, innerBlockId)
+      }
+    }
+
+    resolved[key] = formatBlockValue(block, value)
+  }
+
+  return resolved
 }
 
 // Cherche un bloc par ID dans les blocs de premier niveau ET dans leurs innerBlocks.

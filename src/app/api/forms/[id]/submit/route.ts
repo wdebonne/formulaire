@@ -138,20 +138,30 @@ function formatBlockValue(block: any, rawValue: any): any {
       if (quantities.length === 1) return String(quantities[0])
       return quantities.join(', ')
     }
-    // Format objet : retourner tel quel
-    return rawValue
+    // Format objet : nettoyer les clés __other__:
+    const cleaned: Record<string, any> = {}
+    for (const [k, v] of Object.entries(rawValue)) {
+      const cleanKey = k.startsWith('__other__:') ? k.slice(10) : k
+      cleaned[cleanKey] = v
+    }
+    return cleaned
   }
 
   // ── Choix (multiple-choice, dropdown, image-selection) ─────────────────────
   const choices: any[] = block.attributes?.choices || []
+  const stripOther = (v: string) => v.startsWith('__other__:') ? v.slice(10) : v
   if (choices.length) {
     const findLabel = (v: string) => {
+      if (v.startsWith('__other__:')) return v.slice(10)
       const c = choices.find((c: any) => c.value === v || c.id === v || c.label === v)
       return c?.label ?? v
     }
     if (Array.isArray(rawValue)) return rawValue.map(findLabel).join(', ')
     return findLabel(String(rawValue))
   }
+  // Pas de choices définis (ex: dropdown allowCustomValue sans liste) : nettoyer quand même
+  if (typeof rawValue === 'string') return stripOther(rawValue)
+  if (Array.isArray(rawValue)) return rawValue.map((v: any) => typeof v === 'string' ? stripOther(v) : v).join(', ')
 
   return rawValue
 }

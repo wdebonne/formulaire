@@ -93,17 +93,40 @@ export async function POST(
     // Helper pour obtenir le label d'un bloc
     const getBlockLabel = (block: any) => block?.attributes?.label || block?.id || 'unknown'
 
-    // Formate la valeur d'un bloc quantité selon son quantityOutputFormat
-    const formatQuantityValue = (block: any, rawValue: any): any => {
-      if (block?.type !== 'quantity' || !rawValue || typeof rawValue !== 'object') return rawValue
-      const outputFormat = block.attributes?.quantityOutputFormat || 'object'
-      if (outputFormat === 'value') {
-        const quantities = Object.values(rawValue) as number[]
-        if (quantities.length === 1) return String(quantities[0])
-        return quantities.join(', ')
+    // Nettoie le préfixe __other__: des valeurs de type choix (Autre / saisie libre)
+    const cleanValue = (rawValue: any): any => {
+      if (typeof rawValue === 'string') return rawValue.startsWith('__other__:') ? rawValue.slice(10) : rawValue
+      if (Array.isArray(rawValue)) return rawValue.map((v: any) => typeof v === 'string' && v.startsWith('__other__:') ? v.slice(10) : v).join(', ')
+      return rawValue
+    }
+
+    // Formate la valeur d'un bloc selon son type
+    const formatBlockValue = (block: any, rawValue: any): any => {
+      if (rawValue === undefined || rawValue === null) return rawValue
+      // Quantité
+      if (block?.type === 'quantity' && rawValue && typeof rawValue === 'object') {
+        const outputFormat = block.attributes?.quantityOutputFormat || 'object'
+        if (outputFormat === 'value') {
+          const quantities = Object.values(rawValue) as number[]
+          if (quantities.length === 1) return String(quantities[0])
+          return quantities.join(', ')
+        }
+        // Format objet : nettoyer les clés __other__:
+        const cleaned: Record<string, any> = {}
+        for (const [k, v] of Object.entries(rawValue)) {
+          cleaned[k.startsWith('__other__:') ? k.slice(10) : k] = v
+        }
+        return cleaned
+      }
+      // Choix (dropdown, multiple-choice, image-selection) : nettoyer __other__:
+      if (['dropdown', 'multiple-choice', 'image-selection'].includes(block?.type)) {
+        return cleanValue(rawValue)
       }
       return rawValue
     }
+
+    // Alias pour compatibilité avec le code existant
+    const formatQuantityValue = formatBlockValue
 
     // Helper pour extraire les données des repeaters
     const extractRepeaterData = (repeaterId: string, innerBlocks: any[], data: Record<string, any>) => {

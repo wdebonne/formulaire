@@ -1988,10 +1988,16 @@ function QuestionBlock({
           />
         )
 
-      case 'dropdown':
-        const dropdownChoicesMain = block.attributes.choices || []
+      case 'dropdown': {
+        const filterSrcIdMain = block.attributes.choiceFilterSourceBlockId
+        const filterSrcAnswerMain = filterSrcIdMain ? allAnswers[filterSrcIdMain] : undefined
+        const activeFilterMain = filterSrcAnswerMain
+          ? (block.attributes.choiceFilters || []).find((f) => f.sourceValue === filterSrcAnswerMain)
+          : undefined
+        const hiddenIdsMain = new Set(activeFilterMain?.hiddenChoiceIds || [])
+        const dropdownChoicesMain = (block.attributes.choices || []).filter((c) => !hiddenIdsMain.has(c.id))
         const allowCustomValueMain = block.attributes.allowCustomValue || false
-        
+
         // Toujours utiliser le composant avec autocomplétion
         return (
           <DropdownWithAutocomplete
@@ -2012,6 +2018,7 @@ function QuestionBlock({
             allowCustomValue={allowCustomValueMain}
           />
         )
+      }
 
       case 'multiple-choice':
         const choices = block.attributes.choices || []
@@ -3127,10 +3134,16 @@ function GroupBlock({
           </div>
         )
 
-      case 'dropdown':
-        const dropdownChoices = innerBlock.attributes.choices || []
+      case 'dropdown': {
+        const filterSrcIdGroup = innerBlock.attributes.choiceFilterSourceBlockId
+        const filterSrcAnswerGroup = filterSrcIdGroup ? answers[filterSrcIdGroup] : undefined
+        const activeFilterGroup = filterSrcAnswerGroup
+          ? (innerBlock.attributes.choiceFilters || []).find((f) => f.sourceValue === filterSrcAnswerGroup)
+          : undefined
+        const hiddenIdsGroup = new Set(activeFilterGroup?.hiddenChoiceIds || [])
+        const dropdownChoices = (innerBlock.attributes.choices || []).filter((c) => !hiddenIdsGroup.has(c.id))
         const allowCustomValueGroup = innerBlock.attributes.allowCustomValue || false
-        
+
         // Toujours utiliser le composant avec autocomplétion
         return (
           <DropdownWithAutocomplete
@@ -3145,6 +3158,7 @@ function GroupBlock({
             allowCustomValue={allowCustomValueGroup}
           />
         )
+      }
 
       case 'date':
         return (
@@ -4075,9 +4089,15 @@ function InnerBlockInput({
         />
       )
 
-    case 'dropdown':
+    case 'dropdown': {
+      const filterSrcIdInner = block.attributes.choiceFilterSourceBlockId
+      const filterSrcAnswerInner = filterSrcIdInner ? allAnswers[filterSrcIdInner] : undefined
+      const activeFilterInner = filterSrcAnswerInner
+        ? (block.attributes.choiceFilters || []).find((f) => f.sourceValue === filterSrcAnswerInner)
+        : undefined
+      const hiddenIdsInner = new Set(activeFilterInner?.hiddenChoiceIds || [])
       const innerDropdownChoices = (block.attributes.choices || []).filter(
-        (c: any) => !excludedChoiceValues?.has(c.value)
+        (c: any) => !excludedChoiceValues?.has(c.value) && !hiddenIdsInner.has(c.id)
       )
       const allowCustomValueInner = block.attributes.allowCustomValue || false
 
@@ -4110,6 +4130,7 @@ function InnerBlockInput({
           )}
         </>
       )
+    }
 
     case 'multiple-choice':
       const innerChoices = (block.attributes.choices || []).filter(

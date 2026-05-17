@@ -101,6 +101,8 @@ export interface BlockAttributes {
   // Attributs pour le bloc Dropdown (Liste déroulante)
   allowCustomValue?: boolean // Autoriser les réponses personnalisées (saisie libre)
   customValuePlaceholder?: string // Placeholder pour la saisie personnalisée
+  choiceFilterSourceBlockId?: string // Bloc source dont la valeur détermine quels choix masquer
+  choiceFilters?: { sourceValue: string; hiddenChoiceIds: string[] }[] // Par valeur source → IDs de choix à masquer
   // Attributs pour l'écran de remerciement (thankyou-screen)
   showRestartButton?: boolean // Afficher un bouton "Recommencer" pour relancer le formulaire
   restartButtonText?: string // Texte du bouton de recommencement

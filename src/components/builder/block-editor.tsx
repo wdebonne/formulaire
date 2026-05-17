@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -514,6 +514,7 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
+              <DropdownFilterEditor block={block} isInnerBlock={isInnerBlock} parentGroupId={parentGroupId} />
             </div>
           )}
 
@@ -1794,6 +1795,156 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
             </div>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+// Composant pour le filtrage des choix d'un dropdown selon un bloc source
+function DropdownFilterEditor({ block, isInnerBlock = false, parentGroupId }: {
+  block: FormBlock
+  isInnerBlock?: boolean
+  parentGroupId?: string
+}) {
+  const { blocks, updateBlock, updateInnerBlock } = useFormBuilder()
+  const [expandedSourceValue, setExpandedSourceValue] = useState<string | null>(null)
+
+  const getAvailableSourceBlocks = () => {
+    const result: { id: string; label: string; choices: BlockChoice[] }[] = []
+    const choiceTypes = ['dropdown', 'multiple-choice', 'image-selection']
+
+    if (isInnerBlock && parentGroupId) {
+      const parentBlock = blocks.find((b) => b.id === parentGroupId)
+      if (parentBlock?.innerBlocks) {
+        for (const inner of parentBlock.innerBlocks) {
+          if (inner.id === block.id) break
+          if (choiceTypes.includes(inner.type)) {
+            result.push({ id: inner.id, label: inner.attributes.label || 'Sans titre', choices: inner.attributes.choices || [] })
+          }
+        }
+      }
+    }
+
+    for (const b of blocks) {
+      if (b.id === block.id || b.id === parentGroupId) break
+      if (choiceTypes.includes(b.type)) {
+        result.push({ id: b.id, label: b.attributes.label || 'Sans titre', choices: b.attributes.choices || [] })
+      }
+      if ((b.type === 'group' || b.type === 'repeater') && b.innerBlocks) {
+        for (const inner of b.innerBlocks) {
+          if (choiceTypes.includes(inner.type)) {
+            result.push({
+              id: inner.id,
+              label: `${b.attributes.label || 'Groupe'} › ${inner.attributes.label || 'Sans titre'}`,
+              choices: inner.attributes.choices || [],
+            })
+          }
+        }
+      }
+    }
+    return result
+  }
+
+  const batchUpdate = (attrs: Partial<typeof block.attributes>) => {
+    const newAttrs = { ...block.attributes, ...attrs }
+    if (isInnerBlock && parentGroupId) {
+      updateInnerBlock(parentGroupId, block.id, { attributes: newAttrs })
+    } else {
+      updateBlock(block.id, { attributes: newAttrs })
+    }
+  }
+
+  const availableSourceBlocks = getAvailableSourceBlocks()
+  const sourceBlockId = block.attributes.choiceFilterSourceBlockId || ''
+  const sourceBlock = availableSourceBlocks.find((b) => b.id === sourceBlockId)
+  const choiceFilters: NonNullable<typeof block.attributes.choiceFilters> = block.attributes.choiceFilters || []
+  const currentChoices = block.attributes.choices || []
+
+  const getHiddenChoiceIds = (sourceValue: string) =>
+    choiceFilters.find((f) => f.sourceValue === sourceValue)?.hiddenChoiceIds || []
+
+  const toggleHiddenChoice = (sourceValue: string, choiceId: string) => {
+    const currentHidden = getHiddenChoiceIds(sourceValue)
+    const newHidden = currentHidden.includes(choiceId)
+      ? currentHidden.filter((id) => id !== choiceId)
+      : [...currentHidden, choiceId]
+    const newFilters = choiceFilters.filter((f) => f.sourceValue !== sourceValue)
+    if (newHidden.length > 0) newFilters.push({ sourceValue, hiddenChoiceIds: newHidden })
+    batchUpdate({ choiceFilters: newFilters.length > 0 ? newFilters : [] })
+  }
+
+  return (
+    <div className="p-4 bg-violet-50 rounded-lg border border-violet-200 space-y-3">
+      <h4 className="font-medium text-violet-700 flex items-center gap-2">
+        <Filter className="w-4 h-4" />
+        Filtrage des choix
+      </h4>
+      <p className="text-xs text-gray-500">
+        Masquer certains choix selon la réponse d'un bloc précédent.
+      </p>
+      <div className="space-y-2">
+        <select
+          value={sourceBlockId}
+          onChange={(e) => batchUpdate({ choiceFilterSourceBlockId: e.target.value || undefined, choiceFilters: [] })}
+          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="">— Aucun filtre —</option>
+          {availableSourceBlocks.map((b) => (
+            <option key={b.id} value={b.id}>{b.label}</option>
+          ))}
+        </select>
+        {availableSourceBlocks.length === 0 && (
+          <p className="text-xs text-amber-600">
+            Aucun bloc de choix trouvé avant ce bloc.
+          </p>
+        )}
+      </div>
+
+      {sourceBlock && sourceBlock.choices.length > 0 && currentChoices.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-600 font-medium">
+            Cochez les choix à masquer pour chaque valeur :
+          </p>
+          {sourceBlock.choices.map((srcChoice) => {
+            const hiddenIds = getHiddenChoiceIds(srcChoice.value)
+            const isExpanded = expandedSourceValue === srcChoice.value
+            return (
+              <div key={srcChoice.id} className="border rounded-md overflow-hidden bg-white">
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50 text-sm text-left"
+                  onClick={() => setExpandedSourceValue(isExpanded ? null : srcChoice.value)}
+                >
+                  <span className="font-medium">{srcChoice.label}</span>
+                  <span className="flex items-center gap-1 text-xs text-gray-400">
+                    {hiddenIds.length > 0
+                      ? <span className="text-orange-500">{hiddenIds.length} masqué{hiddenIds.length > 1 ? 's' : ''}</span>
+                      : 'tout visible'}
+                    <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                  </span>
+                </button>
+                {isExpanded && (
+                  <div className="px-3 py-2 space-y-1.5 border-t bg-gray-50">
+                    {currentChoices.map((choice) => {
+                      const isHidden = hiddenIds.includes(choice.id)
+                      return (
+                        <label key={choice.id} className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={isHidden}
+                            onChange={() => toggleHiddenChoice(srcChoice.value, choice.id)}
+                            className="rounded"
+                          />
+                          <span className={isHidden ? 'line-through text-gray-400' : ''}>{choice.label}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )

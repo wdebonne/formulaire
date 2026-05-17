@@ -4088,7 +4088,7 @@ interface InnerBlockInputProps {
   themeProps: ThemeProperties
   answer: any
   onAnswer: (value: any) => void
-  onNext: (skipValidation?: boolean) => void
+  onNext: (skipValidation?: boolean, currentValue?: any) => void
   error: string | null
   inputStyle?: React.CSSProperties
   buttonBorderRadius?: string

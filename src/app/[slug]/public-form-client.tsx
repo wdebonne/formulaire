@@ -3812,8 +3812,9 @@ function RepeaterBlock({
           </p>
         )}
 
-        {/* Input du bloc interne */}
+        {/* Input du bloc interne — key force un remontage propre à chaque changement de répéteur ou de répétition */}
         <InnerBlockInput
+          key={`${block.id}-${repeaterState.repetitionCount}-${currentInnerBlock.id}`}
           block={currentInnerBlock}
           showLetters={showLetters}
           themeProps={themeProps}

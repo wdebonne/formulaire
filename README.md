@@ -4,6 +4,22 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 
 ## 🆕 Nouveautés (Mai 2026)
 
+### 🔍 Champ de recherche dans la liste des blocs (NOUVEAU)
+- Filtrez instantanément vos blocs par nom directement dans le panneau latéral de l'éditeur
+- Recherche insensible à la casse, remonte également les blocs internes des groupes et répéteurs
+- Bouton × pour effacer la recherche, état "Aucun bloc trouvé" si aucun résultat
+- Indispensable pour les formulaires avec de nombreuses questions
+
+### 🔢 Nouveau bloc "Quantité" (NOUVEAU)
+- Bloc dédié à la saisie de quantités sur une liste d'articles ou d'options
+- Quantité max et valeur par défaut configurables par ligne
+- Format de sortie paramétrable, compatible groupes et répéteurs
+
+### ✏️ Option "Autre" pour les Choix multiples (NOUVEAU)
+- Activez un champ de saisie libre en plus des options prédéfinies
+- La réponse libre est correctement exportée (CSV, webhooks, affichage des réponses)
+- Disponible dans les blocs simples, groupes et répéteurs
+
 ### 🔽 Filtrage des choix dans la Liste déroulante (NOUVEAU)
 - Masquez certains choix selon la réponse d'un **bloc précédent** (liste déroulante, choix multiple ou sélection image)
 - Configuration par valeur source : pour chaque option du bloc de référence, cochez les choix à masquer
@@ -21,6 +37,12 @@ Un créateur de formulaires autonome avec éditeur visuel, logique conditionnell
 - Autocomplétion en temps réel via l'API Adresse officielle (Base Adresse Nationale)
 - Saisie libre possible si l'adresse n'est pas trouvée
 - Compatible groupes et répéteurs
+
+### Éditeur amélioré
+- **Panneaux redimensionnables** : faites glisser la bordure des panneaux gauche et droit pour adapter l'espace de travail
+- **Groupes et répéteurs pliables** dans la liste des blocs pour désencombrer la vue
+- **Webhooks** : sélecteur de bloc avec recherche intégrée dans l'éditeur de mapping
+- **Masquer les choix déjà sélectionnés** dans les répéteurs (évite les doublons entre itérations)
 
 ### Webhooks améliorés
 - **Vue agrandie** : modal plein écran avec configuration et mapping côte à côte
@@ -218,9 +240,10 @@ Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour dépl
 - **Téléphone** - Champ téléphone avec validation (format standard ou international, nombre de chiffres configurable)
 - **Adresse** - Champ adresse avec autocomplétion (API Adresse / BAN, données officielles françaises)
 - **Nombre** - Champ numérique
-- **Choix multiple** - Sélection unique ou multiple
+- **Choix multiple** - Sélection unique ou multiple (avec option "Autre" pour réponse libre)
 - **Sélection Image** - Choix illustrés par des images cliquables
 - **Menu déroulant** - Liste de choix avec autocomplétion, saisie libre optionnelle et filtrage dynamique des choix selon un bloc précédent
+- **Quantité** - Liste d'articles avec saisie de quantités individuelles
 - **Date** - Sélecteur de date
 - **Date avancée** - Calendrier visuel avec plage de dates et contraintes configurables
 - **Heure** - Sélecteur d'heure ou plage horaire

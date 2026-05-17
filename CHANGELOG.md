@@ -3,6 +3,13 @@
 ## 2026-05-17
 
 ### Ajouts
+- **Champ de recherche dans la liste des blocs** :
+  - Champ de recherche avec icône loupe en haut du panneau de liste des blocs
+  - Filtre les blocs en temps réel par leur nom (insensible à la casse)
+  - Pour les groupes et répéteurs, remonte également si un de leurs blocs internes correspond
+  - Bouton × pour effacer la recherche en un clic
+  - État vide "Aucun bloc trouvé" affiché si aucun résultat
+  - Le glisser-déposer est suspendu pendant la recherche pour éviter les conflits
 - **Filtrage des choix dans le bloc Liste déroulante** :
   - Nouvelle section "Filtrage des choix" (panneau violet) dans l'éditeur de chaque liste déroulante
   - Sélection d'un **bloc source unique** (liste déroulante, choix multiple ou sélection image situé avant le bloc) dont la réponse pilote le masquage
@@ -12,6 +19,48 @@
   - Zone de liste avec hauteur maximale et défilement vertical pour ne pas surcharger l'interface
   - Le filtrage s'applique dans tous les contextes d'affichage : bloc principal, bloc dans un groupe et bloc dans un répéteur
   - Les données de configuration sont stockées dans deux nouveaux attributs : `choiceFilterSourceBlockId` et `choiceFilters`
+- **Webhooks — Sélecteur de bloc avec recherche** :
+  - Le sélecteur de champ dans l'éditeur de mapping dispose désormais d'un champ de recherche intégré
+  - Filtre les blocs disponibles en temps réel par leur label
+  - Les blocs internes des groupes et répéteurs sont listés et filtrables
+
+### Améliorations
+- **Liste des blocs — Étiquettes des groupes et répéteurs** : Meilleur affichage des labels des blocs de type groupe et répétable dans le panneau latéral
+- **Webhooks — Options de mapping** : Les blocs internes des groupes et répéteurs sont désormais inclus dans la liste des options disponibles pour le mapping
+
+---
+
+## 2026-05-16 (suite — nouvelles fonctionnalités)
+
+### Ajouts
+- **Nouveau bloc "Quantité"** :
+  - Permet de définir des articles/options avec une quantité saisissable pour chacun
+  - Configuration des lignes dans l'éditeur : label, quantité max, valeur par défaut
+  - Format de sortie configurable (résumé texte, JSON, etc.)
+  - Prise en charge complète dans les blocs simples, groupes et répéteurs
+  - Filtre de recherche intégré dans l'éditeur de choix pour les grandes listes
+  - Auto-initialisation des quantités à zéro pour les blocs internes
+- **Option "Autre" pour les blocs Choix multiple** :
+  - Nouvelle case "Permettre une réponse libre (Autre)" dans l'éditeur
+  - Affiche un champ de saisie libre en plus des options prédéfinies
+  - La valeur saisie est correctement exportée et affichée dans les réponses
+  - Fonctionne dans les blocs simples, groupes et répéteurs
+- **Masquer les choix déjà sélectionnés dans les répéteurs** :
+  - Nouvelle option sur les blocs de choix dans un répéteur
+  - Empêche de sélectionner deux fois la même option sur des itérations différentes
+  - Compatible avec les clés plates des répéteurs
+- **Redimensionnement des panneaux dans l'éditeur** :
+  - Les panneaux gauche (liste des blocs) et droit (propriétés) sont redimensionnables par glisser-déposer
+  - Améliore le confort de travail sur les formulaires complexes
+- **Réduction des groupes et répéteurs dans la liste des blocs** :
+  - Bouton de pliage/dépliage sur chaque groupe et répéteur dans le panneau latéral
+  - Les blocs internes sont masqués quand le groupe est réduit
+
+### Améliorations
+- **Gestion de la réponse "Autre"** : Formatage et affichage cohérents dans les réponses, l'export et les webhooks pour toutes les variantes de la réponse libre
+- **Bouton OK** : Comportement unifié sur les blocs Choix multiple et Liste déroulante avec valeur personnalisée
+- **RepeaterBlock** : Remontage propre des blocs internes pour éviter les états périmés entre itérations
+- **InnerBlockInput** : Meilleure gestion des callbacks et des mises à jour d'état pour éviter les écrasements involontaires
 
 ---
 

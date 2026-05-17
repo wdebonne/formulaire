@@ -477,17 +477,15 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
         <option value="entry_date">Date de soumission</option>
       </optgroup>
       <optgroup label="Questions">
-        {questionBlocks.map((b) => (
-          <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>
-        ))}
+        {questionBlocks.flatMap((b) => [
+          <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>,
+          ...((b.type === 'group' || b.type === 'repeater') && b.innerBlocks?.length
+            ? b.innerBlocks.map((ib: any) => (
+                <option key={ib.id} value={ib.id}>{'  ↳ '}{ib.attributes?.label || 'Sans titre'}</option>
+              ))
+            : [])
+        ])}
       </optgroup>
-      {allMappableBlocks.some((b) => questionBlocks.some((q) => (q.type === 'group' || q.type === 'repeater') && q.innerBlocks?.some((i) => i.id === b.id))) && (
-        <optgroup label="Champs internes (groupes / répéteurs)">
-          {allMappableBlocks.filter((b) => questionBlocks.some((q) => (q.type === 'group' || q.type === 'repeater') && q.innerBlocks?.some((i) => i.id === b.id))).map((b) => (
-            <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>
-          ))}
-        </optgroup>
-      )}
       <optgroup label="Valeur personnalisée">
         <option value="_custom">✏️  Personnalisée (texte + champs + date…)</option>
       </optgroup>
@@ -563,17 +561,15 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
                     <option value="entry_date">Date de soumission</option>
                   </optgroup>
                   <optgroup label="Questions">
-                    {questionBlocks.map((b) => (
-                      <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>
-                    ))}
+                    {questionBlocks.flatMap((b) => [
+                      <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>,
+                      ...((b.type === 'group' || b.type === 'repeater') && b.innerBlocks?.length
+                        ? b.innerBlocks.map((ib: any) => (
+                            <option key={ib.id} value={ib.id}>{'  ↳ '}{ib.attributes?.label || 'Sans titre'}</option>
+                          ))
+                        : [])
+                    ])}
                   </optgroup>
-                  {allMappableBlocks.some((b) => questionBlocks.some((q) => (q.type === 'group' || q.type === 'repeater') && q.innerBlocks?.some((i) => i.id === b.id))) && (
-                    <optgroup label="Champs internes">
-                      {allMappableBlocks.filter((b) => questionBlocks.some((q) => (q.type === 'group' || q.type === 'repeater') && q.innerBlocks?.some((i) => i.id === b.id))).map((b) => (
-                        <option key={b.id} value={b.id}>{b.attributes.label || 'Sans titre'}</option>
-                      ))}
-                    </optgroup>
-                  )}
                   <optgroup label="Valeur personnalisée">
                     <option value="_custom">✏️  Personnalisée (texte + champs + date…)</option>
                   </optgroup>

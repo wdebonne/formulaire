@@ -963,28 +963,18 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         const qSrcChoices = qSrcBlock?.attributes.choices || []
         const qSrcAnswerKey = `${currentBlock.id}_${state.repetitionCount}_${qSrcId}`
         const qSrcAnswer = qSrcId ? answers[qSrcAnswerKey] : null
-        let qSelectedVals: string[] = []
-        let qOtherVals: string[] = []
-        if (qSrcAnswer) {
-          if (Array.isArray(qSrcAnswer)) {
-            qSelectedVals = qSrcAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
-            qOtherVals = qSrcAnswer.filter((v: any) => typeof v === 'string' && v.startsWith('__other__:'))
-          } else if (typeof qSrcAnswer === 'string') {
-            if (qSrcAnswer.startsWith('__other__:')) qOtherVals = [qSrcAnswer]
-            else qSelectedVals = [qSrcAnswer]
-          }
-        }
-        const qRegularChoices = qSelectedVals.length > 0
-          ? qSrcChoices.filter((c: any) => qSelectedVals.includes(c.value))
-          : (qOtherVals.length === 0 ? qSrcChoices : [])
-        if (qRegularChoices.length > 0 || qOtherVals.length > 0) {
+        const qChoices = buildQuantityChoices(qSrcChoices, qSrcAnswer)
+        if (qChoices.length > 0) {
           const qItems = currentInnerBlock.attributes.quantityItems || []
           const defaultQtys: Record<string, number> = {}
-          qRegularChoices.forEach((c: any) => {
-            const cfg = qItems.find((it: any) => it.choiceId === c.id || it.choiceValue === c.value)
-            defaultQtys[c.value] = cfg?.min ?? 1
+          qChoices.forEach((c) => {
+            if (c.isSpecial) {
+              defaultQtys[c.value] = 1
+            } else {
+              const cfg = qItems.find((it: any) => it.choiceId === (c as any).id || it.choiceValue === c.value)
+              defaultQtys[c.value] = cfg?.min ?? 1
+            }
           })
-          qOtherVals.forEach((v: string) => { defaultQtys[v] = 1 })
           setAnswers((prev: Record<string, any>) => ({ ...prev, [qKey]: defaultQtys }))
         }
       }
@@ -1033,20 +1023,17 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       }
       const qSrcChoices = qSrcBlock?.attributes.choices || []
       const qSrcAns = qSrcId ? answers[qSrcId] : null
-      let qSelectedVals: string[] = []
-      if (qSrcAns) {
-        if (Array.isArray(qSrcAns)) qSelectedVals = qSrcAns.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
-        else if (typeof qSrcAns === 'string') qSelectedVals = [qSrcAns]
-      }
-      const qChoicesToInit = qSelectedVals.length > 0
-        ? qSrcChoices.filter((c: any) => qSelectedVals.includes(c.value))
-        : qSrcChoices
+      const qChoicesToInit = buildQuantityChoices(qSrcChoices, qSrcAns)
       if (qChoicesToInit.length > 0) {
         const qItems = displayBlock.attributes.quantityItems || []
         const defaultQtys: Record<string, number> = {}
-        qChoicesToInit.forEach((c: any) => {
-          const cfg = qItems.find((it) => it.choiceId === c.id || it.choiceValue === c.value)
-          defaultQtys[c.value] = cfg?.min ?? 1
+        qChoicesToInit.forEach((c) => {
+          if (c.isSpecial) {
+            defaultQtys[c.value] = 1
+          } else {
+            const cfg = qItems.find((it) => it.choiceId === (c as any).id || it.choiceValue === c.value)
+            defaultQtys[c.value] = cfg?.min ?? 1
+          }
         })
         const qBlockId = displayBlock.id
         setAnswers((prev: Record<string, any>) => ({ ...prev, [qBlockId]: defaultQtys }))
@@ -1171,29 +1158,18 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
       const fillQuantityDefaults = (qBlock: FormBlock, answerKey: string, srcAnswerKey: string, srcChoices: any[]) => {
         if (completeData[answerKey] && Object.keys(completeData[answerKey]).length > 0) return
         const srcAns = completeData[srcAnswerKey]
-        let selectedVals: string[] = []
-        let otherVals: string[] = []
-        if (srcAns) {
-          if (Array.isArray(srcAns)) {
-            selectedVals = srcAns.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
-            otherVals = srcAns.filter((v: any) => typeof v === 'string' && v.startsWith('__other__:'))
-          } else if (typeof srcAns === 'string') {
-            if (srcAns.startsWith('__other__:')) otherVals = [srcAns]
-            else selectedVals = [srcAns]
-          }
-        }
-        const regularChoices = selectedVals.length > 0
-          ? srcChoices.filter((c: any) => selectedVals.includes(c.value))
-          : (otherVals.length === 0 ? srcChoices : [])
-        if (regularChoices.length === 0 && otherVals.length === 0) return
+        const choices = buildQuantityChoices(srcChoices, srcAns)
+        if (choices.length === 0) return
         const qItems = qBlock.attributes.quantityItems || []
         const defaults: Record<string, number> = {}
-        regularChoices.forEach((c: any) => {
-          const cfg = qItems.find((it) => it.choiceId === c.id || it.choiceValue === c.value)
-          defaults[c.value] = cfg?.min ?? 1
+        choices.forEach((c) => {
+          if (c.isSpecial) {
+            defaults[c.value] = 1
+          } else {
+            const cfg = qItems.find((it) => it.choiceId === (c as any).id || it.choiceValue === c.value)
+            defaults[c.value] = cfg?.min ?? 1
+          }
         })
-        // Réponses "Autre" : toujours min=1
-        otherVals.forEach((v: string) => { defaults[v] = 1 })
         completeData[answerKey] = defaults
       }
 
@@ -1776,6 +1752,41 @@ interface QuestionBlockProps {
   inputBorderRadius?: string
 }
 
+// Helper : construit la liste des items à afficher pour un bloc Quantité.
+// Gère les valeurs normales, les réponses "Autre" (__other__:) et les saisies libres (allowCustomValue).
+function buildQuantityChoices(
+  sourceChoices: any[],
+  sourceAnswer: any
+): { value: string; label: string; isSpecial: boolean }[] {
+  if (!sourceAnswer && sourceAnswer !== 0) return sourceChoices.map((c: any) => ({ value: c.value, label: c.label, isSpecial: false }))
+
+  let selectedVals: string[] = []
+  let otherVals: string[] = []
+
+  if (Array.isArray(sourceAnswer)) {
+    selectedVals = sourceAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
+    otherVals   = sourceAnswer.filter((v: any) => typeof v === 'string' && v.startsWith('__other__:'))
+  } else if (typeof sourceAnswer === 'string') {
+    if (sourceAnswer.startsWith('__other__:')) otherVals = [sourceAnswer]
+    else selectedVals = [sourceAnswer]
+  }
+
+  // Choix normaux présents dans la liste
+  const knownChoices = selectedVals.length > 0
+    ? sourceChoices.filter((c: any) => selectedVals.includes(c.value)).map((c: any) => ({ value: c.value, label: c.label, isSpecial: false }))
+    : (otherVals.length === 0 ? sourceChoices.map((c: any) => ({ value: c.value, label: c.label, isSpecial: false })) : [])
+
+  // Valeurs personnalisées (saisie libre dropdown) : dans selectedVals mais absentes de la liste
+  const customChoices = selectedVals
+    .filter((v: string) => !sourceChoices.some((c: any) => c.value === v))
+    .map((v: string) => ({ value: v, label: v, isSpecial: true }))
+
+  // Réponses "Autre" de choix multiple
+  const otherChoices = otherVals.map((v: string) => ({ value: v, label: v.slice(10) || 'Autre', isSpecial: true }))
+
+  return [...knownChoices, ...customChoices, ...otherChoices]
+}
+
 function QuestionBlock({
   block,
   index,
@@ -2308,7 +2319,6 @@ function QuestionBlock({
         const qSourceBlockId = block.attributes.quantitySourceBlockId
         const qItems: NonNullable<typeof block.attributes.quantityItems> = block.attributes.quantityItems || []
 
-        // Chercher le bloc source dans les blocs de haut niveau et dans les innerBlocks des groupes/répéteurs
         let qSourceBlock = allBlocks.find((b) => b.id === qSourceBlockId)
         if (!qSourceBlock) {
           for (const b of allBlocks) {
@@ -2320,29 +2330,7 @@ function QuestionBlock({
         }
         const qSourceChoices = qSourceBlock?.attributes.choices || []
         const qSourceAnswer = qSourceBlockId ? allAnswers[qSourceBlockId] : null
-
-        let selectedValues: string[] = []
-        let otherValues: string[] = []
-        if (qSourceAnswer) {
-          if (Array.isArray(qSourceAnswer)) {
-            selectedValues = qSourceAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
-            otherValues = qSourceAnswer.filter((v: any) => typeof v === 'string' && v.startsWith('__other__:'))
-          } else if (typeof qSourceAnswer === 'string') {
-            if (qSourceAnswer.startsWith('__other__:')) otherValues = [qSourceAnswer]
-            else selectedValues = [qSourceAnswer]
-          }
-        }
-
-        const regularChoices = selectedValues.length > 0
-          ? qSourceChoices.filter((c: any) => selectedValues.includes(c.value))
-          : (otherValues.length === 0 ? qSourceChoices : [])
-        // Réponses "Autre" : valeur = la chaîne complète __other__:texte, label = le texte saisi
-        const otherChoices = otherValues.map((v: string) => ({
-          value: v,
-          label: v.slice(10) || 'Autre',
-          isOther: true,
-        }))
-        const choicesToShow = [...regularChoices, ...otherChoices]
+        const choicesToShow = buildQuantityChoices(qSourceChoices, qSourceAnswer)
 
         const currentQtys: Record<string, number> = answer || {}
 
@@ -2366,9 +2354,9 @@ function QuestionBlock({
           <div className="mt-6 space-y-4 w-full max-w-md">
             {choicesToShow.map((choice: any) => {
               // Les réponses "Autre" ont toujours min=1, pas de max
-              const itemCfg = choice.isOther ? null : qItems.find((it) => it.choiceId === choice.id || it.choiceValue === choice.value)
+              const itemCfg = choice.isSpecial ? null : qItems.find((it) => it.choiceId === choice.id || it.choiceValue === choice.value)
               const minQty = 1
-              const maxQty = choice.isOther ? undefined : itemCfg?.max
+              const maxQty = choice.isSpecial ? undefined : itemCfg?.max
               const qty = currentQtys[choice.value] ?? minQty
 
               const decrement = () => {
@@ -4430,37 +4418,14 @@ function InnerBlockInput({
       const qSourceBlockId = block.attributes.quantitySourceBlockId
       const qItems = block.attributes.quantityItems || []
 
-      // Chercher le bloc source parmi les blocs frères du répéteur
       const qSourceBlock = parentInnerBlocks.find((b) => b.id === qSourceBlockId)
       const qSourceChoices = qSourceBlock?.attributes.choices || []
 
-      // La clé de réponse du bloc source dans un répéteur est: parentId_repetition_sourceBlockId
       const qSourceAnswerKey = repeaterBlockId && repetitionCount !== undefined && qSourceBlockId
         ? `${repeaterBlockId}_${repetitionCount}_${qSourceBlockId}`
         : qSourceBlockId || ''
       const qSourceAnswer = allAnswers[qSourceAnswerKey]
-
-      let selectedValues: string[] = []
-      let otherValues: string[] = []
-      if (qSourceAnswer) {
-        if (Array.isArray(qSourceAnswer)) {
-          selectedValues = qSourceAnswer.filter((v: any) => typeof v === 'string' && !v.startsWith('__other__:'))
-          otherValues = qSourceAnswer.filter((v: any) => typeof v === 'string' && v.startsWith('__other__:'))
-        } else if (typeof qSourceAnswer === 'string') {
-          if (qSourceAnswer.startsWith('__other__:')) otherValues = [qSourceAnswer]
-          else selectedValues = [qSourceAnswer]
-        }
-      }
-
-      const regularChoices = selectedValues.length > 0
-        ? qSourceChoices.filter((c: any) => selectedValues.includes(c.value))
-        : (otherValues.length === 0 ? qSourceChoices : [])
-      const otherChoices = otherValues.map((v: string) => ({
-        value: v,
-        label: v.slice(10) || 'Autre',
-        isOther: true,
-      }))
-      const choicesToShow = [...regularChoices, ...otherChoices]
+      const choicesToShow = buildQuantityChoices(qSourceChoices, qSourceAnswer)
 
       const currentQtys: Record<string, number> = answer || {}
 
@@ -4484,9 +4449,9 @@ function InnerBlockInput({
         <div className="mt-6 space-y-4 w-full max-w-md">
           {choicesToShow.map((choice: any) => {
             // Réponses "Autre" : min=1, pas de max
-            const itemCfg = choice.isOther ? null : qItems.find((it: any) => it.choiceId === choice.id || it.choiceValue === choice.value)
+            const itemCfg = choice.isSpecial ? null : qItems.find((it: any) => it.choiceId === choice.id || it.choiceValue === choice.value)
             const minQty = 1
-            const maxQty = choice.isOther ? undefined : itemCfg?.max
+            const maxQty = choice.isSpecial ? undefined : itemCfg?.max
             const qty = currentQtys[choice.value] ?? minQty
 
             return (

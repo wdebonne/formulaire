@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -1753,11 +1753,79 @@ function BlockMediaEditor({ block, updateAttribute }: BlockMediaEditorProps) {
     }
   }
 
+  // NextCloud picker state
+  const [ncOpen, setNcOpen] = useState(false)
+  const [ncConfigured, setNcConfigured] = useState<boolean | null>(null)
+  const [ncBasePath, setNcBasePath] = useState('/')
+  const [ncBrowsePath, setNcBrowsePath] = useState('/')
+  const [ncItems, setNcItems] = useState<{ name: string; path: string; type: 'folder' | 'file'; contentType?: string }[]>([])
+  const [ncLoading, setNcLoading] = useState(false)
+  const [ncSelecting, setNcSelecting] = useState(false)
+
+  const isFromNextCloud = !!(media?.url?.startsWith('/api/admin/nextcloud/file'))
+
+  // Vérifie si NextCloud est configuré (une seule fois par montage)
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(r => r.json())
+      .then(d => {
+        setNcConfigured(!!(d.nextcloudUrl && d.nextcloudUser && d.nextcloudPass))
+        if (d.nextcloudBasePath) setNcBasePath(d.nextcloudBasePath)
+      })
+      .catch(() => setNcConfigured(false))
+  }, [])
+
+  const openNcPicker = () => {
+    setNcOpen(true)
+    ncBrowse(ncBasePath)
+  }
+
+  const ncBrowse = async (path: string) => {
+    setNcLoading(true)
+    setNcBrowsePath(path)
+    try {
+      const res = await fetch(`/api/admin/nextcloud/browse?path=${encodeURIComponent(path)}`)
+      const data = await res.json()
+      if (res.ok) {
+        const type = media?.type || 'image'
+        const filtered = (data.items as typeof ncItems).filter(item => {
+          if (item.type === 'folder') return true
+          const ext = item.name.split('.').pop()?.toLowerCase() || ''
+          if (type === 'image') {
+            return (item.contentType || '').startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg'].includes(ext)
+          }
+          return ext === 'xlsx'
+        })
+        setNcItems(filtered)
+      }
+    } catch { /* silently */ }
+    finally { setNcLoading(false) }
+  }
+
+  const ncSelectFile = async (filePath: string, fileName: string) => {
+    setNcSelecting(true)
+    try {
+      const res = await fetch('/api/admin/nextcloud/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        updateAttribute('blockMedia', { ...media, url: data.url, name: fileName })
+        setNcOpen(false)
+      }
+    } catch { /* silently */ }
+    finally { setNcSelecting(false) }
+  }
+
+  const ncBreadcrumbs = ncBrowsePath.split('/').filter(Boolean)
+
   const positionOptions = [
-    { value: 'top', label: 'Haut', icon: <ArrowUp className="w-4 h-4" /> },
-    { value: 'bottom', label: 'Bas', icon: <ArrowDown className="w-4 h-4" /> },
-    { value: 'left', label: 'Gauche', icon: <AlignLeft className="w-4 h-4" /> },
-    { value: 'right', label: 'Droite', icon: <AlignRight className="w-4 h-4" /> },
+    { value: 'top',    label: 'Haut',   icon: <ArrowUp className="w-4 h-4" /> },
+    { value: 'bottom', label: 'Bas',    icon: <ArrowDown className="w-4 h-4" /> },
+    { value: 'left',   label: 'Gauche', icon: <AlignLeft className="w-4 h-4" /> },
+    { value: 'right',  label: 'Droite', icon: <AlignRight className="w-4 h-4" /> },
   ]
 
   return (
@@ -1801,34 +1869,44 @@ function BlockMediaEditor({ block, updateAttribute }: BlockMediaEditorProps) {
             </div>
           </div>
 
-          {/* Upload image */}
+          {/* ── Image ── */}
           {media.type === 'image' && (
             <div className="space-y-2">
               <Label>Image</Label>
               {media.url ? (
-                <div className="relative group">
+                <div className="relative group space-y-1">
                   <img src={media.url} alt={media.name} className="w-full h-32 object-cover rounded-md border" />
-                  <button
-                    onClick={() => updateAttribute('blockMedia', { ...media, url: '', name: '' })}
-                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
+                  {isFromNextCloud && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                      <Cloud className="w-2.5 h-2.5" /> Depuis NextCloud
+                    </span>
+                  )}
+                  <button onClick={() => updateAttribute('blockMedia', { ...media, url: '', name: '' })}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <>
+                <div className="space-y-2">
                   <input ref={imageFileRef} type="file" accept="image/*" className="hidden"
                     onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-                  <Button type="button" variant="outline" size="sm" className="w-full"
-                    onClick={() => imageFileRef.current?.click()} disabled={isUploading}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isUploading ? 'Upload en cours...' : 'Choisir une image'}
-                  </Button>
-                  <Input
-                    placeholder="ou coller une URL"
-                    onChange={(e) => e.target.value && updateAttribute('blockMedia', { ...media, url: e.target.value, name: 'Image' })}
-                  />
-                </>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button type="button" variant="outline" size="sm"
+                      onClick={() => imageFileRef.current?.click()} disabled={isUploading}>
+                      <Upload className="w-4 h-4 mr-2" />
+                      {isUploading ? 'Upload...' : 'Local'}
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={openNcPicker}
+                      disabled={!ncConfigured}
+                      title={ncConfigured === false ? 'NextCloud non configuré' : 'Choisir depuis NextCloud'}
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-40">
+                      <Cloud className="w-4 h-4 mr-2" />
+                      NextCloud
+                    </Button>
+                  </div>
+                  <Input placeholder="ou coller une URL"
+                    onChange={(e) => e.target.value && updateAttribute('blockMedia', { ...media, url: e.target.value, name: 'Image' })} />
+                </div>
               )}
 
               {/* Position */}
@@ -1836,16 +1914,13 @@ function BlockMediaEditor({ block, updateAttribute }: BlockMediaEditorProps) {
                 <Label>Position de l'image</Label>
                 <div className="grid grid-cols-4 gap-1">
                   {positionOptions.map((p) => (
-                    <button
-                      key={p.value}
+                    <button key={p.value}
                       onClick={() => updateAttribute('blockMedia', { ...media, imagePosition: p.value })}
                       className={`flex flex-col items-center justify-center p-2 rounded border-2 text-xs transition-colors ${
                         (media.imagePosition || 'top') === p.value
                           ? 'border-primary bg-primary/5 text-primary'
                           : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                      }`}
-                      title={p.label}
-                    >
+                      }`} title={p.label}>
                       {p.icon}
                       <span className="mt-1">{p.label}</span>
                     </button>
@@ -1855,31 +1930,42 @@ function BlockMediaEditor({ block, updateAttribute }: BlockMediaEditorProps) {
             </div>
           )}
 
-          {/* Upload Excel */}
+          {/* ── Excel ── */}
           {media.type === 'excel' && (
             <div className="space-y-3">
               <Label>Fichier Excel (.xlsx)</Label>
               {media.url ? (
                 <div className="flex items-center gap-2 p-2 border rounded-md bg-green-50">
-                  <FileSpreadsheet className="w-5 h-5 text-green-600 shrink-0" />
-                  <span className="text-sm text-green-700 truncate flex-1">{media.name}</span>
-                  <button
-                    onClick={() => updateAttribute('blockMedia', { ...media, url: '', name: '' })}
-                    className="p-1 text-red-500 hover:text-red-600"
-                  >
+                  {isFromNextCloud
+                    ? <Cloud className="w-4 h-4 text-blue-500 shrink-0" />
+                    : <FileSpreadsheet className="w-5 h-5 text-green-600 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-green-700 truncate">{media.name}</p>
+                    {isFromNextCloud && <p className="text-[10px] text-blue-500">Depuis NextCloud</p>}
+                  </div>
+                  <button onClick={() => updateAttribute('blockMedia', { ...media, url: '', name: '' })}
+                    className="p-1 text-red-500 hover:text-red-600 shrink-0">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
-                <>
-                  <input ref={excelFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden"
-                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-                  <Button type="button" variant="outline" size="sm" className="w-full"
+                <div className="grid grid-cols-2 gap-2">
+                  <input ref={excelFileRef} type="file"
+                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    className="hidden" onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+                  <Button type="button" variant="outline" size="sm"
                     onClick={() => excelFileRef.current?.click()} disabled={isUploading}>
                     <Upload className="w-4 h-4 mr-2" />
-                    {isUploading ? 'Upload en cours...' : 'Choisir un fichier .xlsx'}
+                    {isUploading ? 'Upload...' : 'Local'}
                   </Button>
-                </>
+                  <Button type="button" variant="outline" size="sm" onClick={openNcPicker}
+                    disabled={!ncConfigured}
+                    title={ncConfigured === false ? 'NextCloud non configuré' : 'Choisir depuis NextCloud'}
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-40">
+                    <Cloud className="w-4 h-4 mr-2" />
+                    NextCloud
+                  </Button>
+                </div>
               )}
 
               {/* Options Excel */}
@@ -1914,6 +2000,84 @@ function BlockMediaEditor({ block, updateAttribute }: BlockMediaEditorProps) {
           )}
 
           {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+
+          {/* ── Dialog navigateur NextCloud ── */}
+          <Dialog open={ncOpen} onOpenChange={setNcOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Cloud className="w-5 h-5 text-blue-500" />
+                  Choisir depuis NextCloud
+                  <span className="text-xs font-normal text-gray-400 ml-1">
+                    {media.type === 'image' ? '(images)' : '(.xlsx)'}
+                  </span>
+                </DialogTitle>
+              </DialogHeader>
+
+              {/* Fil d'Ariane */}
+              <div className="flex items-center gap-1 text-sm flex-wrap px-2 py-1.5 bg-gray-50 rounded border">
+                <button className="text-blue-600 hover:underline font-medium" onClick={() => ncBrowse('/')}>
+                  Racine
+                </button>
+                {ncBreadcrumbs.map((crumb, i) => {
+                  const crumbPath = '/' + ncBreadcrumbs.slice(0, i + 1).join('/')
+                  return (
+                    <span key={i} className="flex items-center gap-1">
+                      <ChevronRight className="w-3 h-3 text-gray-400" />
+                      <button className="text-blue-600 hover:underline" onClick={() => ncBrowse(crumbPath)}>
+                        {crumb}
+                      </button>
+                    </span>
+                  )
+                })}
+              </div>
+
+              {/* Liste des fichiers */}
+              <div className="border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                {ncLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : ncItems.length === 0 ? (
+                  <p className="text-center text-sm text-gray-400 py-10">
+                    {media.type === 'image' ? 'Aucune image dans ce dossier' : 'Aucun fichier .xlsx dans ce dossier'}
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    {ncItems.map((item) => {
+                      const isFolder = item.type === 'folder'
+                      const ext = item.name.split('.').pop()?.toLowerCase() || ''
+                      const isImg = ['jpg','jpeg','png','gif','webp','svg'].includes(ext)
+                      return (
+                        <button key={item.path}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 text-left transition-colors disabled:opacity-60"
+                          onClick={() => isFolder ? ncBrowse(item.path) : ncSelectFile(item.path, item.name)}
+                          disabled={ncSelecting}>
+                          {isFolder
+                            ? <Folder className="w-4 h-4 text-yellow-400 shrink-0" />
+                            : isImg
+                              ? <Image className="w-4 h-4 text-purple-400 shrink-0" />
+                              : <FileSpreadsheet className="w-4 h-4 text-green-500 shrink-0" />}
+                          <span className={`flex-1 truncate ${isFolder ? 'font-medium text-gray-800' : 'text-gray-700'}`}>
+                            {item.name}
+                          </span>
+                          {isFolder
+                            ? <ChevronRight className="w-3 h-3 text-gray-400 shrink-0" />
+                            : ncSelecting
+                              ? <Loader2 className="w-3 h-3 animate-spin text-gray-400 shrink-0" />
+                              : <CheckCircle className="w-3 h-3 text-green-400 opacity-50 shrink-0" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={() => setNcOpen(false)}>Annuler</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 
 export interface NextCloudItem {
   name: string
-  path: string       // chemin relatif depuis la racine WebDAV user
+  path: string
   type: 'folder' | 'file'
   contentType?: string
   size?: number
@@ -17,13 +17,10 @@ function buildWebDavUrl(baseUrl: string, user: string, path: string): string {
   return `${clean}/remote.php/dav/files/${encodeURIComponent(user)}${cleanPath}`
 }
 
-// Parse d:href relative to base to extract the file path
 function hrefToPath(href: string, user: string): string {
   const base = `/remote.php/dav/files/${encodeURIComponent(user)}`
   const decoded = decodeURIComponent(href)
-  if (decoded.startsWith(base)) {
-    return decoded.slice(base.length) || '/'
-  }
+  if (decoded.startsWith(base)) return decoded.slice(base.length) || '/'
   return decoded
 }
 
@@ -35,54 +32,53 @@ function extractTag(xml: string, tag: string): string {
 
 function parseWebDavXml(xml: string, user: string): NextCloudItem[] {
   const items: NextCloudItem[] = []
-  // Split by <d:response> blocks — skip the first one (it's the folder itself)
-  const responseParts = xml.split(/<d:response>|<D:response>/i).slice(2)
-
-  for (const part of responseParts) {
+  const parts = xml.split(/<d:response>|<D:response>/i).slice(2)
+  for (const part of parts) {
     const href = extractTag(part, 'href')
     if (!href) continue
-
     const path = hrefToPath(href, user)
     const name = path.split('/').filter(Boolean).pop() || ''
     if (!name) continue
-
     const isCollection = /<d:collection\s*\/>|<D:collection\s*\/>/i.test(part)
-    const contentType = extractTag(part, 'getcontenttype')
-    const sizeStr = extractTag(part, 'getcontentlength')
-    const lastModified = extractTag(part, 'getlastmodified')
-
     items.push({
-      name,
-      path,
+      name, path,
       type: isCollection ? 'folder' : 'file',
-      contentType: isCollection ? undefined : contentType || undefined,
-      size: sizeStr ? Number(sizeStr) : undefined,
-      lastModified: lastModified || undefined,
+      contentType: isCollection ? undefined : extractTag(part, 'getcontenttype') || undefined,
+      size: extractTag(part, 'getcontentlength') ? Number(extractTag(part, 'getcontentlength')) : undefined,
+      lastModified: extractTag(part, 'getlastmodified') || undefined,
     })
   }
-
   return items
 }
 
+// Lit les settings NextCloud via SQL brut (compatible ancien client Prisma)
+async function getNextcloudSettings() {
+  try {
+    const rows = (await prisma.$queryRawUnsafe(
+      `SELECT nextcloudUrl, nextcloudUser, nextcloudPass, nextcloudBasePath FROM "SystemSettings" WHERE id = 'system'`
+    )) as any[]
+    return rows[0] || null
+  } catch {
+    return null
+  }
+}
+
+// GET — liste le contenu d'un dossier WebDAV
 export async function GET(request: NextRequest) {
   try {
     const session = await requireAdmin()
-    if (!session) {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
-    }
+    if (!session) return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
 
     const { searchParams } = new URL(request.url)
     const browsePath = searchParams.get('path') || '/'
 
-    const settings = await prisma.systemSettings.findUnique({ where: { id: 'system' } })
-
-    if (!settings?.nextcloudUrl || !settings?.nextcloudUser || !settings?.nextcloudPass) {
+    const nc = await getNextcloudSettings()
+    if (!nc?.nextcloudUrl || !nc?.nextcloudUser || !nc?.nextcloudPass) {
       return NextResponse.json({ error: 'NextCloud non configuré' }, { status: 400 })
     }
 
-    const { nextcloudUrl, nextcloudUser, nextcloudPass } = settings
-    const webdavUrl = buildWebDavUrl(nextcloudUrl, nextcloudUser, browsePath)
-    const credentials = Buffer.from(`${nextcloudUser}:${nextcloudPass}`).toString('base64')
+    const webdavUrl = buildWebDavUrl(nc.nextcloudUrl, nc.nextcloudUser, browsePath)
+    const credentials = Buffer.from(`${nc.nextcloudUser}:${nc.nextcloudPass}`).toString('base64')
 
     const res = await fetch(webdavUrl, {
       method: 'PROPFIND',
@@ -94,11 +90,8 @@ export async function GET(request: NextRequest) {
       body: `<?xml version="1.0"?>
 <d:propfind xmlns:d="DAV:">
   <d:prop>
-    <d:resourcetype/>
-    <d:displayname/>
-    <d:getcontenttype/>
-    <d:getcontentlength/>
-    <d:getlastmodified/>
+    <d:resourcetype/><d:displayname/>
+    <d:getcontenttype/><d:getcontentlength/><d:getlastmodified/>
   </d:prop>
 </d:propfind>`,
     })
@@ -108,9 +101,7 @@ export async function GET(request: NextRequest) {
     }
 
     const xml = await res.text()
-    const items = parseWebDavXml(xml, nextcloudUser)
-
-    // Separate folders and files, sort folders first then alphabetically
+    const items = parseWebDavXml(xml, nc.nextcloudUser)
     const sorted = [
       ...items.filter(i => i.type === 'folder').sort((a, b) => a.name.localeCompare(b.name)),
       ...items.filter(i => i.type === 'file').sort((a, b) => a.name.localeCompare(b.name)),
@@ -122,30 +113,25 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GET public NextCloud file URL (pour injecter dans blockMedia.url)
-// Construit l'URL de partage WebDAV pour un fichier donné
+// POST — renvoie l'URL proxy pour un fichier NextCloud donné
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAdmin()
-    if (!session) {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
-    }
+    if (!session) return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
 
     const { path: filePath } = await request.json()
-    const settings = await prisma.systemSettings.findUnique({ where: { id: 'system' } })
+    const nc = await getNextcloudSettings()
 
-    if (!settings?.nextcloudUrl || !settings?.nextcloudUser || !settings?.nextcloudPass) {
+    if (!nc?.nextcloudUrl || !nc?.nextcloudUser || !nc?.nextcloudPass) {
       return NextResponse.json({ error: 'NextCloud non configuré' }, { status: 400 })
     }
 
-    const webdavUrl = buildWebDavUrl(settings.nextcloudUrl, settings.nextcloudUser, filePath)
-
-    // Return the proxied URL so the form viewer can fetch via our API (avoids CORS & auth)
     const proxyUrl = `/api/admin/nextcloud/file?path=${encodeURIComponent(filePath)}`
+    const directUrl = buildWebDavUrl(nc.nextcloudUrl, nc.nextcloudUser, filePath)
 
     return NextResponse.json({
       url: proxyUrl,
-      directUrl: webdavUrl,
+      directUrl,
       name: filePath.split('/').filter(Boolean).pop() || '',
     })
   } catch (error: any) {

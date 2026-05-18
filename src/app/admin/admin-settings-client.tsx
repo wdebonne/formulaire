@@ -13,6 +13,7 @@ import {
   Shield,
   Type,
   Trash2,
+  Cloud,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -74,6 +75,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: Trash2,
       href: '/admin/trash',
       color: 'bg-red-500',
+    },
+    {
+      title: 'NextCloud',
+      description: 'Configurer la connexion WebDAV partagée pour lier des fichiers aux formulaires',
+      icon: Cloud,
+      href: '/admin/nextcloud',
+      color: 'bg-blue-500',
     },
   ]
 

@@ -102,6 +102,11 @@ model SystemSettings {
   registrationEnabled Boolean  @default(true)
   updatedAt           DateTime @updatedAt
   smtpFromName        String?
+  // NextCloud WebDAV (partagé entre tous les administrateurs)
+  nextcloudUrl        String?  // URL de l'instance, ex: https://cloud.monsite.fr
+  nextcloudUser       String?  // Nom d'utilisateur NextCloud
+  nextcloudPass       String?  // Mot de passe d'application NextCloud
+  nextcloudBasePath   String?  @default("/") // Dossier racine dans NextCloud
 }
 
 model EmailTemplate {

@@ -45,6 +45,10 @@ export async function GET() {
         smtpFromName: null,
         smtpSecure: false,
         registrationEnabled: true,
+        nextcloudUrl: null,
+        nextcloudUser: null,
+        nextcloudPass: null,
+        nextcloudBasePath: '/',
       })
     }
 

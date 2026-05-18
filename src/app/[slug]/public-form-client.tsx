@@ -26,7 +26,8 @@ function ExcelPreview({ url, name, allowExpand = true, allowDownload = false, th
     async function load() {
       try {
         setLoading(true)
-        const XLSX = (await import('xlsx')).default
+        const xlsxMod = await import('xlsx')
+        const XLSX = xlsxMod.default ?? xlsxMod
         const res = await fetch(url)
         if (!res.ok) throw new Error('Erreur de chargement')
         const buf = await res.arrayBuffer()

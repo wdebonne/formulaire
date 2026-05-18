@@ -76,7 +76,41 @@ export function FontsClient() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
+  const [fontPreviewLoaded, setFontPreviewLoaded] = useState<boolean | null>(null)
   const { toast } = useToast()
+
+  // Charger dynamiquement la police du dialog en temps réel
+  useEffect(() => {
+    if (!newFont.family) {
+      setFontPreviewLoaded(null)
+      return
+    }
+
+    setFontPreviewLoaded(null)
+    const family = newFont.family.trim().replace(/ /g, '+')
+    const href = `https://fonts.googleapis.com/css2?family=${family}:wght@400;700&display=swap`
+    const linkId = 'google-fonts-dialog-preview'
+
+    let link = document.getElementById(linkId) as HTMLLinkElement | null
+    if (!link) {
+      link = document.createElement('link')
+      link.id = linkId
+      link.rel = 'stylesheet'
+      document.head.appendChild(link)
+    }
+    link.href = href
+
+    // Vérifier si la police a bien été chargée
+    link.onload = async () => {
+      try {
+        const loaded = await document.fonts.load(`16px "${newFont.family.trim()}"`)
+        setFontPreviewLoaded(loaded.length > 0)
+      } catch {
+        setFontPreviewLoaded(false)
+      }
+    }
+    link.onerror = () => setFontPreviewLoaded(false)
+  }, [newFont.family])
 
   // Charger les polices Google dynamiquement
   useEffect(() => {
@@ -174,6 +208,7 @@ export function FontsClient() {
         })
         setIsAddDialogOpen(false)
         setNewFont({ name: '', family: '', source: 'google', weights: [400, 700] })
+        setFontPreviewLoaded(null)
         fetchFonts()
       } else {
         const error = await res.json()
@@ -480,6 +515,12 @@ export function FontsClient() {
                     Le rapide renard brun saute par-dessus le chien paresseux.
                   </p>
                 </div>
+                {fontPreviewLoaded === false && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Police introuvable sur Google Fonts. Vérifiez le nom exact (ex&nbsp;: &quot;Road Rage&quot; et non &quot;Rage Road&quot;).
+                  </p>
+                )}
               </div>
             )}
 

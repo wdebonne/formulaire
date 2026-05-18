@@ -1,7 +1,7 @@
 'use client'
 
 import type { FormBlock, Theme } from '@/types/form'
-import { Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown, Image, FileSpreadsheet } from 'lucide-react'
 
 interface BlockPreviewProps {
   block: FormBlock
@@ -493,6 +493,99 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
     return labels[type] || type.toUpperCase()
   }
 
+  const media = block.attributes.blockMedia
+  const mediaPos = media?.imagePosition || 'top'
+  const isHorizontal = media && media.url && (mediaPos === 'left' || mediaPos === 'right')
+
+  const renderMediaPreview = () => {
+    if (!media || !media.url) return null
+    if (media.type === 'image') {
+      return (
+        <img
+          src={media.url}
+          alt={media.name || ''}
+          className={`object-cover rounded ${isHorizontal ? 'w-20 h-full shrink-0 self-stretch' : 'w-full h-16'}`}
+        />
+      )
+    }
+    return (
+      <div className={`flex items-center justify-center gap-1 rounded bg-green-50 border border-green-200 ${isHorizontal ? 'w-20 shrink-0 self-stretch' : 'w-full h-8'}`}>
+        <FileSpreadsheet className="w-3 h-3 text-green-600" />
+        <span className="text-[9px] text-green-700 truncate max-w-[60px]">{media.name}</span>
+      </div>
+    )
+  }
+
+  const blockContent = (
+    <>
+      {/* Block type badge */}
+      <div className="flex items-center mb-1 gap-1">
+        <span
+          className="text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider"
+          style={{
+            backgroundColor: themeProps.buttonsBgColor + '15',
+            color: themeProps.buttonsBgColor,
+          }}
+        >
+          {getBlockTypeLabel(block.type)}
+        </span>
+        {block.attributes.required && (
+          <span className="text-red-500 text-[10px]">*</span>
+        )}
+        {media && media.url && (
+          <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-gray-100 text-gray-500">
+            {media.type === 'image' ? <Image className="w-2.5 h-2.5" /> : <FileSpreadsheet className="w-2.5 h-2.5" />}
+            {media.type === 'image' ? mediaPos : 'xlsx'}
+          </span>
+        )}
+      </div>
+
+      {/* Question text */}
+      <h3
+        className="text-sm font-medium leading-snug"
+        style={{ color: themeProps.questionsColor }}
+      >
+        {block.attributes.label || 'Question sans titre'}
+      </h3>
+
+      {/* Description */}
+      {block.attributes.description && (
+        <p className="mt-1 text-xs leading-relaxed" style={{ color: themeProps.answersColor }}>
+          {block.attributes.description}
+        </p>
+      )}
+
+      {/* Media top */}
+      {media && media.url && mediaPos === 'top' && !isHorizontal && (
+        <div className="mt-2">{renderMediaPreview()}</div>
+      )}
+
+      {/* Input preview */}
+      {renderInput()}
+
+      {/* Media bottom */}
+      {media && media.url && mediaPos === 'bottom' && !isHorizontal && (
+        <div className="mt-2">{renderMediaPreview()}</div>
+      )}
+
+      {/* OK button for input types */}
+      {['short-text', 'long-text', 'email', 'number', 'phone', 'address', 'date', 'advanced-date', 'time'].includes(block.type) && (
+        <div className="mt-3">
+          <button
+            className="px-3 py-1 rounded text-xs font-medium flex items-center"
+            style={{
+              backgroundColor: themeProps.buttonsBgColor,
+              color: themeProps.buttonsFontColor,
+            }}
+          >
+            OK
+            <span className="ml-1 opacity-70 text-[9px]">↵</span>
+          </button>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div className="p-4 border-b bg-gray-50">
       <div className="text-[10px] font-medium text-gray-400 mb-2 uppercase tracking-wider">
@@ -505,54 +598,13 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
           fontFamily: themeProps.font || 'Inter',
         }}
       >
-        {/* Block type badge */}
-        <div className="flex items-center mb-1">
-          <span
-            className="text-[9px] font-medium px-1.5 py-0.5 rounded uppercase tracking-wider"
-            style={{
-              backgroundColor: themeProps.buttonsBgColor + '15',
-              color: themeProps.buttonsBgColor,
-            }}
-          >
-            {getBlockTypeLabel(block.type)}
-          </span>
-          {block.attributes.required && (
-            <span className="ml-1 text-red-500 text-[10px]">*</span>
-          )}
-        </div>
-
-        {/* Question text */}
-        <h3
-          className="text-sm font-medium leading-snug"
-          style={{ color: themeProps.questionsColor }}
-        >
-          {block.attributes.label || 'Question sans titre'}
-        </h3>
-
-        {/* Description */}
-        {block.attributes.description && (
-          <p className="mt-1 text-xs leading-relaxed" style={{ color: themeProps.answersColor }}>
-            {block.attributes.description}
-          </p>
-        )}
-
-        {/* Input preview */}
-        {renderInput()}
-
-        {/* OK button for input types */}
-        {['short-text', 'long-text', 'email', 'number', 'phone', 'address', 'date', 'advanced-date', 'time'].includes(block.type) && (
-          <div className="mt-3">
-            <button
-              className="px-3 py-1 rounded text-xs font-medium flex items-center"
-              style={{
-                backgroundColor: themeProps.buttonsBgColor,
-                color: themeProps.buttonsFontColor,
-              }}
-            >
-              OK
-              <span className="ml-1 opacity-70 text-[9px]">↵</span>
-            </button>
+        {isHorizontal ? (
+          <div className={`flex gap-3 items-start ${mediaPos === 'right' ? 'flex-row-reverse' : 'flex-row'}`}>
+            {renderMediaPreview()}
+            <div className="flex-1 min-w-0">{blockContent}</div>
           </div>
+        ) : (
+          blockContent
         )}
       </div>
     </div>

@@ -119,6 +119,15 @@ export interface BlockAttributes {
   // Masquage conditionnel (blocs internes d'un répéteur)
   visibilitySourceBlockId?: string // ID du bloc frère source dont la réponse détermine la visibilité
   visibilityValues?: string[] // Valeurs du bloc source qui affichent ce bloc (vide = toujours visible)
+  // Média attaché au bloc (image ou fichier Excel)
+  blockMedia?: {
+    type: 'image' | 'excel'
+    url: string
+    name: string
+    imagePosition?: 'top' | 'bottom' | 'left' | 'right'
+    excelAllowExpand?: boolean
+    excelAllowDownload?: boolean
+  }
 }
 
 export interface FormBlock {

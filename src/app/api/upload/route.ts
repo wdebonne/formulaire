@@ -19,15 +19,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Vérifier le type de fichier
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+    const imageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
+    const docTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+      'application/vnd.ms-excel', // xls
+    ]
+    const allowedTypes = [...imageTypes, ...docTypes]
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 })
     }
 
-    // Limiter la taille à 5MB
-    const maxSize = 5 * 1024 * 1024
+    // Images : 5 MB — fichiers Excel : 20 MB
+    const isDocument = docTypes.includes(file.type)
+    const maxSize = isDocument ? 20 * 1024 * 1024 : 5 * 1024 * 1024
     if (file.size > maxSize) {
-      return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })
+      return NextResponse.json({ error: `File too large (max ${isDocument ? '20' : '5'}MB)` }, { status: 400 })
     }
 
     const bytes = await file.arrayBuffer()

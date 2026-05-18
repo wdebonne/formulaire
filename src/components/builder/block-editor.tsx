@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand } from 'lucide-react'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -274,6 +274,11 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
       {/* Attachment pour welcome-screen et thankyou-screen */}
       {['welcome-screen', 'thankyou-screen'].includes(block.type) && (
         <WelcomeScreenAttachment block={block} updateAttribute={updateAttribute} />
+      )}
+
+      {/* Média pour les blocs de saisie et de choix */}
+      {['short-text', 'long-text', 'multiple-choice', 'dropdown'].includes(block.type) && (
+        <BlockMediaEditor block={block} updateAttribute={updateAttribute} />
       )}
 
       {/* Number options */}
@@ -1701,6 +1706,216 @@ function ImageSelectionEditor({ block, updateAttribute }: ImageSelectionEditorPr
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+// Composant média pour short-text, long-text, multiple-choice, dropdown
+interface BlockMediaEditorProps {
+  block: FormBlock
+  updateAttribute: (key: string, value: any) => void
+}
+
+function BlockMediaEditor({ block, updateAttribute }: BlockMediaEditorProps) {
+  const imageFileRef = useRef<HTMLInputElement>(null)
+  const excelFileRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  const media = block.attributes.blockMedia
+  const enabled = !!media
+
+  const handleToggle = (checked: boolean) => {
+    if (!checked) {
+      updateAttribute('blockMedia', undefined)
+    } else {
+      updateAttribute('blockMedia', { type: 'image', url: '', name: '', imagePosition: 'top' })
+    }
+  }
+
+  const handleUpload = async (file: File) => {
+    setUploadError('')
+    setIsUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) {
+        setUploadError(data.error || 'Erreur lors de l\'upload')
+        return
+      }
+      updateAttribute('blockMedia', { ...media, url: data.url, name: file.name })
+    } catch {
+      setUploadError('Erreur réseau')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const positionOptions = [
+    { value: 'top', label: 'Haut', icon: <ArrowUp className="w-4 h-4" /> },
+    { value: 'bottom', label: 'Bas', icon: <ArrowDown className="w-4 h-4" /> },
+    { value: 'left', label: 'Gauche', icon: <AlignLeft className="w-4 h-4" /> },
+    { value: 'right', label: 'Droite', icon: <AlignRight className="w-4 h-4" /> },
+  ]
+
+  return (
+    <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label>Image / Fichier Excel</Label>
+          <p className="text-xs text-gray-500 mt-0.5">Afficher un média à côté de la question</p>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => handleToggle(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+        </label>
+      </div>
+
+      {enabled && media && (
+        <>
+          {/* Type de média */}
+          <div className="space-y-2">
+            <Label>Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'image', label: 'Image', icon: <Image className="w-4 h-4" /> },
+                { value: 'excel', label: 'Fichier Excel', icon: <FileSpreadsheet className="w-4 h-4" /> },
+              ].map((t) => (
+                <button
+                  key={t.value}
+                  onClick={() => updateAttribute('blockMedia', { type: t.value, url: '', name: '', imagePosition: 'top' })}
+                  className={`flex items-center gap-2 p-2 rounded border-2 text-sm transition-colors ${
+                    media.type === t.value ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {t.icon} {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Upload image */}
+          {media.type === 'image' && (
+            <div className="space-y-2">
+              <Label>Image</Label>
+              {media.url ? (
+                <div className="relative group">
+                  <img src={media.url} alt={media.name} className="w-full h-32 object-cover rounded-md border" />
+                  <button
+                    onClick={() => updateAttribute('blockMedia', { ...media, url: '', name: '' })}
+                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input ref={imageFileRef} type="file" accept="image/*" className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+                  <Button type="button" variant="outline" size="sm" className="w-full"
+                    onClick={() => imageFileRef.current?.click()} disabled={isUploading}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploading ? 'Upload en cours...' : 'Choisir une image'}
+                  </Button>
+                  <Input
+                    placeholder="ou coller une URL"
+                    onChange={(e) => e.target.value && updateAttribute('blockMedia', { ...media, url: e.target.value, name: 'Image' })}
+                  />
+                </>
+              )}
+
+              {/* Position */}
+              <div className="space-y-2 pt-1">
+                <Label>Position de l'image</Label>
+                <div className="grid grid-cols-4 gap-1">
+                  {positionOptions.map((p) => (
+                    <button
+                      key={p.value}
+                      onClick={() => updateAttribute('blockMedia', { ...media, imagePosition: p.value })}
+                      className={`flex flex-col items-center justify-center p-2 rounded border-2 text-xs transition-colors ${
+                        (media.imagePosition || 'top') === p.value
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      }`}
+                      title={p.label}
+                    >
+                      {p.icon}
+                      <span className="mt-1">{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Excel */}
+          {media.type === 'excel' && (
+            <div className="space-y-3">
+              <Label>Fichier Excel (.xlsx)</Label>
+              {media.url ? (
+                <div className="flex items-center gap-2 p-2 border rounded-md bg-green-50">
+                  <FileSpreadsheet className="w-5 h-5 text-green-600 shrink-0" />
+                  <span className="text-sm text-green-700 truncate flex-1">{media.name}</span>
+                  <button
+                    onClick={() => updateAttribute('blockMedia', { ...media, url: '', name: '' })}
+                    className="p-1 text-red-500 hover:text-red-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input ref={excelFileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+                  <Button type="button" variant="outline" size="sm" className="w-full"
+                    onClick={() => excelFileRef.current?.click()} disabled={isUploading}>
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploading ? 'Upload en cours...' : 'Choisir un fichier .xlsx'}
+                  </Button>
+                </>
+              )}
+
+              {/* Options Excel */}
+              <div className="space-y-2 pt-1">
+                <Label className="text-xs text-gray-500 uppercase tracking-wide">Options d'affichage</Label>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Expand className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">Bouton agrandir</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={media.excelAllowExpand ?? true}
+                      onChange={(e) => updateAttribute('blockMedia', { ...media, excelAllowExpand: e.target.checked })}
+                      className="sr-only peer" />
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Download className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm">Bouton télécharger</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={media.excelAllowDownload ?? false}
+                      onChange={(e) => updateAttribute('blockMedia', { ...media, excelAllowDownload: e.target.checked })}
+                      className="sr-only peer" />
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+        </>
+      )}
     </div>
   )
 }

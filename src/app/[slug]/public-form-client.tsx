@@ -2,8 +2,177 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from '@/types/form'
-import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
+
+// Composant de prévisualisation Excel (chargement dynamique de SheetJS)
+interface ExcelPreviewProps {
+  url: string
+  name: string
+  allowExpand?: boolean
+  allowDownload?: boolean
+  themeProps: ThemeProperties
+}
+
+function ExcelPreview({ url, name, allowExpand = true, allowDownload = false, themeProps }: ExcelPreviewProps) {
+  const [rows, setRows] = useState<string[][]>([])
+  const [headers, setHeaders] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        setLoading(true)
+        const XLSX = (await import('xlsx')).default
+        const res = await fetch(url)
+        if (!res.ok) throw new Error('Erreur de chargement')
+        const buf = await res.arrayBuffer()
+        const wb = XLSX.read(buf, { type: 'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const data: string[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' }) as string[][]
+        if (!cancelled && data.length > 0) {
+          setHeaders(data[0].map(String))
+          setRows(data.slice(1).map((r) => r.map(String)))
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(e.message || 'Erreur')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [url])
+
+  const TableContent = ({ maxRows }: { maxRows?: number }) => (
+    <div className="overflow-auto max-h-60 rounded border text-xs">
+      <table className="min-w-full border-collapse">
+        <thead>
+          <tr style={{ backgroundColor: themeProps.buttonsBgColor + '18' }}>
+            {headers.map((h, i) => (
+              <th key={i} className="px-2 py-1.5 text-left font-semibold border-b whitespace-nowrap" style={{ color: themeProps.questionsColor, borderColor: themeProps.answersColor + '25' }}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(maxRows ? rows.slice(0, maxRows) : rows).map((row, ri) => (
+            <tr key={ri} className={ri % 2 === 1 ? 'bg-black/[0.02]' : ''}>
+              {row.map((cell, ci) => (
+                <td key={ci} className="px-2 py-1 border-b whitespace-nowrap" style={{ color: themeProps.answersColor, borderColor: themeProps.answersColor + '15' }}>
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+          {maxRows && rows.length > maxRows && (
+            <tr>
+              <td colSpan={headers.length} className="px-2 py-1 text-center text-[11px] italic" style={{ color: themeProps.answersColor + '80' }}>
+                + {rows.length - maxRows} lignes supplémentaires
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-4 text-sm" style={{ color: themeProps.answersColor }}>
+      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+      Chargement du fichier…
+    </div>
+  )
+
+  if (error) return (
+    <p className="text-xs text-red-500 py-2">Impossible de charger le fichier : {error}</p>
+  )
+
+  return (
+    <div className="mt-3 space-y-2">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium" style={{ color: themeProps.answersColor }}>
+          {name} — {rows.length} ligne{rows.length !== 1 ? 's' : ''}
+        </span>
+        <div className="flex gap-2">
+          {allowDownload && (
+            <a
+              href={url}
+              download={name}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded border transition-opacity hover:opacity-80"
+              style={{ borderColor: themeProps.answersColor + '40', color: themeProps.answersColor }}
+            >
+              <Download className="w-3 h-3" />
+              Télécharger
+            </a>
+          )}
+          {allowExpand && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded border transition-opacity hover:opacity-80"
+              style={{ borderColor: themeProps.answersColor + '40', color: themeProps.answersColor }}
+            >
+              <Maximize2 className="w-3 h-3" />
+              Agrandir
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Inline preview (5 rows max) */}
+      <TableContent maxRows={5} />
+
+      {/* Fullscreen modal */}
+      {expanded && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setExpanded(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <span className="font-semibold text-sm text-gray-800">{name}</span>
+              <div className="flex gap-2 items-center">
+                {allowDownload && (
+                  <a href={url} download={name} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50">
+                    <Download className="w-3 h-3" />
+                    Télécharger
+                  </a>
+                )}
+                <button onClick={() => setExpanded(false)} className="p-1 rounded hover:bg-gray-100 text-gray-500">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              <div className="overflow-auto rounded border text-sm">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      {headers.map((h, i) => (
+                        <th key={i} className="px-3 py-2 text-left font-semibold border-b text-gray-700 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, ri) => (
+                      <tr key={ri} className={ri % 2 === 1 ? 'bg-gray-50/60' : ''}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} className="px-3 py-1.5 border-b text-gray-700 whitespace-nowrap">{cell}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Fonction de validation d'email
 function isValidEmail(email: string): boolean {
@@ -2775,12 +2944,42 @@ function QuestionBlock({
     }
   }
 
-  return (
-    <div>
+  const blockMedia = block.attributes.blockMedia
+  const mediaPos = blockMedia?.imagePosition || 'top'
+  const hasMedia = !!(blockMedia?.url)
+  const isHorizontalMedia = hasMedia && (mediaPos === 'left' || mediaPos === 'right')
+
+  const renderBlockMedia = () => {
+    if (!hasMedia || !blockMedia) return null
+    if (blockMedia.type === 'image') {
+      return (
+        <img
+          src={blockMedia.url}
+          alt={blockMedia.name || ''}
+          className={`rounded-lg object-cover ${isHorizontalMedia ? 'w-1/3 max-w-[240px] self-start sticky top-4' : 'w-full max-h-64'}`}
+        />
+      )
+    }
+    // Excel
+    return (
+      <div className={isHorizontalMedia ? 'w-1/2 max-w-sm self-start sticky top-4' : 'w-full'}>
+        <ExcelPreview
+          url={blockMedia.url}
+          name={blockMedia.name}
+          allowExpand={blockMedia.excelAllowExpand ?? true}
+          allowDownload={blockMedia.excelAllowDownload ?? false}
+          themeProps={themeProps}
+        />
+      </div>
+    )
+  }
+
+  const questionContent = (
+    <div className={isHorizontalMedia ? 'flex-1' : ''}>
       {/* Image au-dessus du titre pour welcome-screen et thankyou-screen en layout stack */}
-      {(block.type === 'welcome-screen' || block.type === 'thankyou-screen') && 
-       block.attributes.showAttachment && 
-       block.attributes.attachmentLayout === 'stack' && 
+      {(block.type === 'welcome-screen' || block.type === 'thankyou-screen') &&
+       block.attributes.showAttachment &&
+       block.attributes.attachmentLayout === 'stack' &&
        block.attributes.attachmentUrl && (
         <div className="mb-6">
           {block.attributes.attachmentType === 'video' ? (
@@ -2797,9 +2996,9 @@ function QuestionBlock({
               src={block.attributes.attachmentUrl}
               alt=""
               className="w-full max-w-xl rounded-lg object-cover"
-              style={{ 
+              style={{
                 maxHeight: '300px',
-                objectPosition: `${block.attributes.focalPoint?.x || 50}% ${block.attributes.focalPoint?.y || 50}%` 
+                objectPosition: `${block.attributes.focalPoint?.x || 50}% ${block.attributes.focalPoint?.y || 50}%`
               }}
             />
           )}
@@ -2839,8 +3038,18 @@ function QuestionBlock({
         </p>
       )}
 
+      {/* Média en haut */}
+      {hasMedia && mediaPos === 'top' && !isHorizontalMedia && (
+        <div className="mt-4">{renderBlockMedia()}</div>
+      )}
+
       {/* Input */}
       {renderInput()}
+
+      {/* Média en bas */}
+      {hasMedia && mediaPos === 'bottom' && !isHorizontalMedia && (
+        <div className="mt-4">{renderBlockMedia()}</div>
+      )}
 
       {/* Error message */}
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
@@ -2906,6 +3115,17 @@ function QuestionBlock({
         )}
     </div>
   )
+
+  if (isHorizontalMedia) {
+    return (
+      <div className={`flex gap-6 sm:gap-8 items-start ${mediaPos === 'right' ? 'flex-col sm:flex-row-reverse' : 'flex-col sm:flex-row'}`}>
+        <div className="w-full sm:w-auto">{renderBlockMedia()}</div>
+        {questionContent}
+      </div>
+    )
+  }
+
+  return questionContent
 }
 
 // Composant pour les blocs groupe (affichage conversationnel)

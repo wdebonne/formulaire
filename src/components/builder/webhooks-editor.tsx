@@ -262,6 +262,7 @@ function BlockValueSelect({
   value,
   onChange,
   questionBlocks,
+  usedBlockIds = new Set<string>(),
   placeholder = 'Choisir une valeur…',
   size = 'sm',
   className = '',
@@ -269,6 +270,7 @@ function BlockValueSelect({
   value: string
   onChange: (v: string) => void
   questionBlocks: FormBlock[]
+  usedBlockIds?: Set<string>
   placeholder?: string
   size?: 'sm' | 'md'
   className?: string
@@ -309,8 +311,12 @@ function BlockValueSelect({
       : []),
   ])
 
-  const filteredMeta = q ? metaItems.filter((i) => i.label.toLowerCase().includes(q)) : metaItems
-  const filteredQuestions = q ? questionItems.filter((i) => i.label.toLowerCase().includes(q)) : questionItems
+  const filteredMeta = metaItems
+    .filter((i) => i.value === value || !usedBlockIds.has(i.value))
+    .filter((i) => !q || i.label.toLowerCase().includes(q))
+  const filteredQuestions = questionItems
+    .filter((i) => i.value === value || !usedBlockIds.has(i.value))
+    .filter((i) => !q || i.label.toLowerCase().includes(q))
   const showCustom = !q || 'personnalisée'.includes(q) || 'texte'.includes(q)
 
   const allItems: Item[] = [
@@ -415,13 +421,14 @@ interface SortableMappingRowProps {
   mapping: WebhookFieldMapping
   allMappableBlocks: FormBlock[]
   questionBlocks: FormBlock[]
+  usedBlockIds: Set<string>
   isDragDisabled: boolean
   onUpdate: (index: number, updates: Partial<WebhookFieldMapping>) => void
   onRemove: (index: number) => void
 }
 
 function SortableMappingRow({
-  id, index, mapping, allMappableBlocks, questionBlocks,
+  id, index, mapping, allMappableBlocks, questionBlocks, usedBlockIds,
   isDragDisabled, onUpdate, onRemove,
 }: SortableMappingRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -482,6 +489,7 @@ function SortableMappingRow({
             flatRepeater: false,
           })}
           questionBlocks={questionBlocks}
+          usedBlockIds={usedBlockIds}
           size="md"
         />
         {/* Supprimer */}
@@ -757,19 +765,29 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
   // ─── Selector block commun ──────────────────────────────────────────────────
   const BlockSelector = ({ webhookId, mapping, index, className = '' }: {
     webhookId: string; mapping: WebhookFieldMapping; index: number; className?: string
-  }) => (
-    <BlockValueSelect
-      value={mapping.blockId}
-      onChange={(v) => handleUpdateFieldMapping(webhookId, index, {
-        blockId: v,
-        customTemplate: v !== '_custom' ? undefined : (mapping.customTemplate || ''),
-      })}
-      questionBlocks={questionBlocks}
-      placeholder="Sélectionner…"
-      size="sm"
-      className={className}
-    />
-  )
+  }) => {
+    const wh = webhooks.find((w) => w.id === webhookId)
+    const usedBlockIds = new Set(
+      (wh?.fieldMappings || [])
+        .filter((_, i) => i !== index)
+        .map((m) => m.blockId)
+        .filter((id) => id && id !== '_custom')
+    )
+    return (
+      <BlockValueSelect
+        value={mapping.blockId}
+        onChange={(v) => handleUpdateFieldMapping(webhookId, index, {
+          blockId: v,
+          customTemplate: v !== '_custom' ? undefined : (mapping.customTemplate || ''),
+        })}
+        questionBlocks={questionBlocks}
+        usedBlockIds={usedBlockIds}
+        placeholder="Sélectionner…"
+        size="sm"
+        className={className}
+      />
+    )
+  }
 
   // ─── Mapping agrandi (deux colonnes, recherche + drag & drop) ───────────────
   const renderFieldMappingsExpanded = (webhook: Webhook) => {
@@ -846,7 +864,14 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
         {/* Liste triable */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={items} strategy={verticalListSortingStrategy}>
-            {filteredMappings.map(({ mapping, originalIndex }) => (
+            {filteredMappings.map(({ mapping, originalIndex }) => {
+              const rowUsedBlockIds = new Set(
+                webhook.fieldMappings
+                  .filter((_, i) => i !== originalIndex)
+                  .map((m) => m.blockId)
+                  .filter((id) => id && id !== '_custom')
+              )
+              return (
               <SortableMappingRow
                 key={originalIndex}
                 id={String(originalIndex)}
@@ -854,11 +879,13 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
                 mapping={mapping}
                 allMappableBlocks={allMappableBlocks}
                 questionBlocks={questionBlocks}
+                usedBlockIds={rowUsedBlockIds}
                 isDragDisabled={isSearching}
                 onUpdate={(i, updates) => handleUpdateFieldMapping(webhook.id, i, updates)}
                 onRemove={(i) => handleRemoveFieldMapping(webhook.id, i)}
               />
-            ))}
+              )
+            })}
           </SortableContext>
         </DndContext>
 

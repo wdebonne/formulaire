@@ -13,75 +13,99 @@ interface VisualLogicBuilderProps {
   blocks: FormBlock[]
 }
 
-// Layout constants
-const BLOCK_HEIGHT = 68
-const BLOCK_GAP = 44
-const BLOCK_STEP = BLOCK_HEIGHT + BLOCK_GAP
-const PADDING_TOP = 48
-const PADDING_BOTTOM = 60
-const BLOCK_LEFT = 40
-const BLOCK_WIDTH = 264
-const BLOCK_RIGHT = BLOCK_LEFT + BLOCK_WIDTH
-const ARROW_BASE_X = BLOCK_RIGHT + 28
-const ARROW_LANE_W = 48
+// ─── Layout constants ──────────────────────────────────────────────────────────
+const BH = 72          // block height
+const BGAP = 52        // gap between blocks
+const BSTEP = BH + BGAP
+const PAD_TOP = 56
+const PAD_BOT = 80
+const BL = 40          // block left
+const BW = 308         // block width
+const BR = BL + BW     // block right edge = 348
+const ARROW_START = BR + 24   // horizontal start of arrow area
+const LANE_W = 80      // width per lane (wider = less overlap)
+const CORNER = 10      // rounded corner radius
+const ARROWHEAD = 10   // arrowhead size
 
-const RULE_COLORS = [
+const COLORS = [
   '#6366f1', '#0ea5e9', '#10b981', '#f59e0b',
   '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6',
+  '#f97316', '#06b6d4',
 ]
 
-const operators: { value: ConditionOperator; label: string }[] = [
-  { value: 'equals', label: 'Est égal à' },
-  { value: 'not_equals', label: "N'est pas égal à" },
-  { value: 'contains', label: 'Contient' },
+const OPERATORS: { value: ConditionOperator; label: string }[] = [
+  { value: 'equals',       label: 'Est égal à' },
+  { value: 'not_equals',   label: "N'est pas égal à" },
+  { value: 'contains',     label: 'Contient' },
   { value: 'not_contains', label: 'Ne contient pas' },
   { value: 'greater_than', label: 'Est supérieur à' },
-  { value: 'less_than', label: 'Est inférieur à' },
-  { value: 'is_empty', label: 'Est vide' },
+  { value: 'less_than',    label: 'Est inférieur à' },
+  { value: 'is_empty',     label: 'Est vide' },
   { value: 'is_not_empty', label: "N'est pas vide" },
 ]
 
-function blockCY(idx: number) { return PADDING_TOP + idx * BLOCK_STEP + BLOCK_HEIGHT / 2 }
-function blockTY(idx: number) { return PADDING_TOP + idx * BLOCK_STEP }
-function blockBY(idx: number) { return PADDING_TOP + idx * BLOCK_STEP + BLOCK_HEIGHT }
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+const cy  = (i: number) => PAD_TOP + i * BSTEP + BH / 2
+const top = (i: number) => PAD_TOP + i * BSTEP
+const bot = (i: number) => PAD_TOP + i * BSTEP + BH
 
-// Assign horizontal lanes so arrows don't overlap vertically
+/** Assign non-overlapping horizontal lanes to arrows */
 function assignLanes(jumps: { id: string; si: number; ti: number }[]): Map<string, number> {
-  const lanes = new Map<string, number>()
+  const map = new Map<string, number>()
+  // Wider spans get outer lanes first
   const sorted = [...jumps].sort((a, b) =>
     Math.abs(b.ti - b.si) - Math.abs(a.ti - a.si)
   )
-  const used: { min: number; max: number; lane: number }[] = []
+  const used: { mn: number; mx: number; lane: number }[] = []
   for (const j of sorted) {
     const mn = Math.min(j.si, j.ti), mx = Math.max(j.si, j.ti)
     let lane = 0
-    while (used.some(u => u.lane === lane && u.max >= mn && u.min <= mx)) lane++
-    lanes.set(j.id, lane)
-    used.push({ min: mn, max: mx, lane })
+    while (used.some(u => u.lane === lane && u.mx >= mn && u.mn <= mx)) lane++
+    map.set(j.id, lane)
+    used.push({ mn, mx, lane })
   }
-  return lanes
+  return map
 }
 
-function condSummary(rule: LogicRule, blocks: FormBlock[]): string {
+/** Orthogonal path with rounded corners: right edge → laneX → right edge */
+function makePath(laneX: number, sy: number, ty: number): string {
+  const r = Math.min(CORNER, Math.abs(ty - sy) / 2.2)
+  const sign = ty > sy ? 1 : -1
+  if (Math.abs(ty - sy) < 2) {
+    return `M ${BR} ${sy} H ${BR + ARROWHEAD + 4}`
+  }
+  // Horizontal out → corner → vertical → corner → horizontal back
+  return [
+    `M ${BR} ${sy}`,
+    `L ${laneX - r} ${sy}`,
+    `Q ${laneX} ${sy} ${laneX} ${sy + r * sign}`,
+    `L ${laneX} ${ty - r * sign}`,
+    `Q ${laneX} ${ty} ${laneX - r} ${ty}`,
+    `L ${BR + ARROWHEAD + 4} ${ty}`,
+  ].join(' ')
+}
+
+/** Short summary of a rule's first condition for the label badge */
+function summary(rule: LogicRule, blocks: FormBlock[]): string {
   const c = rule.conditions[0]
   if (!c) return '?'
-  const b = blocks.find(b => b.id === c.blockId)
+  const b = blocks.find(x => x.id === c.blockId)
   const lbl = b?.attributes.label || 'Bloc'
-  const short = lbl.length > 14 ? lbl.slice(0, 13) + '…' : lbl
+  const short = lbl.length > 15 ? lbl.slice(0, 14) + '…' : lbl
   return rule.conditions.length > 1 ? `${short} +${rule.conditions.length - 1}` : short
 }
 
-interface SelectedRule { blockId: string; ruleId: string }
+// ─── Selected state ─────────────────────────────────────────────────────────────
+interface Sel { blockId: string; ruleId: string }
 
-// ─── Main component ────────────────────────────────────────────────────────────
-
+// ─── Main component ─────────────────────────────────────────────────────────────
 export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilderProps) {
-  const { logic, addLogicRule, updateLogicRule, removeLogicRule } = useFormBuilder()
-  const [selected, setSelected] = useState<SelectedRule | null>(null)
+  const { logic, addLogicRule } = useFormBuilder()
+  const [sel, setSel] = useState<Sel | null>(null)
 
   const safeLogic = Array.isArray(logic) ? logic : []
 
-  // Collect jump rules for arrow rendering
+  // Build jump list
   const jumps = useMemo(() => {
     const res: { blockId: string; rule: LogicRule; si: number; ti: number; ci: number }[] = []
     let ci = 0
@@ -92,7 +116,7 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
         if (rule.action === 'jump' && rule.targetBlockId) {
           const ti = blocks.findIndex(b => b.id === rule.targetBlockId)
           if (ti !== -1) {
-            res.push({ blockId: bl.blockId, rule, si, ti, ci: ci % RULE_COLORS.length })
+            res.push({ blockId: bl.blockId, rule, si, ti, ci: ci % COLORS.length })
             ci++
           }
         }
@@ -106,11 +130,41 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
     [jumps]
   )
 
-  const maxLane = Math.max(0, ...Array.from(lanes.values()))
-  const canvasW = ARROW_BASE_X + (maxLane + 1) * ARROW_LANE_W + 40
-  const canvasH = PADDING_TOP + blocks.length * BLOCK_STEP + PADDING_BOTTOM
+  // Stagger multiple arrows from/to the same block vertically (±offset around centre)
+  const { outOff, inOff } = useMemo(() => {
+    const out = new Map<string, number>()
+    const inn = new Map<string, number>()
 
-  const handleAddRule = (blockId: string) => {
+    // By source
+    const bySrc = new Map<number, typeof jumps>()
+    for (const j of jumps) {
+      if (!bySrc.has(j.si)) bySrc.set(j.si, [])
+      bySrc.get(j.si)!.push(j)
+    }
+    bySrc.forEach(g => {
+      const n = g.length
+      g.forEach((j, i) => out.set(j.rule.id, n === 1 ? 0 : (i - (n - 1) / 2) * 18))
+    })
+
+    // By target
+    const byTgt = new Map<number, typeof jumps>()
+    for (const j of jumps) {
+      if (!byTgt.has(j.ti)) byTgt.set(j.ti, [])
+      byTgt.get(j.ti)!.push(j)
+    }
+    byTgt.forEach(g => {
+      const n = g.length
+      g.forEach((j, i) => inn.set(j.rule.id, n === 1 ? 0 : (i - (n - 1) / 2) * 18))
+    })
+
+    return { outOff: out, inOff: inn }
+  }, [jumps])
+
+  const maxLane = Math.max(0, ...Array.from(lanes.values()))
+  const canvasW = ARROW_START + (maxLane + 1) * LANE_W + 48
+  const canvasH = PAD_TOP + blocks.length * BSTEP + PAD_BOT
+
+  const handleAdd = (blockId: string) => {
     const first = blocks.find(b => !['welcome-screen', 'thankyou-screen', 'statement'].includes(b.type))
     const last = blocks[blocks.length - 1]
     const newRule: LogicRule = {
@@ -121,24 +175,25 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
       targetBlockId: last?.id || '',
     }
     addLogicRule(blockId, newRule)
-    setSelected({ blockId, ruleId: newRule.id })
+    setSel({ blockId, ruleId: newRule.id })
   }
 
-  const liveRule = selected
-    ? safeLogic.find(l => l.blockId === selected.blockId)?.rules.find(r => r.id === selected.ruleId)
+  const liveRule = sel
+    ? safeLogic.find(l => l.blockId === sel.blockId)?.rules.find(r => r.id === sel.ruleId)
     : null
 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#eef2f7' }}>
-      {/* Header */}
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#f0f4f8' }}>
+
+      {/* ── Header ── */}
       <div className="h-14 bg-white border-b flex items-center justify-between px-5 shrink-0 shadow-sm">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <GitBranch className="w-5 h-5 text-indigo-500" />
           <span className="font-semibold text-gray-900">Éditeur de logique visuel</span>
-          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-            {blocks.length} blocs
+          <span className="text-xs bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-full font-medium">
+            {blocks.length} blocs · {jumps.length} saut{jumps.length !== 1 ? 's' : ''}
           </span>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose} className="gap-1.5">
@@ -147,191 +202,193 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
         </Button>
       </div>
 
-      {/* Body */}
+      {/* ── Body ── */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Canvas */}
-        <div className="flex-1 overflow-auto p-8">
-          <div className="relative" style={{ width: canvasW, height: canvasH }}>
 
-            {/* SVG layer — arrows */}
-            <svg
-              className="absolute inset-0"
-              width={canvasW}
-              height={canvasH}
-              style={{ pointerEvents: 'none' }}
-            >
-              {/* Default flow: dashed lines between consecutive blocks */}
-              {blocks.map((block, idx) => {
-                if (idx === blocks.length - 1) return null
-                const cx = BLOCK_LEFT + BLOCK_WIDTH / 2
-                const y1 = blockBY(idx)
-                const y2 = blockTY(idx + 1)
-                return (
-                  <g key={`fl-${block.id}`}>
-                    <line x1={cx} y1={y1} x2={cx} y2={y2 - 6} stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="5 4" />
-                    <polygon
-                      points={`${cx},${y2} ${cx - 5},${y2 - 8} ${cx + 5},${y2 - 8}`}
-                      fill="#cbd5e1"
-                    />
-                  </g>
-                )
-              })}
+        {/* Canvas — centered in available space */}
+        <div className="flex-1 overflow-auto">
+          <div className="min-h-full flex justify-center p-8">
+            <div className="relative" style={{ width: canvasW, height: canvasH, minWidth: 500 }}>
 
-              {/* Jump arrows */}
-              {jumps.map((j) => {
-                const lane = lanes.get(j.rule.id) ?? 0
-                const laneX = ARROW_BASE_X + lane * ARROW_LANE_W
-                const sy = blockCY(j.si)
-                const ty = blockCY(j.ti)
-                const color = RULE_COLORS[j.ci]
-                const isSelected = selected?.ruleId === j.rule.id
-                const strokeW = isSelected ? 3 : 2
-                const selectedColor = isSelected ? '#1d4ed8' : color
+              {/* ── SVG layer ── */}
+              <svg
+                className="absolute inset-0 overflow-visible"
+                width={canvasW}
+                height={canvasH}
+                style={{ pointerEvents: 'none' }}
+              >
+                {/* Default flow: dotted down-arrows between consecutive blocks */}
+                {blocks.map((b, idx) => {
+                  if (idx === blocks.length - 1) return null
+                  const cx = BL + BW / 2
+                  const y1 = bot(idx), y2 = top(idx + 1)
+                  return (
+                    <g key={`f-${b.id}`}>
+                      <line x1={cx} y1={y1} x2={cx} y2={y2 - 7}
+                        stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="5 4" />
+                      <polygon
+                        points={`${cx},${y2} ${cx - 5},${y2 - 9} ${cx + 5},${y2 - 9}`}
+                        fill="#cbd5e1"
+                      />
+                    </g>
+                  )
+                })}
 
-                // Cubic bezier: right edge of source → lane X → right edge of target
-                const d = `M ${BLOCK_RIGHT} ${sy} C ${laneX} ${sy} ${laneX} ${ty} ${BLOCK_RIGHT + 8} ${ty}`
-                const midY = (sy + ty) / 2
+                {/* Jump rule arrows */}
+                {jumps.map(j => {
+                  const lane = lanes.get(j.rule.id) ?? 0
+                  const laneX = ARROW_START + lane * LANE_W
+                  const sy = cy(j.si) + (outOff.get(j.rule.id) ?? 0)
+                  const ty = cy(j.ti) + (inOff.get(j.rule.id) ?? 0)
+                  const color = COLORS[j.ci]
+                  const isSelected = sel?.ruleId === j.rule.id
+                  const stroke = isSelected ? '#1d4ed8' : color
+                  const sw = isSelected ? 3 : 2
+                  const d = makePath(laneX, sy, ty)
+                  const midY = (sy + ty) / 2
 
-                return (
-                  <g
-                    key={j.rule.id}
-                    style={{ pointerEvents: 'all', cursor: 'pointer' }}
-                    onClick={() => setSelected(
-                      selected?.ruleId === j.rule.id ? null : { blockId: j.blockId, ruleId: j.rule.id }
-                    )}
-                  >
-                    {/* Wider invisible hit area */}
-                    <path d={d} fill="none" stroke="transparent" strokeWidth={14} />
-                    {/* Visible path */}
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke={selectedColor}
-                      strokeWidth={strokeW}
-                      strokeDasharray={j.ti < j.si ? '7 4' : undefined}
-                    />
-                    {/* Arrowhead (left-pointing triangle at target) */}
-                    <polygon
-                      points={`${BLOCK_RIGHT + 8},${ty} ${BLOCK_RIGHT + 18},${ty - 6} ${BLOCK_RIGHT + 18},${ty + 6}`}
-                      fill={selectedColor}
-                    />
-                    {/* Start dot */}
-                    <circle cx={BLOCK_RIGHT} cy={sy} r={4} fill={selectedColor} />
-                    {/* Condition label badge */}
-                    <foreignObject
-                      x={laneX - 46}
-                      y={midY - 12}
-                      width={92}
-                      height={24}
-                      style={{ pointerEvents: 'none' }}
+                  return (
+                    <g
+                      key={j.rule.id}
+                      style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                      onClick={() => setSel(
+                        isSelected ? null : { blockId: j.blockId, ruleId: j.rule.id }
+                      )}
                     >
-                      <div
-                        style={{
-                          background: selectedColor,
-                          color: 'white',
-                          fontSize: 10,
-                          fontWeight: 600,
-                          padding: '2px 6px',
-                          borderRadius: 99,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxWidth: 90,
-                          textAlign: 'center',
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
-                        }}
+                      {/* Fat invisible hit area */}
+                      <path d={d} fill="none" stroke="transparent" strokeWidth={16} />
+                      {/* Path */}
+                      <path d={d} fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+                      {/* Start dot on source block */}
+                      <circle cx={BR} cy={sy} r={4.5} fill={stroke} />
+                      {/* Arrowhead at target (left-pointing) */}
+                      <polygon
+                        points={`
+                          ${BR + ARROWHEAD + 4},${ty}
+                          ${BR + ARROWHEAD * 2 + 4},${ty - ARROWHEAD / 1.5}
+                          ${BR + ARROWHEAD * 2 + 4},${ty + ARROWHEAD / 1.5}
+                        `}
+                        fill={stroke}
+                      />
+                      {/* Label badge on the vertical segment */}
+                      <foreignObject
+                        x={laneX + 5}
+                        y={midY - 11}
+                        width={120}
+                        height={22}
+                        style={{ pointerEvents: 'none', overflow: 'visible' }}
                       >
-                        {condSummary(j.rule, blocks)}
-                      </div>
-                    </foreignObject>
-                  </g>
-                )
-              })}
-            </svg>
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            background: stroke,
+                            color: 'white',
+                            fontSize: 10,
+                            fontWeight: 600,
+                            padding: '2px 7px',
+                            borderRadius: 99,
+                            whiteSpace: 'nowrap',
+                            maxWidth: 116,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            boxShadow: '0 1px 5px rgba(0,0,0,.2)',
+                          }}
+                          title={summary(j.rule, blocks)}
+                        >
+                          {summary(j.rule, blocks)}
+                        </span>
+                      </foreignObject>
+                    </g>
+                  )
+                })}
+              </svg>
 
-            {/* Block cards */}
-            {blocks.map((block, idx) => {
-              const bl = safeLogic.find(l => l.blockId === block.id)
-              const jumpRules = bl?.rules.filter(r => r.action === 'jump') ?? []
-              const otherRules = bl?.rules.filter(r => r.action !== 'jump') ?? []
-              const isSelected = selected?.blockId === block.id
-              const isScreen = ['welcome-screen', 'thankyou-screen'].includes(block.type)
+              {/* ── Block cards ── */}
+              {blocks.map((block, idx) => {
+                const bl = safeLogic.find(l => l.blockId === block.id)
+                const jumpRules  = bl?.rules.filter(r => r.action === 'jump')  ?? []
+                const otherRules = bl?.rules.filter(r => r.action !== 'jump') ?? []
+                const isSelBlock = sel?.blockId === block.id
+                const isScreen   = ['welcome-screen', 'thankyou-screen'].includes(block.type)
 
-              return (
-                <div
-                  key={block.id}
-                  className="absolute"
-                  style={{ left: BLOCK_LEFT, top: blockTY(idx), width: BLOCK_WIDTH, height: BLOCK_HEIGHT }}
-                >
+                return (
                   <div
-                    className={`w-full h-full rounded-xl border-2 bg-white shadow-sm flex items-center gap-2.5 px-3 transition-all ${
-                      isSelected
-                        ? 'border-indigo-500 shadow-indigo-100 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300 hover:shadow'
-                    }`}
+                    key={block.id}
+                    className="absolute"
+                    style={{ left: BL, top: top(idx), width: BW, height: BH }}
                   >
-                    {/* Index badge */}
-                    <span
-                      className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold ${
-                        isScreen ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                    <div
+                      className={`w-full h-full rounded-xl border-2 bg-white shadow-sm flex items-center gap-3 px-3 transition-all select-none ${
+                        isSelBlock
+                          ? 'border-indigo-500 shadow-md shadow-indigo-100'
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow'
                       }`}
                     >
-                      {idx + 1}
-                    </span>
+                      {/* Index */}
+                      <span
+                        className={`flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-xs font-bold ${
+                          isScreen ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
 
-                    {/* Label */}
-                    <span className="flex-1 text-sm font-medium text-gray-800 truncate">
-                      {block.attributes.label || 'Sans titre'}
-                    </span>
+                      {/* Label */}
+                      <span className="flex-1 text-sm font-medium text-gray-800 truncate">
+                        {block.attributes.label || 'Sans titre'}
+                      </span>
 
-                    {/* Rule badges */}
-                    <div className="flex gap-1 flex-shrink-0">
-                      {otherRules.map(rule => (
-                        <button
-                          key={rule.id}
-                          onClick={() => setSelected(
-                            selected?.ruleId === rule.id ? null : { blockId: block.id, ruleId: rule.id }
-                          )}
-                          className={`text-[10px] px-1.5 py-0.5 rounded font-semibold transition-colors ${
-                            selected?.ruleId === rule.id
-                              ? 'bg-indigo-500 text-white'
-                              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                          }`}
-                        >
-                          {rule.action === 'hide' ? 'Masquer' : rule.action === 'show' ? 'Afficher' : 'Requis'}
-                        </button>
-                      ))}
-                      {jumpRules.length > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
-                          {jumpRules.length}↗
-                        </span>
-                      )}
+                      {/* Rule badges */}
+                      <div className="flex gap-1 flex-shrink-0 items-center">
+                        {otherRules.map(rule => (
+                          <button
+                            key={rule.id}
+                            onClick={() => setSel(
+                              sel?.ruleId === rule.id ? null : { blockId: block.id, ruleId: rule.id }
+                            )}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold transition-colors ${
+                              sel?.ruleId === rule.id
+                                ? 'bg-indigo-500 text-white'
+                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                            }`}
+                          >
+                            {rule.action === 'hide' ? 'Masquer'
+                              : rule.action === 'show' ? 'Afficher'
+                              : 'Requis'}
+                          </button>
+                        ))}
+                        {jumpRules.length > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold">
+                            {jumpRules.length}↗
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Add rule button (centered below card) */}
-                  {!isScreen && (
-                    <button
-                      onClick={() => handleAddRule(block.id)}
-                      title="Ajouter une règle"
-                      className="absolute left-1/2 -translate-x-1/2 -bottom-3.5 w-7 h-7 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white flex items-center justify-center shadow-md transition-colors z-10"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              )
-            })}
+                    {/* Add rule button below card */}
+                    {!isScreen && (
+                      <button
+                        onClick={() => handleAdd(block.id)}
+                        title="Ajouter une règle"
+                        className="absolute left-1/2 -translate-x-1/2 -bottom-3.5 w-7 h-7 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white flex items-center justify-center shadow-md transition-colors z-10"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
 
-        {/* Rule edit panel */}
-        {selected && liveRule && (
+        {/* ── Rule edit panel ── */}
+        {sel && liveRule && (
           <RuleEditPanel
-            blockId={selected.blockId}
+            blockId={sel.blockId}
             rule={liveRule}
             blocks={blocks}
-            onClose={() => setSelected(null)}
+            onClose={() => setSel(null)}
           />
         )}
       </div>
@@ -351,41 +408,39 @@ interface RuleEditPanelProps {
 function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
   const { updateLogicRule, removeLogicRule } = useFormBuilder()
 
-  const sourceBlock = blocks.find(b => b.id === blockId)
-  const sourceIdx = blocks.findIndex(b => b.id === blockId)
+  const srcBlock = blocks.find(b => b.id === blockId)
+  const srcIdx   = blocks.findIndex(b => b.id === blockId)
 
-  const selectableBlocks = blocks.filter(
+  const selectable = blocks.filter(
     b => !['welcome-screen', 'thankyou-screen', 'statement'].includes(b.type)
   )
 
-  const handleUpdateCondition = (ci: number, updates: Partial<LogicCondition>) => {
+  const updateCond = (ci: number, u: Partial<LogicCondition>) => {
     const next = [...rule.conditions]
-    next[ci] = { ...next[ci], ...updates }
+    next[ci] = { ...next[ci], ...u }
     updateLogicRule(blockId, rule.id, { conditions: next })
   }
 
-  const handleAddCondition = () => {
-    const newCond: LogicCondition = { blockId: selectableBlocks[0]?.id || '', operator: 'equals', value: '' }
-    updateLogicRule(blockId, rule.id, { conditions: [...rule.conditions, newCond] })
+  const addCond = () => {
+    const nc: LogicCondition = { blockId: selectable[0]?.id || '', operator: 'equals', value: '' }
+    updateLogicRule(blockId, rule.id, { conditions: [...rule.conditions, nc] })
   }
 
-  const handleRemoveCondition = (ci: number) => {
+  const removeCond = (ci: number) => {
     if (rule.conditions.length <= 1) return
     updateLogicRule(blockId, rule.id, { conditions: rule.conditions.filter((_, i) => i !== ci) })
   }
 
-  const handleDelete = () => {
-    removeLogicRule(blockId, rule.id)
-    onClose()
-  }
+  const handleDelete = () => { removeLogicRule(blockId, rule.id); onClose() }
 
   return (
-    <div className="w-80 bg-white border-l flex flex-col shrink-0 shadow-xl">
+    <div className="w-80 bg-white border-l flex flex-col shrink-0" style={{ boxShadow: '-4px 0 16px rgba(0,0,0,.06)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 shrink-0">
         <span className="text-sm font-semibold text-gray-800">Éditer la règle</span>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={handleDelete} className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50">
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={handleDelete}
+            className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50">
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
@@ -395,15 +450,15 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-5">
-        {/* Source block */}
+        {/* Source block info */}
         <div>
-          <p className="text-xs font-medium text-gray-500 mb-1">Bloc source</p>
-          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-lg border border-indigo-100">
-            <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 rounded text-xs font-bold text-indigo-700 flex-shrink-0">
-              {sourceIdx + 1}
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Bloc source</p>
+          <div className="flex items-center gap-2.5 px-3 py-2.5 bg-indigo-50 rounded-xl border border-indigo-100">
+            <span className="w-6 h-6 flex items-center justify-center bg-indigo-100 rounded-lg text-xs font-bold text-indigo-700 flex-shrink-0">
+              {srcIdx + 1}
             </span>
             <span className="text-sm font-medium text-indigo-900 truncate">
-              {sourceBlock?.attributes.label || 'Sans titre'}
+              {srcBlock?.attributes.label || 'Sans titre'}
             </span>
           </div>
         </div>
@@ -411,32 +466,32 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
         {/* Conditions */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Si</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Si</p>
             <select
               value={rule.conditionMatch}
               onChange={e => updateLogicRule(blockId, rule.id, { conditionMatch: e.target.value as 'all' | 'any' })}
-              className="text-xs border rounded px-2 py-1 bg-white"
+              className="text-xs border rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
             >
               <option value="all">Toutes (ET)</option>
               <option value="any">L'une (OU)</option>
             </select>
           </div>
 
-          {rule.conditions.map((condition, ci) => (
-            <ConditionRow
+          {rule.conditions.map((cond, ci) => (
+            <CondRow
               key={ci}
-              condition={condition}
-              selectableBlocks={selectableBlocks}
+              cond={cond}
+              selectable={selectable}
               allBlocks={blocks}
               canRemove={rule.conditions.length > 1}
-              onUpdate={u => handleUpdateCondition(ci, u)}
-              onRemove={() => handleRemoveCondition(ci)}
+              onUpdate={u => updateCond(ci, u)}
+              onRemove={() => removeCond(ci)}
             />
           ))}
 
           <button
-            onClick={handleAddCondition}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-indigo-600 border border-dashed border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors font-medium"
+            onClick={addCond}
+            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600 border border-dashed border-indigo-300 rounded-xl hover:bg-indigo-50 transition-colors font-semibold"
           >
             <Plus className="w-3 h-3" />
             Ajouter une condition
@@ -444,12 +499,12 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
         </div>
 
         {/* Action */}
-        <div className="space-y-2 pt-3 border-t">
-          <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Alors</p>
+        <div className="space-y-2.5 pt-4 border-t">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Alors</p>
           <select
             value={rule.action}
             onChange={e => updateLogicRule(blockId, rule.id, { action: e.target.value as LogicRule['action'] })}
-            className="w-full text-sm border rounded-lg px-3 py-2 bg-white"
+            className="w-full text-sm border rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
           >
             <option value="jump">Sauter vers…</option>
             <option value="hide">Masquer ce bloc</option>
@@ -461,7 +516,7 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
             <select
               value={rule.targetBlockId || ''}
               onChange={e => updateLogicRule(blockId, rule.id, { targetBlockId: e.target.value })}
-              className="w-full text-sm border rounded-lg px-3 py-2 bg-white"
+              className="w-full text-sm border rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
             >
               <option value="">Sélectionner un bloc…</option>
               {blocks.map((b, i) => (
@@ -481,77 +536,74 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
 
 // ─── Condition row ───────────────────────────────────────────────────────────────
 
-interface ConditionRowProps {
-  condition: LogicCondition
-  selectableBlocks: FormBlock[]
+interface CondRowProps {
+  cond: LogicCondition
+  selectable: FormBlock[]
   allBlocks: FormBlock[]
   canRemove: boolean
   onUpdate: (u: Partial<LogicCondition>) => void
   onRemove: () => void
 }
 
-function ConditionRow({ condition, selectableBlocks, allBlocks, canRemove, onUpdate, onRemove }: ConditionRowProps) {
-  const srcBlock = allBlocks.find(b => b.id === condition.blockId)
-    || selectableBlocks.find(b => b.id === condition.blockId)
-  const hasChoices = (srcBlock?.attributes.choices?.length ?? 0) > 0
-  const needsValue = !['is_empty', 'is_not_empty'].includes(condition.operator)
+function CondRow({ cond, selectable, allBlocks, canRemove, onUpdate, onRemove }: CondRowProps) {
+  const src = allBlocks.find(b => b.id === cond.blockId)
+    || selectable.find(b => b.id === cond.blockId)
+  const hasChoices  = (src?.attributes.choices?.length ?? 0) > 0
+  const needsValue  = !['is_empty', 'is_not_empty'].includes(cond.operator)
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2 relative">
+    <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 relative">
       {canRemove && (
         <button
           onClick={onRemove}
-          className="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition-colors"
+          className="absolute top-2.5 right-2.5 text-gray-300 hover:text-red-400 transition-colors"
         >
           <X className="w-3 h-3" />
         </button>
       )}
 
-      {/* Block selector */}
       <select
-        value={condition.blockId}
+        value={cond.blockId}
         onChange={e => onUpdate({ blockId: e.target.value, value: '' })}
-        className="w-full text-xs border rounded px-2 py-1.5 bg-white pr-6"
+        className="w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
       >
         <option value="">Sélectionner un bloc…</option>
-        {selectableBlocks.map((b, i) => (
+        {selectable.map((b, i) => (
           <option key={b.id} value={b.id}>
             {i + 1}. {b.attributes.label || 'Sans titre'}
           </option>
         ))}
       </select>
 
-      {/* Operator */}
       <select
-        value={condition.operator}
+        value={cond.operator}
         onChange={e => onUpdate({ operator: e.target.value as ConditionOperator })}
-        className="w-full text-xs border rounded px-2 py-1.5 bg-white"
+        className="w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
       >
-        {operators.map(op => (
+        {OPERATORS.map(op => (
           <option key={op.value} value={op.value}>{op.label}</option>
         ))}
       </select>
 
-      {/* Value */}
       {needsValue && (
         hasChoices ? (
           <select
-            value={condition.value as string}
+            value={cond.value as string}
             onChange={e => onUpdate({ value: e.target.value })}
-            className="w-full text-xs border rounded px-2 py-1.5 bg-white"
+            className="w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
           >
             <option value="">Sélectionner…</option>
-            {srcBlock!.attributes.choices!.map(c => (
+            {src!.attributes.choices!.map(c => (
               <option key={c.id} value={c.value}>{c.label}</option>
             ))}
           </select>
         ) : (
           <input
             type="text"
-            value={condition.value as string}
+            value={cond.value as string}
             onChange={e => onUpdate({ value: e.target.value })}
             placeholder="Valeur…"
-            className="w-full text-xs border rounded px-2 py-1.5 bg-white"
+            className="w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         )
       )}

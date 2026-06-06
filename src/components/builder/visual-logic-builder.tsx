@@ -292,8 +292,8 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                   // Arrowhead tip & base — points INTO block from the side
                   const tipX  = isLeft ? BL - AH - 4    : BR + AH + 4
                   const baseX = isLeft ? BL - AH * 2 - 4 : BR + AH * 2 + 4
-                  // Label: to the right of lane for left side, to the right for right side
-                  const labelX = isLeft ? laneX + 4 : laneX + 6
+                  // Label: to the LEFT of the lane for left-side arrows, to the right for right-side
+                  const labelX = isLeft ? laneX - 132 : laneX + 6
 
                   return (
                     <g

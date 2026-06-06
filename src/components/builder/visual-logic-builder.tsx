@@ -165,14 +165,14 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
   const canvasH = PAD_TOP + blocks.length * BSTEP + PAD_BOT
 
   const handleAdd = (blockId: string) => {
-    const first = blocks.find(b => !['welcome-screen', 'thankyou-screen', 'statement'].includes(b.type))
-    const last = blocks[blocks.length - 1]
+    const blockIdx = blocks.findIndex(b => b.id === blockId)
+    const nextBlock = blocks[blockIdx + 1] ?? blocks[blocks.length - 1]
     const newRule: LogicRule = {
       id: uuidv4(),
-      conditions: [{ blockId: first?.id || '', operator: 'equals', value: '' }],
+      conditions: [{ blockId, operator: 'equals', value: '' }],
       conditionMatch: 'all',
       action: 'jump',
-      targetBlockId: last?.id || '',
+      targetBlockId: nextBlock?.id || '',
     }
     addLogicRule(blockId, newRule)
     setSel({ blockId, ruleId: newRule.id })

@@ -28,8 +28,10 @@ import {
   LayoutGrid,
   X,
   Share2,
+  History,
 } from 'lucide-react'
 import { ShareDialog } from '@/components/builder/share-dialog'
+import { VersionsModal } from '@/components/builder/versions-modal'
 
 interface FormData {
   id: string
@@ -136,6 +138,7 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
 
   const [isPublishing, setIsPublishing] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
+  const [showVersionsModal, setShowVersionsModal] = useState(false)
   const [leftWidth, setLeftWidth] = useState(256)
   const [rightWidth, setRightWidth] = useState(320)
   const isResizingLeft = useRef(false)
@@ -299,6 +302,10 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
         </div>
 
         <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={() => setShowVersionsModal(true)}>
+            <History className="w-4 h-4 mr-2" />
+            Versions
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowPreview(true)}>
             <Eye className="w-4 h-4 mr-2" />
             Aperçu
@@ -475,6 +482,14 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
         onOpenChange={setShowShareDialog}
         formSlug={initialForm.slug}
         formId={initialForm.id}
+      />
+
+      {/* Versions Modal */}
+      <VersionsModal
+        formId={initialForm.id}
+        open={showVersionsModal}
+        onClose={() => setShowVersionsModal(false)}
+        onRestored={() => router.refresh()}
       />
     </div>
   )

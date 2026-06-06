@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { ShareDialog } from '@/components/builder/share-dialog'
+import { VersionsModal } from '@/components/builder/versions-modal'
 import {
   Plus,
   Search,
@@ -25,6 +26,7 @@ import {
   Shield,
   Users,
   Share2,
+  History,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -68,6 +70,8 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [selectedFormForShare, setSelectedFormForShare] = useState<FormData | null>(null)
+  const [versionsModalOpen, setVersionsModalOpen] = useState(false)
+  const [selectedFormForVersions, setSelectedFormForVersions] = useState<string | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -490,6 +494,10 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
                         <BarChart3 className="w-4 h-4 mr-2" />
                         Réponses
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelectedFormForVersions(form.id); setVersionsModalOpen(true) }}>
+                        <History className="w-4 h-4 mr-2" />
+                        Historique des versions
+                      </DropdownMenuItem>
                       {form.status === 'published' && (
                         <DropdownMenuItem onClick={() => window.open(`/${form.slug}`, '_blank')}>
                           <ExternalLink className="w-4 h-4 mr-2" />
@@ -571,6 +579,16 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
           onOpenChange={setShareDialogOpen}
           formSlug={selectedFormForShare.slug}
           formId={selectedFormForShare.id}
+        />
+      )}
+
+      {/* Versions Modal */}
+      {selectedFormForVersions && (
+        <VersionsModal
+          formId={selectedFormForVersions}
+          open={versionsModalOpen}
+          onClose={() => { setVersionsModalOpen(false); setSelectedFormForVersions(null) }}
+          onRestored={() => router.refresh()}
         />
       )}
     </div>

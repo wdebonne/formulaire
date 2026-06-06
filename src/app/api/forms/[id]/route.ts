@@ -100,20 +100,60 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const form = await prisma.form.update({
-      where: { id: params.id },
-      data: {
-        title: title ?? existingForm.title,
-        slug,
-        description: description ?? existingForm.description,
-        status: status ?? existingForm.status,
-        blocks: blocks ? JSON.stringify(blocks) : existingForm.blocks,
-        logic: logic ? JSON.stringify(logic) : existingForm.logic,
-        settings: settings ? JSON.stringify(settings) : existingForm.settings,
-        webhooks: webhooks ? JSON.stringify(webhooks) : existingForm.webhooks,
-        themeId: themeId !== undefined ? themeId : existingForm.themeId,
-      }
-    })
+    const newSaveCount = existingForm.saveCount + 1
+    const newBlocks = blocks ? JSON.stringify(blocks) : existingForm.blocks
+    const newLogic = logic ? JSON.stringify(logic) : existingForm.logic
+    const newSettings = settings ? JSON.stringify(settings) : existingForm.settings
+    const newWebhooks = webhooks ? JSON.stringify(webhooks) : existingForm.webhooks
+    const newThemeId = themeId !== undefined ? themeId : existingForm.themeId
+    const newTitle = title ?? existingForm.title
+
+    const shouldAutoVersion = newSaveCount % 10 === 0
+
+    const ops: Parameters<typeof prisma.$transaction>[0] = [
+      prisma.form.update({
+        where: { id: params.id },
+        data: {
+          title: newTitle,
+          slug,
+          description: description ?? existingForm.description,
+          status: status ?? existingForm.status,
+          blocks: newBlocks,
+          logic: newLogic,
+          settings: newSettings,
+          webhooks: newWebhooks,
+          themeId: newThemeId,
+          saveCount: newSaveCount,
+        },
+      }),
+    ]
+
+    if (shouldAutoVersion) {
+      const last = await prisma.formVersion.findFirst({
+        where: { formId: params.id },
+        orderBy: { number: 'desc' },
+        select: { number: true },
+      })
+      ops.push(
+        prisma.formVersion.create({
+          data: {
+            formId: params.id,
+            number: (last?.number ?? 0) + 1,
+            label: null,
+            isAuto: true,
+            title: newTitle,
+            blocks: newBlocks,
+            logic: newLogic,
+            settings: newSettings,
+            webhooks: newWebhooks,
+            themeId: newThemeId,
+            createdBy: session.userId,
+          },
+        })
+      )
+    }
+
+    const [form] = await prisma.$transaction(ops)
 
     return NextResponse.json(form)
   } catch (error) {

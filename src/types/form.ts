@@ -259,6 +259,22 @@ export interface Form {
   updatedAt: Date
 }
 
+export interface FormVersion {
+  id: string
+  formId: string
+  number: number
+  label?: string | null
+  isAuto: boolean
+  title: string
+  blocks: FormBlock[]
+  logic: BlockLogic[]
+  settings: FormSettings
+  webhooks: Webhook[]
+  themeId?: string | null
+  createdBy: string
+  createdAt: Date
+}
+
 // Response types
 export interface ResponseAnswer {
   blockId: string

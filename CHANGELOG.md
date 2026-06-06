@@ -10,6 +10,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Visual Logic Builder** — fullscreen Tripetto-style modal for building conditional logic visually; block cards arranged in a vertical flow, SVG orthogonal arrows connecting source and target blocks, rounded corners on paths, colored badges on arrows showing the rule summary
+  - Left/right lane alternation per rule to minimize arrow overlap
+  - Independent lane pools per side with non-overlapping lane assignment algorithm
+  - Arrow stagger offset (±16 px) per rule to prevent same-Y starts/ends from the same block
+  - Click on an arrow or block name to open the rule editor directly
+  - Rule navigation sidebar — lists all rules for the selected block; click to switch instantly without large mouse movements
+  - Searchable block dropdowns in the condition editor (filter by label in real time)
+  - Default "If" block = the source block; default "Then" block = the immediately following block
+  - Block numbers in dropdowns match the visual canvas numbering (original index, not filtered-list index)
+  - Right-aligned labels on left-side lanes, left-aligned on right-side lanes — consistent visual gap on both sides
+  - Auto-opens the rule editor immediately after creating a new rule
+
+### Fixed
+- **`addLogicRule` — ID overwrite** — the store was replacing the caller-provided rule ID with a fresh `uuidv4()`, causing the newly selected rule to be unfindable; the provided ID is now preserved
+- **Visual Logic Builder — block number mismatch** — condition dropdowns were using the filtered `selectable` list index instead of the block's actual position in the full `blocks` array
+- **Visual Logic Builder — left-side label overlap** — labels on left-side arrow lanes were positioned too far left and visually inconsistent with right-side labels; fixed with right-aligned text flush to the lane line and a wider left-side canvas margin (`BL` 220 → 260)
+
 ---
 
 ## [1.5.0] — 2026-05-17

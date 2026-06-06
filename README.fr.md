@@ -11,7 +11,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 ### Construction de formulaires
 - **Éditeur par glisser-déposer** — réordonnez les blocs visuellement, panneaux redimensionnables
 - **25+ types de blocs** — voir la [liste complète](#types-de-blocs) ci-dessous
-- **Logique conditionnelle visuelle** — afficher/masquer/sauter/rendre obligatoire selon les réponses, avec recherche de blocs
+- **Logique conditionnelle visuelle** — afficher/masquer/sauter/rendre obligatoire selon les réponses ; éditeur texte avec recherche de blocs + éditeur de flux visuel plein écran (style Tripetto) avec flèches SVG, routage en lanes et éditeur de règle intégré
 - **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs
 - **Webhooks** — envoi des réponses vers des URLs externes, mapping personnalisé, réorganisation par drag & drop, recherche
 - **Paramètres** — barre de progression (position, taille), numérotation, animations, branding

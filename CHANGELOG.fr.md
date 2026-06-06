@@ -10,6 +10,24 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ## [Non publié]
 
+### Ajouts
+- **Éditeur de logique visuel** — modal plein écran (style Tripetto) pour construire la logique conditionnelle visuellement ; cartes de blocs disposées en flux vertical, flèches SVG orthogonales reliant les blocs source et cible, coins arrondis, badges colorés sur les flèches affichant le résumé de la règle
+  - Alternance gauche/droite des lanes par règle pour minimiser les chevauchements
+  - Pools de lanes indépendants par côté avec algorithme d'assignation non chevauchant
+  - Décalage de ±16 px par règle pour éviter les départs/arrivées au même Y depuis un même bloc
+  - Clic sur une flèche ou le nom d'un bloc pour ouvrir directement l'éditeur de règle
+  - Panneau de navigation des règles — liste toutes les règles du bloc sélectionné ; clic pour changer sans grand mouvement de souris
+  - Listes déroulantes de blocs avec recherche en temps réel (filtre sur le label)
+  - Bloc "Si" par défaut = bloc source ; bloc "Alors" par défaut = bloc immédiatement suivant
+  - Numérotation des blocs dans les listes = position réelle dans le formulaire (index original, pas l'index de la liste filtrée)
+  - Labels alignés à droite sur les lanes gauches, à gauche sur les lanes droites — écart visuel symétrique des deux côtés
+  - L'éditeur de règle s'ouvre automatiquement à la création d'une nouvelle règle
+
+### Corrections
+- **`addLogicRule` — écrasement d'ID** — le store remplaçait l'ID de règle fourni par un nouveau `uuidv4()`, rendant la règle introuvable après sélection ; l'ID fourni est maintenant conservé
+- **Éditeur visuel — numérotation incorrecte** — les listes déroulantes de conditions utilisaient l'index de la liste filtrée `selectable` au lieu de la position réelle du bloc dans le tableau complet `blocks`
+- **Éditeur visuel — label gauche trop décalé** — les labels des lanes gauches étaient trop éloignés et visuellement incohérents par rapport aux labels droites ; corrigé par alignement à droite flush sur la ligne de lane et marge gauche élargie (`BL` 220 → 260)
+
 ---
 
 ## [1.5.0] — 2026-05-17

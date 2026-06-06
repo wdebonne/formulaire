@@ -12,7 +12,6 @@ import { LogicEditor } from '@/components/builder/logic-editor'
 import { WebhooksEditor } from '@/components/builder/webhooks-editor'
 import { ThemeEditor } from '@/components/builder/theme-editor'
 import { SettingsEditor } from '@/components/builder/settings-editor'
-import { FormPreview } from '@/components/builder/form-preview'
 import { CenterBlockPreview } from '@/components/builder/center-block-preview'
 import type { FormBlock, BlockLogic, Webhook, FormSettings, Theme } from '@/types/form'
 import {
@@ -56,7 +55,8 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
   const router = useRouter()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
+  const [showPreviewIframe, setShowPreviewIframe] = useState(false)
+  const [isSavingForPreview, setIsSavingForPreview] = useState(false)
   const [title, setTitle] = useState(initialForm.title)
   const [themes, setThemes] = useState(initialThemes)
   
@@ -266,19 +266,36 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
     ? selectedBlock.innerBlocks?.find(b => b.id === selectedInnerBlockId)
     : null
 
-  if (showPreview) {
-    return (
-      <FormPreview 
-        blocks={blocks}
-        settings={settings}
-        theme={themes.find(t => t.id === themeId) || null}
-        onClose={() => setShowPreview(false)}
-      />
-    )
+  const handlePreview = async () => {
+    if (isDirty) {
+      setIsSavingForPreview(true)
+      await handleSave()
+      setIsSavingForPreview(false)
+    }
+    setShowPreviewIframe(true)
   }
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
+      {showPreviewIframe && (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="h-10 bg-gray-900 flex items-center justify-between px-4 shrink-0">
+            <span className="text-white text-sm font-medium">Aperçu du formulaire</span>
+            <button
+              onClick={() => setShowPreviewIframe(false)}
+              className="text-white text-sm flex items-center gap-1.5 hover:text-gray-300 transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Fermer l'aperçu
+            </button>
+          </div>
+          <iframe
+            src={`/forms/${initialForm.id}/preview`}
+            className="flex-1 w-full border-0"
+            title="Aperçu du formulaire"
+          />
+        </div>
+      )}
       {/* Header */}
       <header className="h-14 bg-white border-b flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center space-x-4">
@@ -306,8 +323,12 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
             <History className="w-4 h-4 mr-2" />
             Versions
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowPreview(true)}>
-            <Eye className="w-4 h-4 mr-2" />
+          <Button variant="outline" size="sm" onClick={handlePreview} disabled={isSavingForPreview}>
+            {isSavingForPreview ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Eye className="w-4 h-4 mr-2" />
+            )}
             Aperçu
           </Button>
           <Button 

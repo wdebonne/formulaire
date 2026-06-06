@@ -454,7 +454,7 @@ function DropdownWithAutocomplete({
         <div
           className="absolute z-50 w-full mt-1 max-h-60 overflow-auto border-2 shadow-lg"
           style={{
-            backgroundColor: themeProps.backgroundColor || '#fff',
+            backgroundColor: themeProps.choicesBgColor || themeProps.backgroundColor || '#fff',
             borderColor: themeProps.buttonsBgColor + '40',
             borderRadius: inputBorderRadius,
           }}
@@ -656,7 +656,7 @@ function AddressAutocomplete({
         <div
           className="absolute z-50 w-full mt-1 max-h-60 overflow-auto border-2 shadow-lg"
           style={{
-            backgroundColor: themeProps.backgroundColor || '#fff',
+            backgroundColor: themeProps.choicesBgColor || themeProps.backgroundColor || '#fff',
             borderColor: themeProps.buttonsBgColor + '40',
             borderRadius: inputBorderRadius,
           }}

@@ -260,20 +260,21 @@ export const useFormBuilder = create<FormBuilderState>((set, get) => ({
 
   addLogicRule: (blockId, rule) => set((state) => {
     const existingLogic = state.logic.find((l) => l.blockId === blockId)
-    
+    const ruleWithId = { ...rule, id: rule.id || uuidv4() }
+
     if (existingLogic) {
       return {
         logic: state.logic.map((l) =>
           l.blockId === blockId
-            ? { ...l, rules: [...l.rules, { ...rule, id: uuidv4() }] }
+            ? { ...l, rules: [...l.rules, ruleWithId] }
             : l
         ),
         isDirty: true,
       }
     }
-    
+
     return {
-      logic: [...state.logic, { blockId, rules: [{ ...rule, id: uuidv4() }] }],
+      logic: [...state.logic, { blockId, rules: [ruleWithId] }],
       isDirty: true,
     }
   }),

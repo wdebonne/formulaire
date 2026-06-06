@@ -250,16 +250,10 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
           for (let i = 1; i <= maxRep; i++) {
             b.innerBlocks.forEach((inner) => {
               const value = r.data[`${b.id}_${i}_${inner.id}`]
-              if (Array.isArray(value)) {
-                row.push(value.join(', '))
-              } else if (typeof value === 'object') {
-                row.push(JSON.stringify(value))
-              } else {
-                row.push(String(value || ''))
-              }
+              row.push(formatValueWithChoices(value, inner.attributes.choices))
             })
           }
-          
+
           // Si aucune répétition, ajouter une cellule vide
           if (maxRep === 0) {
             row.push('')
@@ -268,23 +262,11 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
           // Pour les groupes, ajouter une valeur par bloc interne
           b.innerBlocks.forEach((inner) => {
             const value = r.data[inner.id]
-            if (Array.isArray(value)) {
-              row.push(value.join(', '))
-            } else if (typeof value === 'object') {
-              row.push(JSON.stringify(value))
-            } else {
-              row.push(String(value || ''))
-            }
+            row.push(formatValueWithChoices(value, inner.attributes.choices))
           })
         } else {
           const value = r.data[b.id]
-          if (Array.isArray(value)) {
-            row.push(value.join(', '))
-          } else if (typeof value === 'object') {
-            row.push(JSON.stringify(value))
-          } else {
-            row.push(String(value || ''))
-          }
+          row.push(formatValueWithChoices(value, b.attributes.choices))
         }
       })
       
@@ -344,15 +326,34 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     return String(value)
   }
 
+  const resolveChoiceLabel = (choices: { label: string; value: string }[], val: string): string => {
+    const match = choices.find((c) => c.value === val)
+    return match ? match.label : val
+  }
+
+  const formatValueWithChoices = (value: any, choices?: { label: string; value: string }[]): string => {
+    if (value === null || value === undefined) return '-'
+    if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
+    if (choices && choices.length > 0) {
+      if (Array.isArray(value)) {
+        return value.map((v) => resolveChoiceLabel(choices, String(v))).join(', ')
+      }
+      return resolveChoiceLabel(choices, String(value))
+    }
+    if (Array.isArray(value)) return value.join(', ')
+    if (typeof value === 'object') return JSON.stringify(value)
+    return String(value)
+  }
+
   // Fonction pour obtenir la valeur d'un bloc (gère les groupes et repeaters)
   const getBlockValue = (block: FormBlock, data: Record<string, any>): string => {
     // Pour les groupes, afficher un résumé des réponses internes
     if (block.type === 'group' && block.innerBlocks && block.innerBlocks.length > 0) {
-      const values = block.innerBlocks
-        .map((inner) => data[inner.id])
-        .filter((v) => v !== undefined && v !== null && v !== '')
-      if (values.length === 0) return '-'
-      return values.map((v) => formatValue(v)).join(' | ')
+      const entries = block.innerBlocks
+        .map((inner) => ({ inner, v: data[inner.id] }))
+        .filter(({ v }) => v !== undefined && v !== null && v !== '')
+      if (entries.length === 0) return '-'
+      return entries.map(({ inner, v }) => formatValueWithChoices(v, inner.attributes.choices)).join(' | ')
     }
 
     // Pour les repeaters, afficher le nombre d'entrées
@@ -367,7 +368,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
       return `${count} entrée${count > 1 ? 's' : ''}`
     }
 
-    return formatValue(data[block.id])
+    return formatValueWithChoices(data[block.id], block.attributes.choices)
   }
 
   // Fonction pour récupérer les données d'un repeater
@@ -430,7 +431,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                       <p className="text-xs text-gray-500">
                         {innerBlock.attributes.label || innerBlock.id}
                       </p>
-                      <p className="text-sm text-gray-900">{formatValue(value)}</p>
+                      <p className="text-sm text-gray-900">{formatValueWithChoices(value, innerBlock.attributes.choices)}</p>
                     </div>
                   ))}
                 </div>
@@ -470,7 +471,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 <p className="text-xs text-gray-500">
                   {innerBlock.attributes.label || innerBlock.id}
                 </p>
-                <p className="text-sm text-gray-900">{formatValue(value)}</p>
+                <p className="text-sm text-gray-900">{formatValueWithChoices(value, innerBlock.attributes.choices)}</p>
               </div>
             ))}
           </div>
@@ -484,7 +485,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         <p className="text-sm font-medium text-gray-500 mb-1">
           {block.attributes.label || block.id}
         </p>
-        <p className="text-gray-900">{formatValue(data[block.id])}</p>
+        <p className="text-gray-900">{formatValueWithChoices(data[block.id], block.attributes.choices)}</p>
       </div>
     )
   }

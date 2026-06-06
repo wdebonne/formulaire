@@ -14,6 +14,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Theme — choice background color** (`choicesBgColor`) — new theme property to set an independent background color for unselected options in Multiple Choice, Image Selection, and Dropdown blocks; applied to the dropdown suggestion panel, choice items in the published form, the central editor preview, and the sidebar block preview
 
 ### Fixed
+- **Mouse wheel navigation in public form** — scrolling the wheel had no effect when navigating between questions; a `wheel` event listener is now added (30 px threshold, 600 ms cooldown); scrolling inside a scrollable element (open dropdown list) does not trigger navigation — detected by walking up the DOM to `body`
+- **Required fields in groups bypassed by navigation buttons** — the ↑/↓ navigation buttons and the wheel could move to the next question even when a required field inside a Group block was empty; required inner-block validation is now enforced before any navigation
 - **Theme not applied in central editor preview** — `buttonsBorderRadius`, `inputStyle`, and `inputBorderRadius` were ignored by the builder's central block preview (`CenterBlockPreview`); all buttons and text fields now faithfully reflect the active theme style (border radius, underline/outlined/filled) immediately when changed in the theme editor, without waiting for publication
 
 ### Changed

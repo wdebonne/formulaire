@@ -14,6 +14,8 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **Thème — couleur de fond des choix** (`choicesBgColor`) — nouvelle propriété de thème permettant de définir une couleur de fond indépendante pour les options non sélectionnées dans les blocs Choix multiple, Sélection image et Listes déroulantes ; appliquée au panneau de suggestions des listes déroulantes, aux items de choix dans le formulaire publié, dans l'aperçu central de l'éditeur et dans l'aperçu latéral
 
 ### Corrections
+- **Navigation molette dans le formulaire public** — le scroll molette ne permettait pas de naviguer entre les questions ; un écouteur `wheel` a été ajouté (seuil 30 px, cooldown 600 ms) ; le scroll à l'intérieur d'un élément scrollable (liste déroulante ouverte) ne déclenche pas de navigation — détection via remontée du DOM jusqu'à `body`
+- **Champs requis des groupes non validés par les boutons de navigation** — les boutons ↑/↓ et la molette pouvaient passer à la question suivante même si un champ requis à l'intérieur d'un bloc Groupe n'était pas rempli ; la validation des champs requis des blocs internes est maintenant vérifiée avant toute navigation
 - **Thème non appliqué dans l'aperçu central** — les propriétés `buttonsBorderRadius`, `inputStyle` et `inputBorderRadius` n'étaient pas pris en compte par le preview central de l'éditeur (`CenterBlockPreview`) ; tous les boutons et champs texte reflètent désormais fidèlement le style du thème (arrondi, style souligné/bordure/rempli) dès la modification dans l'éditeur de thème, sans attendre la publication
 
 ### Modifications

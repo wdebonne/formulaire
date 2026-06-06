@@ -1506,6 +1506,17 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     const handleWheel = (e: WheelEvent) => {
       if (wheelCooldown) return
       if (Math.abs(e.deltaY) < 30) return
+
+      // Ne pas naviguer si le scroll vient d'un élément scrollable (ex: liste déroulante)
+      let node = e.target as HTMLElement | null
+      while (node && node !== document.body) {
+        const style = window.getComputedStyle(node)
+        const overflow = style.overflow + style.overflowY
+        const isScrollable = /(auto|scroll)/.test(overflow)
+        if (isScrollable && node.scrollHeight > node.clientHeight) return
+        node = node.parentElement
+      }
+
       wheelCooldown = true
       setTimeout(() => { wheelCooldown = false }, 600)
       if (e.deltaY > 0) {

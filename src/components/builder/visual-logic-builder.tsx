@@ -20,9 +20,9 @@ const BSTEP = BH + BGAP
 const PAD_TOP = 56
 const PAD_BOT = 80
 const BL = 40          // block left
-const BW = 308         // block width
-const BR = BL + BW     // block right edge = 348
-const ARROW_START = BR + 24   // horizontal start of arrow area
+const BW = 368         // block width
+const BR = BL + BW     // block right edge = 408
+const ARROW_START = BR + 28   // horizontal start of arrow area
 const LANE_W = 80      // width per lane (wider = less overlap)
 const CORNER = 10      // rounded corner radius
 const ARROWHEAD = 10   // arrowhead size
@@ -270,12 +270,12 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                         `}
                         fill={stroke}
                       />
-                      {/* Label badge on the vertical segment */}
+                      {/* Label badge — above the exit segment, near source block */}
                       <foreignObject
-                        x={laneX + 5}
-                        y={midY - 11}
-                        width={120}
-                        height={22}
+                        x={BR + 10}
+                        y={sy - 20}
+                        width={160}
+                        height={18}
                         style={{ pointerEvents: 'none', overflow: 'visible' }}
                       >
                         <span
@@ -285,13 +285,14 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                             color: 'white',
                             fontSize: 10,
                             fontWeight: 600,
-                            padding: '2px 7px',
+                            padding: '1px 7px',
                             borderRadius: 99,
                             whiteSpace: 'nowrap',
-                            maxWidth: 116,
+                            maxWidth: 156,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            boxShadow: '0 1px 5px rgba(0,0,0,.2)',
+                            boxShadow: '0 1px 4px rgba(0,0,0,.18)',
+                            lineHeight: '16px',
                           }}
                           title={summary(j.rule, blocks)}
                         >
@@ -306,10 +307,21 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
               {/* ── Block cards ── */}
               {blocks.map((block, idx) => {
                 const bl = safeLogic.find(l => l.blockId === block.id)
-                const jumpRules  = bl?.rules.filter(r => r.action === 'jump')  ?? []
-                const otherRules = bl?.rules.filter(r => r.action !== 'jump') ?? []
+                const allRules   = bl?.rules ?? []
+                const jumpRules  = allRules.filter(r => r.action === 'jump')
+                const otherRules = allRules.filter(r => r.action !== 'jump')
                 const isSelBlock = sel?.blockId === block.id
                 const isScreen   = ['welcome-screen', 'thankyou-screen'].includes(block.type)
+                const hasRules   = allRules.length > 0
+
+                // Click on card body → open first rule's editor
+                const handleCardClick = () => {
+                  if (!hasRules) return
+                  const firstRule = allRules[0]
+                  setSel(prev =>
+                    prev?.ruleId === firstRule.id ? null : { blockId: block.id, ruleId: firstRule.id }
+                  )
+                }
 
                 return (
                   <div
@@ -318,10 +330,13 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                     style={{ left: BL, top: top(idx), width: BW, height: BH }}
                   >
                     <div
+                      onClick={handleCardClick}
                       className={`w-full h-full rounded-xl border-2 bg-white shadow-sm flex items-center gap-3 px-3 transition-all select-none ${
                         isSelBlock
                           ? 'border-indigo-500 shadow-md shadow-indigo-100'
-                          : 'border-gray-200 hover:border-gray-300 hover:shadow'
+                          : hasRules
+                            ? 'border-gray-200 hover:border-indigo-300 hover:shadow cursor-pointer'
+                            : 'border-gray-200 hover:border-gray-300 hover:shadow'
                       }`}
                     >
                       {/* Index */}
@@ -333,13 +348,19 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                         {idx + 1}
                       </span>
 
-                      {/* Label */}
-                      <span className="flex-1 text-sm font-medium text-gray-800 truncate">
+                      {/* Label — slightly larger max-width when no badges */}
+                      <span
+                        className="flex-1 text-sm font-medium text-gray-800 truncate"
+                        title={block.attributes.label || 'Sans titre'}
+                      >
                         {block.attributes.label || 'Sans titre'}
                       </span>
 
-                      {/* Rule badges */}
-                      <div className="flex gap-1 flex-shrink-0 items-center">
+                      {/* Rule badges — stop propagation so badge clicks don't also fire card click */}
+                      <div
+                        className="flex gap-1 flex-shrink-0 items-center"
+                        onClick={e => e.stopPropagation()}
+                      >
                         {otherRules.map(rule => (
                           <button
                             key={rule.id}
@@ -358,9 +379,18 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                           </button>
                         ))}
                         {jumpRules.length > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold">
+                          <button
+                            onClick={() => setSel(
+                              sel?.ruleId === jumpRules[0].id ? null : { blockId: block.id, ruleId: jumpRules[0].id }
+                            )}
+                            className={`text-[10px] px-1.5 py-0.5 rounded-md font-semibold transition-colors ${
+                              isSelBlock && sel && jumpRules.some(r => r.id === sel.ruleId)
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
+                          >
                             {jumpRules.length}↗
-                          </span>
+                          </button>
                         )}
                       </div>
                     </div>

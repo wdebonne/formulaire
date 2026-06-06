@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Button } from '@/components/ui/button'
 import type { FormBlock, LogicRule, LogicCondition, ConditionOperator } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { X, Plus, Trash2, GitBranch } from 'lucide-react'
+import { X, Plus, Trash2, GitBranch, Search, ChevronDown } from 'lucide-react'
 
 interface VisualLogicBuilderProps {
   open: boolean
@@ -396,6 +396,116 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
   )
 }
 
+// ─── Searchable block selector ─────────────────────────────────────────────────
+
+interface BlockOption { value: string; label: string }
+
+interface SearchableBlockSelectProps {
+  value: string
+  onChange: (v: string) => void
+  options: BlockOption[]
+  placeholder?: string
+  size?: 'sm' | 'md'
+}
+
+function SearchableBlockSelect({
+  value,
+  onChange,
+  options,
+  placeholder = 'Sélectionner un bloc…',
+  size = 'md',
+}: SearchableBlockSelectProps) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  // Focus search input when opening
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 10)
+  }, [open])
+
+  const filtered = query.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(query.toLowerCase()))
+    : options
+
+  const selected = options.find(o => o.value === value)
+  const textSm = size === 'sm' ? 'text-xs' : 'text-sm'
+  const py = size === 'sm' ? 'py-1.5' : 'py-2.5'
+
+  return (
+    <div ref={ref} className="relative w-full">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => { setOpen(v => !v); setQuery('') }}
+        className={`w-full flex items-center justify-between gap-2 px-3 ${py} border rounded-xl bg-white hover:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300 transition-colors ${textSm} ${open ? 'border-indigo-400 ring-1 ring-indigo-300' : 'border-gray-200'}`}
+      >
+        <span className={`truncate ${selected ? 'text-gray-800' : 'text-gray-400'}`}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute z-[9999] left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+          {/* Search input */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100 bg-gray-50">
+            <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Rechercher…"
+              className="flex-1 text-xs bg-transparent outline-none placeholder-gray-400"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="text-gray-300 hover:text-gray-500">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-56 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <div className="py-4 text-center text-xs text-gray-400">Aucun résultat</div>
+            ) : (
+              filtered.map(o => (
+                <button
+                  key={o.value || '__empty__'}
+                  type="button"
+                  onClick={() => { onChange(o.value); setOpen(false); setQuery('') }}
+                  className={`w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors ${
+                    o.value === value ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Rule edit panel ────────────────────────────────────────────────────────────
 
 interface RuleEditPanelProps {
@@ -414,6 +524,12 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
   const selectable = blocks.filter(
     b => !['welcome-screen', 'thankyou-screen', 'statement'].includes(b.type)
   )
+
+  // Options for the jump target (all blocks including thankyou)
+  const targetOptions: BlockOption[] = blocks.map((b, i) => ({
+    value: b.id,
+    label: b.type === 'thankyou-screen' ? 'Écran de fin' : `${i + 1}. ${b.attributes.label || 'Sans titre'}`,
+  }))
 
   const updateCond = (ci: number, u: Partial<LogicCondition>) => {
     const next = [...rule.conditions]
@@ -513,20 +629,12 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
           </select>
 
           {rule.action === 'jump' && (
-            <select
+            <SearchableBlockSelect
               value={rule.targetBlockId || ''}
-              onChange={e => updateLogicRule(blockId, rule.id, { targetBlockId: e.target.value })}
-              className="w-full text-sm border rounded-xl px-3 py-2.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
-            >
-              <option value="">Sélectionner un bloc…</option>
-              {blocks.map((b, i) => (
-                <option key={b.id} value={b.id}>
-                  {b.type === 'thankyou-screen'
-                    ? 'Écran de fin'
-                    : `${i + 1}. ${b.attributes.label || 'Sans titre'}`}
-                </option>
-              ))}
-            </select>
+              onChange={v => updateLogicRule(blockId, rule.id, { targetBlockId: v })}
+              options={targetOptions}
+              placeholder="Sélectionner un bloc…"
+            />
           )}
         </div>
       </div>
@@ -548,8 +656,13 @@ interface CondRowProps {
 function CondRow({ cond, selectable, allBlocks, canRemove, onUpdate, onRemove }: CondRowProps) {
   const src = allBlocks.find(b => b.id === cond.blockId)
     || selectable.find(b => b.id === cond.blockId)
-  const hasChoices  = (src?.attributes.choices?.length ?? 0) > 0
-  const needsValue  = !['is_empty', 'is_not_empty'].includes(cond.operator)
+  const hasChoices = (src?.attributes.choices?.length ?? 0) > 0
+  const needsValue = !['is_empty', 'is_not_empty'].includes(cond.operator)
+
+  const blockOptions: BlockOption[] = selectable.map((b, i) => ({
+    value: b.id,
+    label: `${i + 1}. ${b.attributes.label || 'Sans titre'}`,
+  }))
 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 relative">
@@ -562,19 +675,16 @@ function CondRow({ cond, selectable, allBlocks, canRemove, onUpdate, onRemove }:
         </button>
       )}
 
-      <select
+      {/* Block selector — searchable */}
+      <SearchableBlockSelect
         value={cond.blockId}
-        onChange={e => onUpdate({ blockId: e.target.value, value: '' })}
-        className="w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
-      >
-        <option value="">Sélectionner un bloc…</option>
-        {selectable.map((b, i) => (
-          <option key={b.id} value={b.id}>
-            {i + 1}. {b.attributes.label || 'Sans titre'}
-          </option>
-        ))}
-      </select>
+        onChange={v => onUpdate({ blockId: v, value: '' })}
+        options={blockOptions}
+        placeholder="Sélectionner un bloc…"
+        size="sm"
+      />
 
+      {/* Operator */}
       <select
         value={cond.operator}
         onChange={e => onUpdate({ operator: e.target.value as ConditionOperator })}
@@ -585,6 +695,7 @@ function CondRow({ cond, selectable, allBlocks, canRemove, onUpdate, onRemove }:
         ))}
       </select>
 
+      {/* Value */}
       {needsValue && (
         hasChoices ? (
           <select

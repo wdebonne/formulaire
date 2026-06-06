@@ -19,13 +19,14 @@ const BGAP = 52        // gap between blocks
 const BSTEP = BH + BGAP
 const PAD_TOP = 56
 const PAD_BOT = 80
-const BL = 40          // block left
+const BL = 220         // block left (space for left-side arrows)
 const BW = 368         // block width
-const BR = BL + BW     // block right edge = 408
-const ARROW_START = BR + 28   // horizontal start of arrow area
-const LANE_W = 80      // width per lane (wider = less overlap)
+const BR = BL + BW     // block right edge
+const ARROW_R_START = BR + 28   // right arrows start here
+const ARROW_L_START = BL - 28   // left arrows start here
+const LANE_W = 76      // width per lane
 const CORNER = 10      // rounded corner radius
-const ARROWHEAD = 10   // arrowhead size
+const AH = 10          // arrowhead size
 
 const COLORS = [
   '#6366f1', '#0ea5e9', '#10b981', '#f59e0b',
@@ -67,22 +68,48 @@ function assignLanes(jumps: { id: string; si: number; ti: number }[]): Map<strin
   return map
 }
 
-/** Orthogonal path with rounded corners: right edge → laneX → right edge */
-function makePath(laneX: number, sy: number, ty: number): string {
+/** Orthogonal path — RIGHT side: right edge → laneX → right edge */
+function makeRightPath(laneX: number, sy: number, ty: number): string {
   const r = Math.min(CORNER, Math.abs(ty - sy) / 2.2)
   const sign = ty > sy ? 1 : -1
-  if (Math.abs(ty - sy) < 2) {
-    return `M ${BR} ${sy} H ${BR + ARROWHEAD + 4}`
-  }
-  // Horizontal out → corner → vertical → corner → horizontal back
+  if (Math.abs(ty - sy) < 2) return `M ${BR} ${sy} H ${BR + AH + 4}`
   return [
     `M ${BR} ${sy}`,
     `L ${laneX - r} ${sy}`,
     `Q ${laneX} ${sy} ${laneX} ${sy + r * sign}`,
     `L ${laneX} ${ty - r * sign}`,
     `Q ${laneX} ${ty} ${laneX - r} ${ty}`,
-    `L ${BR + ARROWHEAD + 4} ${ty}`,
+    `L ${BR + AH + 4} ${ty}`,
   ].join(' ')
+}
+
+/** Orthogonal path — LEFT side: left edge → laneX → left edge */
+function makeLeftPath(laneX: number, sy: number, ty: number): string {
+  const r = Math.min(CORNER, Math.abs(ty - sy) / 2.2)
+  const sign = ty > sy ? 1 : -1
+  if (Math.abs(ty - sy) < 2) return `M ${BL} ${sy} H ${BL - AH - 4}`
+  return [
+    `M ${BL} ${sy}`,
+    `L ${laneX + r} ${sy}`,
+    `Q ${laneX} ${sy} ${laneX} ${sy + r * sign}`,
+    `L ${laneX} ${ty - r * sign}`,
+    `Q ${laneX} ${ty} ${laneX + r} ${ty}`,
+    `L ${BL - AH - 4} ${ty}`,
+  ].join(' ')
+}
+
+/** Assign right/left side per rule — alternates per source block to balance both sides */
+function assignSides(jumps: { id: string; si: number }[]): Map<string, 'right' | 'left'> {
+  const sides = new Map<string, 'right' | 'left'>()
+  const bySrc = new Map<number, string[]>()
+  for (const j of jumps) {
+    if (!bySrc.has(j.si)) bySrc.set(j.si, [])
+    bySrc.get(j.si)!.push(j.id)
+  }
+  bySrc.forEach(ids => {
+    ids.forEach((id, i) => sides.set(id, i % 2 === 0 ? 'right' : 'left'))
+  })
+  return sides
 }
 
 /** Short summary of a rule's first condition for the label badge */
@@ -125,43 +152,53 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
     return res
   }, [safeLogic, blocks])
 
-  const lanes = useMemo(
-    () => assignLanes(jumps.map(j => ({ id: j.rule.id, si: j.si, ti: j.ti }))),
+  // Assign right/left side to each arrow
+  const sides = useMemo(
+    () => assignSides(jumps.map(j => ({ id: j.rule.id, si: j.si }))),
     [jumps]
   )
 
-  // Stagger multiple arrows from/to the same block vertically (±offset around centre)
+  // Separate lane pools per side
+  const rightJumps = useMemo(() => jumps.filter(j => sides.get(j.rule.id) === 'right'), [jumps, sides])
+  const leftJumps  = useMemo(() => jumps.filter(j => sides.get(j.rule.id) === 'left'),  [jumps, sides])
+  const rightLanes = useMemo(() => assignLanes(rightJumps.map(j => ({ id: j.rule.id, si: j.si, ti: j.ti }))), [rightJumps])
+  const leftLanes  = useMemo(() => assignLanes(leftJumps.map(j =>  ({ id: j.rule.id, si: j.si, ti: j.ti }))), [leftJumps])
+
+  // Stagger: per-side, separate source offsets to avoid mixing left/right arrows at same Y
   const { outOff, inOff } = useMemo(() => {
     const out = new Map<string, number>()
     const inn = new Map<string, number>()
 
-    // By source
-    const bySrc = new Map<number, typeof jumps>()
+    // By source + side
+    const bySrcSide = new Map<string, typeof jumps>()
     for (const j of jumps) {
-      if (!bySrc.has(j.si)) bySrc.set(j.si, [])
-      bySrc.get(j.si)!.push(j)
+      const key = `${j.si}-${sides.get(j.rule.id)}`
+      if (!bySrcSide.has(key)) bySrcSide.set(key, [])
+      bySrcSide.get(key)!.push(j)
     }
-    bySrc.forEach(g => {
+    bySrcSide.forEach(g => {
       const n = g.length
-      g.forEach((j, i) => out.set(j.rule.id, n === 1 ? 0 : (i - (n - 1) / 2) * 18))
+      g.forEach((j, i) => out.set(j.rule.id, n === 1 ? 0 : (i - (n - 1) / 2) * 16))
     })
 
-    // By target
-    const byTgt = new Map<number, typeof jumps>()
+    // By target + side
+    const byTgtSide = new Map<string, typeof jumps>()
     for (const j of jumps) {
-      if (!byTgt.has(j.ti)) byTgt.set(j.ti, [])
-      byTgt.get(j.ti)!.push(j)
+      const key = `${j.ti}-${sides.get(j.rule.id)}`
+      if (!byTgtSide.has(key)) byTgtSide.set(key, [])
+      byTgtSide.get(key)!.push(j)
     }
-    byTgt.forEach(g => {
+    byTgtSide.forEach(g => {
       const n = g.length
-      g.forEach((j, i) => inn.set(j.rule.id, n === 1 ? 0 : (i - (n - 1) / 2) * 18))
+      g.forEach((j, i) => inn.set(j.rule.id, n === 1 ? 0 : (i - (n - 1) / 2) * 16))
     })
 
     return { outOff: out, inOff: inn }
-  }, [jumps])
+  }, [jumps, sides])
 
-  const maxLane = Math.max(0, ...Array.from(lanes.values()))
-  const canvasW = ARROW_START + (maxLane + 1) * LANE_W + 48
+  const maxRightLane = Math.max(0, ...Array.from(rightLanes.values()))
+  const maxLeftLane  = Math.max(0, ...Array.from(leftLanes.values()))
+  const canvasW = ARROW_R_START + (maxRightLane + 1) * LANE_W + 48
   const canvasH = PAD_TOP + blocks.length * BSTEP + PAD_BOT
 
   const handleAdd = (blockId: string) => {
@@ -234,18 +271,29 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                   )
                 })}
 
-                {/* Jump rule arrows */}
+                {/* Jump rule arrows — left & right sides */}
                 {jumps.map(j => {
-                  const lane = lanes.get(j.rule.id) ?? 0
-                  const laneX = ARROW_START + lane * LANE_W
-                  const sy = cy(j.si) + (outOff.get(j.rule.id) ?? 0)
-                  const ty = cy(j.ti) + (inOff.get(j.rule.id) ?? 0)
+                  const isLeft   = sides.get(j.rule.id) === 'left'
+                  const lanePool = isLeft ? leftLanes : rightLanes
+                  const lane     = lanePool.get(j.rule.id) ?? 0
+                  const laneX    = isLeft
+                    ? ARROW_L_START - lane * LANE_W
+                    : ARROW_R_START + lane * LANE_W
+                  const sx  = isLeft ? BL : BR
+                  const sy  = cy(j.si) + (outOff.get(j.rule.id) ?? 0)
+                  const ty  = cy(j.ti) + (inOff.get(j.rule.id) ?? 0)
+                  const midY = (sy + ty) / 2
                   const color = COLORS[j.ci]
                   const isSelected = sel?.ruleId === j.rule.id
                   const stroke = isSelected ? '#1d4ed8' : color
                   const sw = isSelected ? 3 : 2
-                  const d = makePath(laneX, sy, ty)
-                  const midY = (sy + ty) / 2
+                  const d = isLeft ? makeLeftPath(laneX, sy, ty) : makeRightPath(laneX, sy, ty)
+
+                  // Arrowhead tip & base — points INTO block from the side
+                  const tipX  = isLeft ? BL - AH - 4    : BR + AH + 4
+                  const baseX = isLeft ? BL - AH * 2 - 4 : BR + AH * 2 + 4
+                  // Label: to the right of lane for left side, to the right for right side
+                  const labelX = isLeft ? laneX + 4 : laneX + 6
 
                   return (
                     <g
@@ -255,26 +303,20 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                         isSelected ? null : { blockId: j.blockId, ruleId: j.rule.id }
                       )}
                     >
-                      {/* Fat invisible hit area */}
                       <path d={d} fill="none" stroke="transparent" strokeWidth={16} />
-                      {/* Path */}
                       <path d={d} fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
-                      {/* Start dot on source block */}
-                      <circle cx={BR} cy={sy} r={4.5} fill={stroke} />
-                      {/* Arrowhead at target (left-pointing) */}
+                      {/* Start dot */}
+                      <circle cx={sx} cy={sy} r={4.5} fill={stroke} />
+                      {/* Arrowhead */}
                       <polygon
-                        points={`
-                          ${BR + ARROWHEAD + 4},${ty}
-                          ${BR + ARROWHEAD * 2 + 4},${ty - ARROWHEAD / 1.5}
-                          ${BR + ARROWHEAD * 2 + 4},${ty + ARROWHEAD / 1.5}
-                        `}
+                        points={`${tipX},${ty} ${baseX},${ty - AH / 1.5} ${baseX},${ty + AH / 1.5}`}
                         fill={stroke}
                       />
-                      {/* Label badge — on the vertical lane segment */}
+                      {/* Label badge on the vertical segment */}
                       <foreignObject
-                        x={laneX + 6}
+                        x={labelX}
                         y={midY - 11}
-                        width={140}
+                        width={130}
                         height={22}
                         style={{ pointerEvents: 'none', overflow: 'visible' }}
                       >
@@ -288,7 +330,7 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                             padding: '2px 7px',
                             borderRadius: 99,
                             whiteSpace: 'nowrap',
-                            maxWidth: 136,
+                            maxWidth: 126,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             boxShadow: '0 1px 4px rgba(0,0,0,.18)',
@@ -419,6 +461,8 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
             rule={liveRule}
             blocks={blocks}
             onClose={() => setSel(null)}
+            onSelectRule={(ruleId) => setSel({ blockId: sel.blockId, ruleId })}
+            onAddRule={() => handleAdd(sel.blockId)}
           />
         )}
       </div>
@@ -543,10 +587,22 @@ interface RuleEditPanelProps {
   rule: LogicRule
   blocks: FormBlock[]
   onClose: () => void
+  onSelectRule: (ruleId: string) => void
+  onAddRule: () => void
 }
 
-function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
-  const { updateLogicRule, removeLogicRule } = useFormBuilder()
+const ACTION_META: Record<string, { label: string; color: string }> = {
+  jump:    { label: 'Sauter',   color: '#6366f1' },
+  hide:    { label: 'Masquer',  color: '#ef4444' },
+  show:    { label: 'Afficher', color: '#10b981' },
+  require: { label: 'Requis',   color: '#f59e0b' },
+}
+
+function RuleEditPanel({ blockId, rule, blocks, onClose, onSelectRule, onAddRule }: RuleEditPanelProps) {
+  const { logic, updateLogicRule, removeLogicRule } = useFormBuilder()
+
+  const safeLogic = Array.isArray(logic) ? logic : []
+  const allRules  = safeLogic.find(l => l.blockId === blockId)?.rules ?? []
 
   const srcBlock = blocks.find(b => b.id === blockId)
   const srcIdx   = blocks.findIndex(b => b.id === blockId)
@@ -555,7 +611,6 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
     b => !['welcome-screen', 'thankyou-screen', 'statement'].includes(b.type)
   )
 
-  // Options for the jump target (all blocks including thankyou)
   const targetOptions: BlockOption[] = blocks.map((b, i) => ({
     value: b.id,
     label: b.type === 'thankyou-screen' ? 'Écran de fin' : `${i + 1}. ${b.attributes.label || 'Sans titre'}`,
@@ -580,20 +635,72 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
   const handleDelete = () => { removeLogicRule(blockId, rule.id); onClose() }
 
   return (
-    <div className="w-80 bg-white border-l flex flex-col shrink-0" style={{ boxShadow: '-4px 0 16px rgba(0,0,0,.06)' }}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 shrink-0">
-        <span className="text-sm font-semibold text-gray-800">Éditer la règle</span>
-        <div className="flex gap-1">
-          <Button variant="ghost" size="sm" onClick={handleDelete}
-            className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50">
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
-            <X className="w-3.5 h-3.5" />
-          </Button>
+    <div className="flex bg-white border-l shrink-0" style={{ width: 420, boxShadow: '-4px 0 16px rgba(0,0,0,.06)' }}>
+
+      {/* ── Left: rule list navigation ── */}
+      <div className="w-36 border-r bg-gray-50 flex flex-col shrink-0">
+        {/* Sidebar header */}
+        <div className="px-3 py-2.5 border-b bg-gray-100 shrink-0">
+          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+            {srcIdx + 1}. {srcBlock?.attributes.label?.slice(0, 16) || 'Bloc'}
+          </p>
         </div>
+
+        {/* Rule list */}
+        <div className="flex-1 overflow-auto py-1">
+          {allRules.map((r, i) => {
+            const meta = ACTION_META[r.action] ?? ACTION_META.jump
+            const cond = r.conditions[0]
+            const condBlock = blocks.find(b => b.id === cond?.blockId)
+            const condLabel = condBlock?.attributes.label?.slice(0, 18) || '?'
+            const isActive  = r.id === rule.id
+            return (
+              <button
+                key={r.id}
+                onClick={() => onSelectRule(r.id)}
+                className={`w-full text-left px-3 py-2 transition-colors border-l-2 ${
+                  isActive
+                    ? 'bg-white border-indigo-500'
+                    : 'border-transparent hover:bg-gray-100 hover:border-gray-300'
+                }`}
+              >
+                <span
+                  className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded mb-1"
+                  style={{ background: meta.color + '20', color: meta.color }}
+                >
+                  {meta.label}
+                </span>
+                <p className="text-[11px] text-gray-600 truncate leading-tight">{condLabel}</p>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Add rule */}
+        <button
+          onClick={onAddRule}
+          className="flex items-center justify-center gap-1 px-3 py-2 border-t text-xs text-indigo-600 hover:bg-indigo-50 transition-colors font-semibold shrink-0"
+        >
+          <Plus className="w-3 h-3" />
+          Nouvelle règle
+        </button>
       </div>
+
+      {/* ── Right: editor ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 shrink-0">
+          <span className="text-sm font-semibold text-gray-800">Éditer la règle</span>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={handleDelete}
+              className="h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50">
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose} className="h-7 w-7 p-0">
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-5">
         {/* Source block info */}
@@ -668,6 +775,7 @@ function RuleEditPanel({ blockId, rule, blocks, onClose }: RuleEditPanelProps) {
           )}
         </div>
       </div>
+      </div>{/* end right editor column */}
     </div>
   )
 }

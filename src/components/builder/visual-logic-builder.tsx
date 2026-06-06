@@ -19,7 +19,7 @@ const BGAP = 52        // gap between blocks
 const BSTEP = BH + BGAP
 const PAD_TOP = 56
 const PAD_BOT = 80
-const BL = 220         // block left (space for left-side arrows)
+const BL = 260         // block left (space for left-side arrows, 2 lanes × 76 + 28)
 const BW = 368         // block width
 const BR = BL + BW     // block right edge
 const ARROW_R_START = BR + 28   // right arrows start here
@@ -292,8 +292,10 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                   // Arrowhead tip & base — points INTO block from the side
                   const tipX  = isLeft ? BL - AH - 4    : BR + AH + 4
                   const baseX = isLeft ? BL - AH * 2 - 4 : BR + AH * 2 + 4
-                  // Label: to the LEFT of the lane for left-side arrows, to the right for right-side
-                  const labelX = isLeft ? laneX - 132 : laneX + 6
+                  // Label: right-aligned flush to lane on left side, left-aligned on right side
+                  // Left: right edge of badge sits 6px left of lane; Right: left edge sits 6px right of lane
+                  const labelW = 144
+                  const labelX = isLeft ? laneX - labelW - 6 : laneX + 6
 
                   return (
                     <g
@@ -316,29 +318,38 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                       <foreignObject
                         x={labelX}
                         y={midY - 11}
-                        width={130}
+                        width={labelW}
                         height={22}
                         style={{ pointerEvents: 'none', overflow: 'visible' }}
                       >
                         <span
                           style={{
-                            display: 'inline-block',
-                            background: stroke,
-                            color: 'white',
-                            fontSize: 10,
-                            fontWeight: 600,
-                            padding: '2px 7px',
-                            borderRadius: 99,
-                            whiteSpace: 'nowrap',
-                            maxWidth: 126,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            boxShadow: '0 1px 4px rgba(0,0,0,.18)',
-                            lineHeight: '16px',
+                            display: 'block',
+                            textAlign: isLeft ? 'right' : 'left',
+                            background: 'transparent',
+                            lineHeight: '22px',
                           }}
-                          title={summary(j.rule, blocks)}
                         >
-                          {summary(j.rule, blocks)}
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              background: stroke,
+                              color: 'white',
+                              fontSize: 10,
+                              fontWeight: 600,
+                              padding: '2px 7px',
+                              borderRadius: 99,
+                              whiteSpace: 'nowrap',
+                              maxWidth: labelW - 4,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              boxShadow: '0 1px 4px rgba(0,0,0,.18)',
+                              lineHeight: '16px',
+                            }}
+                            title={summary(j.rule, blocks)}
+                          >
+                            {summary(j.rule, blocks)}
+                          </span>
                         </span>
                       </foreignObject>
                     </g>
@@ -797,10 +808,10 @@ function CondRow({ cond, selectable, allBlocks, canRemove, onUpdate, onRemove }:
   const hasChoices = (src?.attributes.choices?.length ?? 0) > 0
   const needsValue = !['is_empty', 'is_not_empty'].includes(cond.operator)
 
-  const blockOptions: BlockOption[] = selectable.map((b, i) => ({
-    value: b.id,
-    label: `${i + 1}. ${b.attributes.label || 'Sans titre'}`,
-  }))
+  const blockOptions: BlockOption[] = selectable.map(b => {
+    const origIdx = allBlocks.findIndex(x => x.id === b.id)
+    return { value: b.id, label: `${origIdx + 1}. ${b.attributes.label || 'Sans titre'}` }
+  })
 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 relative">

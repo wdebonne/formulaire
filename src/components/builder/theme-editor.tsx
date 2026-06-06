@@ -574,6 +574,24 @@ export function ThemeEditor({ themes: initialThemes, onThemeChange }: ThemeEdito
         </div>
 
         <div className="space-y-2">
+          <Label>Couleur de fond des choix</Label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="color"
+              value={editingTheme.properties.choicesBgColor || '#ffffff'}
+              onChange={(e) => updateEditingTheme('choicesBgColor', e.target.value)}
+              className="w-10 h-10 rounded cursor-pointer"
+            />
+            <Input
+              value={editingTheme.properties.choicesBgColor || '#ffffff'}
+              onChange={(e) => updateEditingTheme('choicesBgColor', e.target.value)}
+              className="flex-1"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">Fond des options non sélectionnées (choix multiples, listes)</p>
+        </div>
+
+        <div className="space-y-2">
           <Label>Couleur des boutons</Label>
           <div className="flex flex-wrap gap-2 mb-2">
             {colorPresets.map((color) => (

@@ -2306,7 +2306,7 @@ function QuestionBlock({
                     borderColor: isSelected
                       ? themeProps.buttonsBgColor
                       : themeProps.answersColor + '30',
-                    backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                    backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : (themeProps.choicesBgColor || 'transparent'),
                   }}
                 >
                   {showLetters && (
@@ -3391,7 +3391,7 @@ function GroupBlock({
                     borderColor: isSelected
                       ? themeProps.buttonsBgColor
                       : themeProps.answersColor + '30',
-                    backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                    backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : (themeProps.choicesBgColor || 'transparent'),
                     borderRadius: buttonBorderRadius,
                   }}
                 >
@@ -4051,7 +4051,7 @@ function RepeaterBlock({
                   borderColor: isSelected
                     ? themeProps.buttonsBgColor
                     : themeProps.answersColor + '30',
-                  backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                  backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : (themeProps.choicesBgColor || 'transparent'),
                   borderRadius: buttonBorderRadius,
                 }}
               >
@@ -4131,7 +4131,7 @@ function RepeaterBlock({
                   borderColor: isSelected
                     ? themeProps.buttonsBgColor
                     : themeProps.answersColor + '30',
-                  backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                  backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : (themeProps.choicesBgColor || 'transparent'),
                   borderRadius: buttonBorderRadius,
                 }}
               >
@@ -4544,7 +4544,7 @@ function InnerBlockInput({
                   borderColor: isSelected
                     ? themeProps.buttonsBgColor
                     : themeProps.answersColor + '30',
-                  backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : 'transparent',
+                  backgroundColor: isSelected ? themeProps.buttonsBgColor + '10' : (themeProps.choicesBgColor || 'transparent'),
                   borderRadius: buttonBorderRadius,
                 }}
               >

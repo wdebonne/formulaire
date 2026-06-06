@@ -90,6 +90,7 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
                 className="flex items-center px-2 py-1.5 rounded border text-xs"
                 style={{
                   borderColor: themeProps.answersColor + '30',
+                  backgroundColor: themeProps.choicesBgColor || 'transparent',
                 }}
               >
                 <span

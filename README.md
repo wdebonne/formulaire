@@ -12,6 +12,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - **Drag-and-drop editor** — reorder blocks visually with resizable panels
 - **25+ block types** — see the [full list](#block-types) below
 - **Visual conditional logic** — show/hide/jump/require blocks based on answers; text editor with block search + fullscreen visual flow builder (Tripetto-style) with SVG arrows, lane routing, and inline rule editor
+- **Faithful live preview** — center panel updates in real-time on every change (label, choices, type, theme) via Zustand; the Aperçu button auto-saves then renders the form in a full-screen iframe using the exact same renderer as the published form — no visual discrepancy
 - **Version history** — automatic snapshot every 10 saves + manual versions with optional label; restore or delete any version from the builder or dashboard; search across versions; current state always preserved before restore
 - **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles
 - **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
@@ -172,7 +173,9 @@ formbuilder-standalone/
 │   │   ├── admin/           # Admin panel (users, fonts, SMTP, trash…)
 │   │   ├── builder/[id]/    # Form builder editor
 │   │   ├── dashboard/       # Forms list
-│   │   ├── forms/[id]/responses/  # Response viewer
+│   │   ├── forms/[id]/
+│   │   │   ├── preview/     # Auth-protected preview page (draft or published)
+│   │   │   └── responses/   # Response viewer
 │   │   └── api/             # REST API endpoints
 │   ├── components/
 │   │   ├── builder/         # Builder UI (blocks, logic, theme, webhooks…)

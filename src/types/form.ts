@@ -218,6 +218,7 @@ export interface ThemeProperties {
   logo?: { url: string; width?: number }
   progressBarColor?: string
   errorColor?: string
+  choicesBgColor?: string
 }
 
 export interface Theme {

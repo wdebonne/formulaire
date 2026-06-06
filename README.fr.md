@@ -12,6 +12,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - **Éditeur par glisser-déposer** — réordonnez les blocs visuellement, panneaux redimensionnables
 - **25+ types de blocs** — voir la [liste complète](#types-de-blocs) ci-dessous
 - **Logique conditionnelle visuelle** — afficher/masquer/sauter/rendre obligatoire selon les réponses ; éditeur texte avec recherche de blocs + éditeur de flux visuel plein écran (style Tripetto) avec flèches SVG, routage en lanes et éditeur de règle intégré
+- **Aperçu temps réel et fidèle** — le panneau central se met à jour instantanément à chaque modification (libellé, choix, type, thème) via Zustand ; le bouton Aperçu sauvegarde les changements puis affiche le formulaire dans un iframe plein écran avec exactement le même renderer que la page publiée — aucune différence visuelle
 - **Historique des versions** — snapshot automatique toutes les 10 sauvegardes + versions manuelles avec label optionnel ; restauration ou suppression depuis le builder ou le dashboard ; recherche dans les versions ; l'état courant est toujours préservé avant chaque restauration
 - **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs
 - **Webhooks** — envoi des réponses vers des URLs externes, mapping personnalisé, réorganisation par drag & drop, recherche
@@ -172,7 +173,9 @@ formbuilder-standalone/
 │   │   ├── admin/           # Panneau d'administration
 │   │   ├── builder/[id]/    # Éditeur de formulaires
 │   │   ├── dashboard/       # Liste des formulaires
-│   │   ├── forms/[id]/responses/  # Visualisation des réponses
+│   │   ├── forms/[id]/
+│   │   │   ├── preview/     # Prévisualisation auth-protégée (brouillon ou publié)
+│   │   │   └── responses/   # Visualisation des réponses
 │   │   └── api/             # Points d'accès REST
 │   ├── components/
 │   │   ├── builder/         # Interface du builder (blocs, logique, thème, webhooks…)

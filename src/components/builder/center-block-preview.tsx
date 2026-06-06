@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import type { FormBlock, Theme } from '@/types/form'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Check, ChevronRight } from 'lucide-react'
@@ -217,6 +217,51 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
 
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
+  const borderRadiusMap: Record<string, string> = {
+    none: '0',
+    small: '4px',
+    medium: '8px',
+    large: '12px',
+    full: '9999px',
+  }
+
+  const buttonBorderRadius = borderRadiusMap[themeProps.buttonsBorderRadius || 'medium'] || '8px'
+  const inputBorderRadius = borderRadiusMap[themeProps.inputBorderRadius || 'medium'] || '8px'
+
+  const getInputStyle = (): React.CSSProperties => {
+    switch (themeProps.inputStyle) {
+      case 'underline':
+        return {
+          color: themeProps.answersColor,
+          border: 'none',
+          borderBottom: `2px solid ${themeProps.answersColor}40`,
+          borderRadius: '0',
+          backgroundColor: 'transparent',
+        }
+      case 'filled':
+        return {
+          color: themeProps.answersColor,
+          border: 'none',
+          borderRadius: inputBorderRadius,
+          backgroundColor: `${themeProps.answersColor}10`,
+          paddingLeft: '16px',
+          paddingRight: '16px',
+        }
+      default:
+        return {
+          color: themeProps.answersColor,
+          border: `2px solid ${themeProps.answersColor}40`,
+          borderRadius: inputBorderRadius,
+          backgroundColor: 'transparent',
+          paddingLeft: '16px',
+          paddingRight: '16px',
+        }
+    }
+  }
+
+  const inputStyleCss = getInputStyle()
+  const choicesBg = themeProps.choicesBgColor || themeProps.backgroundColor || '#ffffff'
+
   if (!block) {
     return (
       <div 
@@ -243,11 +288,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             type="text"
             readOnly
             placeholder={innerBlock.attributes.placeholder || 'Tapez votre réponse ici...'}
-            className="w-full max-w-md bg-transparent border-b-2 py-2 text-lg outline-none transition-colors"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: themeProps.buttonsBgColor + '60',
-            }}
+            className="w-full max-w-md py-2 text-lg outline-none transition-colors"
+            style={inputStyleCss}
           />
         )
 
@@ -257,11 +299,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             readOnly
             placeholder={innerBlock.attributes.placeholder || 'Tapez votre réponse ici...'}
             rows={2}
-            className="w-full max-w-lg bg-transparent border-b-2 py-2 text-lg outline-none resize-none transition-colors"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: themeProps.buttonsBgColor + '60',
-            }}
+            className="w-full max-w-lg py-2 text-lg outline-none resize-none transition-colors"
+            style={inputStyleCss}
           />
         )
 
@@ -269,11 +308,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
         return (
           <input
             type="date"
-            className="bg-transparent border-b-2 py-2 text-lg outline-none"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: themeProps.buttonsBgColor + '60',
-            }}
+            className="py-2 text-lg outline-none"
+            style={inputStyleCss}
           />
         )
 
@@ -352,10 +388,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
                 type="text"
                 list={ddId}
                 placeholder="Tapez pour rechercher ou ajouter..."
-                className="flex-1 px-4 py-3 rounded-lg border-2 text-base bg-no-repeat outline-none transition-colors focus:border-opacity-100"
+                className="flex-1 px-4 py-3 text-base bg-no-repeat outline-none transition-colors"
                 style={{
-                  borderColor: themeProps.answersColor + '30',
-                  backgroundColor: themeProps.backgroundColor,
+                  border: `2px solid ${themeProps.answersColor}30`,
+                  borderRadius: inputBorderRadius,
+                  backgroundColor: choicesBg,
                   color: themeProps.answersColor,
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='${encodeURIComponent(themeProps.answersColor || '#000')}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
                   backgroundPosition: 'right 12px center',
@@ -364,10 +401,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
                 }}
               />
               <button
-                className="px-4 py-3 rounded-lg font-medium transition-colors hover:opacity-90"
+                className="px-4 py-3 font-medium transition-colors hover:opacity-90"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor,
                   color: themeProps.buttonsFontColor,
+                  borderRadius: buttonBorderRadius,
                 }}
               >
                 OK
@@ -392,10 +430,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             {mcChoices.map((choice: any, idx: number) => (
               <div
                 key={choice.id || idx}
-                className="flex items-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all hover:scale-[1.02]"
+                className="flex items-center px-4 py-3 cursor-pointer transition-all hover:scale-[1.02]"
                 style={{
-                  borderColor: themeProps.answersColor + '30',
-                  backgroundColor: themeProps.backgroundColor,
+                  border: `2px solid ${themeProps.answersColor}30`,
+                  borderRadius: inputBorderRadius,
+                  backgroundColor: choicesBg,
                 }}
               >
                 {settings.lettersOnAnswers ? (
@@ -521,10 +560,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
         return (
           <div className="mt-8">
             <button
-              className="px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
+              className="px-8 py-3 text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
               style={{
                 backgroundColor: themeProps.buttonsBgColor,
                 color: themeProps.buttonsFontColor,
+                borderRadius: buttonBorderRadius,
               }}
             >
               {block.attributes.buttonText || 'Commencer'}
@@ -548,10 +588,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             </div>
             {block.attributes.showRestartButton && (
               <button
-                className="px-6 py-2 rounded-md text-sm font-medium transition-all hover:opacity-90 flex items-center gap-2"
+                className="px-6 py-2 text-sm font-medium transition-all hover:opacity-90 flex items-center gap-2"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor,
                   color: themeProps.buttonsFontColor,
+                  borderRadius: buttonBorderRadius,
                 }}
               >
                 {block.attributes.restartButtonText || 'Recommencer'}
@@ -569,11 +610,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             type="text"
             readOnly
             placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
-            className="mt-6 w-full max-w-md bg-transparent border-b-2 py-3 text-xl outline-none transition-colors"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: themeProps.buttonsBgColor + '60',
-            }}
+            className="mt-6 w-full max-w-md py-3 text-xl outline-none transition-colors"
+            style={inputStyleCss}
           />
         )
 
@@ -583,11 +621,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             readOnly
             placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
             rows={3}
-            className="mt-6 w-full max-w-lg bg-transparent border-b-2 py-3 text-xl outline-none resize-none transition-colors"
-            style={{
-              color: themeProps.answersColor,
-              borderColor: themeProps.buttonsBgColor + '60',
-            }}
+            className="mt-6 w-full max-w-lg py-3 text-xl outline-none resize-none transition-colors"
+            style={inputStyleCss}
           />
         )
 
@@ -601,10 +636,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
                 type="text"
                 list={dropdownId}
                 placeholder="Tapez pour rechercher ou ajouter..."
-                className="flex-1 px-4 py-3 rounded-lg border-2 text-base bg-no-repeat outline-none transition-colors focus:border-opacity-100"
+                className="flex-1 px-4 py-3 text-base bg-no-repeat outline-none transition-colors"
                 style={{
-                  borderColor: themeProps.answersColor + '30',
-                  backgroundColor: themeProps.backgroundColor,
+                  border: `2px solid ${themeProps.answersColor}30`,
+                  borderRadius: inputBorderRadius,
+                  backgroundColor: choicesBg,
                   color: themeProps.answersColor,
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='${encodeURIComponent(themeProps.answersColor || '#000')}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
                   backgroundPosition: 'right 12px center',
@@ -613,10 +649,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
                 }}
               />
               <button
-                className="px-4 py-3 rounded-lg font-medium transition-colors hover:opacity-90"
+                className="px-4 py-3 font-medium transition-colors hover:opacity-90"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor,
                   color: themeProps.buttonsFontColor,
+                  borderRadius: buttonBorderRadius,
                 }}
               >
                 OK
@@ -661,10 +698,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
                 <div
                   key={choice.id || idx}
                   onClick={() => handleChoiceClick(choice.id)}
-                  className="flex items-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-all hover:scale-[1.02]"
+                  className="flex items-center px-4 py-3 cursor-pointer transition-all hover:scale-[1.02]"
                   style={{
-                    borderColor: isSelected ? themeProps.buttonsBgColor : themeProps.answersColor + '30',
-                    backgroundColor: isSelected ? themeProps.buttonsBgColor + '15' : themeProps.backgroundColor,
+                    border: `2px solid ${isSelected ? themeProps.buttonsBgColor : themeProps.answersColor + '30'}`,
+                    borderRadius: inputBorderRadius,
+                    backgroundColor: isSelected ? themeProps.buttonsBgColor + '15' : choicesBg,
                   }}
                 >
                   {settings.lettersOnAnswers ? (
@@ -700,10 +738,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
                   Vous pouvez sélectionner plusieurs options
                 </p>
                 <button
-                  className="mt-4 px-6 py-2 rounded-md font-medium transition-opacity hover:opacity-90 flex items-center disabled:opacity-50"
+                  className="mt-4 px-6 py-2 font-medium transition-opacity hover:opacity-90 flex items-center disabled:opacity-50"
                   style={{
                     backgroundColor: themeProps.buttonsBgColor,
                     color: themeProps.buttonsFontColor,
+                    borderRadius: buttonBorderRadius,
                   }}
                   disabled={selectedChoices.length === 0}
                 >
@@ -722,11 +761,8 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
               type="text"
               readOnly
               placeholder={block.attributes.format || 'DD/MM/YYYY'}
-              className="w-full max-w-xs bg-transparent border-b-2 py-3 text-xl outline-none"
-              style={{
-                color: themeProps.answersColor,
-                borderColor: themeProps.buttonsBgColor + '60',
-              }}
+              className="w-full max-w-xs py-3 text-xl outline-none"
+              style={inputStyleCss}
             />
           </div>
         )
@@ -898,10 +934,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
         return (
           <div className="mt-8">
             <button
-              className="px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90"
+              className="px-8 py-3 text-base font-medium transition-all hover:opacity-90"
               style={{
                 backgroundColor: themeProps.buttonsBgColor,
                 color: themeProps.buttonsFontColor,
+                borderRadius: buttonBorderRadius,
               }}
             >
               {block.attributes.buttonText || 'Continuer'}
@@ -1026,10 +1063,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
           {/* Button */}
           <div className={`mt-6 ${isImageOnLeft ? '' : 'flex justify-end'}`}>
             <button
-              className="px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
+              className="px-8 py-3 text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
               style={{
                 backgroundColor: themeProps.buttonsBgColor,
                 color: themeProps.buttonsFontColor,
+                borderRadius: buttonBorderRadius,
               }}
             >
               {block.attributes.buttonText || 'Commencer'}
@@ -1144,10 +1182,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             {block.type === 'welcome-screen' && (
               <div className="mt-8">
                 <button
-                  className="px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
+                  className="px-8 py-3 text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
                   style={{
                     backgroundColor: themeProps.buttonsBgColor,
                     color: themeProps.buttonsFontColor,
+                    borderRadius: buttonBorderRadius,
                   }}
                 >
                   {block.attributes.buttonText || 'Commencer'}
@@ -1329,10 +1368,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             {/* OK button for group */}
             <div className="mt-4 pt-4">
               <button
-                className="px-6 py-2 rounded-md font-medium transition-all hover:opacity-90 flex items-center gap-2"
+                className="px-6 py-2 font-medium transition-all hover:opacity-90 flex items-center gap-2"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor,
                   color: themeProps.buttonsFontColor,
+                  borderRadius: buttonBorderRadius,
                 }}
               >
                 OK
@@ -1370,20 +1410,22 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
               
               <div className="flex gap-3">
                 <button
-                  className="flex-1 px-6 py-3 rounded-lg font-medium transition-all hover:opacity-90 hover:scale-[1.02]"
+                  className="flex-1 px-6 py-3 font-medium transition-all hover:opacity-90 hover:scale-[1.02]"
                   style={{
                     backgroundColor: themeProps.buttonsBgColor,
                     color: themeProps.buttonsFontColor,
+                    borderRadius: buttonBorderRadius,
                   }}
                 >
                   {block.attributes.initialYesLabel || 'Oui'} → Continuer
                 </button>
                 <button
-                  className="flex-1 px-6 py-3 rounded-lg font-medium border-2 transition-all hover:scale-[1.02]"
+                  className="flex-1 px-6 py-3 font-medium border-2 transition-all hover:scale-[1.02]"
                   style={{
                     borderColor: themeProps.answersColor + '40',
                     color: themeProps.answersColor,
                     backgroundColor: 'transparent',
+                    borderRadius: buttonBorderRadius,
                   }}
                 >
                   {block.attributes.initialNoLabel || 'Non'} → Passer
@@ -1474,20 +1516,22 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
               
               <div className="flex gap-3">
                 <button
-                  className="flex-1 px-6 py-3 rounded-lg font-medium transition-all hover:opacity-90 hover:scale-[1.02]"
+                  className="flex-1 px-6 py-3 font-medium transition-all hover:opacity-90 hover:scale-[1.02]"
                   style={{
                     backgroundColor: themeProps.buttonsBgColor,
                     color: themeProps.buttonsFontColor,
+                    borderRadius: buttonBorderRadius,
                   }}
                 >
                   {block.attributes.repeatYesLabel || 'Oui'}
                 </button>
                 <button
-                  className="flex-1 px-6 py-3 rounded-lg font-medium border-2 transition-all hover:scale-[1.02]"
+                  className="flex-1 px-6 py-3 font-medium border-2 transition-all hover:scale-[1.02]"
                   style={{
                     borderColor: themeProps.answersColor + '40',
                     color: themeProps.answersColor,
                     backgroundColor: 'transparent',
+                    borderRadius: buttonBorderRadius,
                   }}
                 >
                   {block.attributes.repeatNoLabel || 'Non'}
@@ -1582,10 +1626,11 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             {['short-text', 'long-text', 'email', 'number', 'phone', 'date', 'advanced-date'].includes(block.type) && (
               <div className="mt-6">
                 <button
-                  className="px-6 py-2 rounded-md font-medium transition-all hover:opacity-90 flex items-center gap-2"
+                  className="px-6 py-2 font-medium transition-all hover:opacity-90 flex items-center gap-2"
                   style={{
                     backgroundColor: themeProps.buttonsBgColor,
                     color: themeProps.buttonsFontColor,
+                    borderRadius: buttonBorderRadius,
                   }}
                 >
                   OK

@@ -10,6 +10,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Builder preview (Aperçu) — faithful rendering** — the Aperçu button no longer uses a custom in-app re-implementation (`form-preview.tsx`) that diverged from the real form; it now auto-saves any pending changes, then opens an auth-protected iframe at `/forms/[id]/preview` that renders the exact same `PublicFormClient` component as the published form — preview is guaranteed to be pixel-perfect with production at all times; `form-preview.tsx` is kept but no longer used
+
+### Added
+- **Form preview endpoint** (`/forms/[id]/preview`) — auth-protected server route that renders any form (draft or published) using the full public renderer; accessible to owners, collaborators (any permission level), and admins; used as the iframe target for the builder Aperçu button
+
 ### Fixed
 - **Site customization not applied** — logo, site name, and favicon saved in the admin panel were ignored by the dashboard header (hardcoded "FB" / "FormBuilder") and the browser tab title (hardcoded static metadata); the dashboard page now fetches `SystemSettings` server-side and passes `siteName` / `siteLogo` to the client; `layout.tsx` uses `generateMetadata()` (async) to set the dynamic title and favicon icons
 

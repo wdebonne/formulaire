@@ -10,6 +10,12 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ## [Non publié]
 
+### Modifications
+- **Aperçu du builder — rendu fidèle** — le bouton Aperçu n'utilise plus une réimplémentation interne (`form-preview.tsx`) qui divergeait du vrai rendu ; il sauvegarde maintenant les modifications en attente, puis ouvre un iframe auth-protégé vers `/forms/[id]/preview` qui rend exactement le même composant `PublicFormClient` que le formulaire publié — l'aperçu est garanti identique à la production en toutes circonstances ; `form-preview.tsx` est conservé mais n'est plus utilisé
+
+### Ajouts
+- **Endpoint de prévisualisation** (`/forms/[id]/preview`) — route serveur auth-protégée qui rend n'importe quel formulaire (brouillon ou publié) avec le renderer public complet ; accessible aux propriétaires, collaborateurs (tout niveau de permission) et administrateurs ; utilisé comme cible iframe par le bouton Aperçu du builder
+
 ### Corrections
 - **Personnalisation non appliquée** — le logo, le nom du site et le favicon enregistrés dans le panneau d'administration étaient ignorés par l'en-tête du dashboard (valeurs codées en dur "FB" / "FormBuilder") et le titre de l'onglet (métadonnées statiques) ; la page du dashboard récupère désormais `SystemSettings` côté serveur et passe `siteName` / `siteLogo` au composant client ; `layout.tsx` utilise `generateMetadata()` (async) pour injecter le titre et le favicon dynamiquement
 

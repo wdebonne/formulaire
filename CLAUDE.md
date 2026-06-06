@@ -32,9 +32,11 @@ Context for Claude Code when working on this project.
 | `src/components/builder/visual-logic-builder.tsx` | Visual conditional logic editor |
 | `src/components/builder/versions-modal.tsx` | Form version history modal (list, create, restore) |
 | `src/components/builder/block-editor.tsx` | Block settings panel (right sidebar) |
+| `src/components/builder/center-block-preview.tsx` | Static block preview in builder center panel (read-only, reactive via Zustand) |
 | `src/components/builder/block-preview.tsx` | Block preview in builder center panel |
 | `src/components/builder/settings-editor.tsx` | Form settings panel (progress bar, logo, branding, slug, animations) |
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
+| `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
 | `src/app/api/forms/[id]/versions/route.ts` | Versions API — GET list, POST create manual version |
 | `src/app/api/forms/[id]/versions/[versionId]/route.ts` | Versions API — DELETE a specific version |
@@ -118,3 +120,14 @@ Webhooks serialize block values using human-readable labels (not raw values/slug
 
 ### Form Versioning
 Auto-versions are created inside the PUT `/api/forms/[id]` route when `saveCount % 10 === 0`, using a `$transaction` to update the form and create the version atomically. Manual versions are created via POST `/api/forms/[id]/versions`. Restore always snapshots the current state first (label: "Avant restauration vN") before overwriting, so no data is ever lost silently.
+
+### Builder Preview System
+The "Aperçu" button in the builder does **not** use a custom re-implementation of the form renderer. Instead:
+1. If the form has unsaved changes (`isDirty`), it auto-saves first.
+2. It opens a `fixed inset-0` iframe overlay pointing to `/forms/[id]/preview`.
+3. That page (`src/app/forms/[id]/preview/page.tsx`) is auth-protected and renders the exact same `PublicFormClient` component as the public form — regardless of published/draft status.
+
+This guarantees the preview is always pixel-perfect with the published form. `src/components/builder/form-preview.tsx` is a legacy component that is no longer used.
+
+### Builder Center Preview (Reactive)
+The center panel (`CenterBlockPreview`) is driven entirely by the Zustand store. Every `updateBlock`, `updateInnerBlock`, `addBlock`, `removeBlock`, or `moveBlock` call immediately updates `blocks` in the store, which causes `FormBuilderClient` to recompute `selectedBlock` and pass the updated prop to `CenterBlockPreview` — no refresh needed. Theme changes are also reflected in real-time via the `themes` state in `FormBuilderClient`.

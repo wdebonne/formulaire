@@ -108,33 +108,28 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const newThemeId = themeId !== undefined ? themeId : existingForm.themeId
     const newTitle = title ?? existingForm.title
 
-    const shouldAutoVersion = newSaveCount % 10 === 0
+    const formData = {
+      title: newTitle,
+      slug,
+      description: description ?? existingForm.description,
+      status: status ?? existingForm.status,
+      blocks: newBlocks,
+      logic: newLogic,
+      settings: newSettings,
+      webhooks: newWebhooks,
+      themeId: newThemeId,
+      saveCount: newSaveCount,
+    }
 
-    const ops: Parameters<typeof prisma.$transaction>[0] = [
-      prisma.form.update({
-        where: { id: params.id },
-        data: {
-          title: newTitle,
-          slug,
-          description: description ?? existingForm.description,
-          status: status ?? existingForm.status,
-          blocks: newBlocks,
-          logic: newLogic,
-          settings: newSettings,
-          webhooks: newWebhooks,
-          themeId: newThemeId,
-          saveCount: newSaveCount,
-        },
-      }),
-    ]
-
-    if (shouldAutoVersion) {
+    let form
+    if (newSaveCount % 10 === 0) {
       const last = await prisma.formVersion.findFirst({
         where: { formId: params.id },
         orderBy: { number: 'desc' },
         select: { number: true },
       })
-      ops.push(
+      const [updatedForm] = await prisma.$transaction([
+        prisma.form.update({ where: { id: params.id }, data: formData }),
         prisma.formVersion.create({
           data: {
             formId: params.id,
@@ -149,11 +144,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             themeId: newThemeId,
             createdBy: session.userId,
           },
-        })
-      )
+        }),
+      ])
+      form = updatedForm
+    } else {
+      form = await prisma.form.update({ where: { id: params.id }, data: formData })
     }
-
-    const [form] = await prisma.$transaction(ops)
 
     return NextResponse.json(form)
   } catch (error) {

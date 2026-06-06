@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { FormBlock, LogicRule, LogicCondition, ConditionOperator } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, ChevronDown, ChevronRight, GitBranch, Search } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, GitBranch, Search, Workflow } from 'lucide-react'
+import { VisualLogicBuilder } from '@/components/builder/visual-logic-builder'
 
 interface LogicEditorProps {
   blocks: FormBlock[]
@@ -118,6 +119,7 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
   const [expandedBlocks, setExpandedBlocks] = useState<string[]>([])
   const [blockSearch, setBlockSearch] = useState('')
   const [collapsedRules, setCollapsedRules] = useState<Record<string, string[]>>({})
+  const [showVisual, setShowVisual] = useState(false)
 
   const safeLogic = Array.isArray(logic) ? logic : []
 
@@ -270,9 +272,22 @@ export function LogicEditor({ blocks }: LogicEditorProps) {
 
   return (
     <div className="p-4 space-y-4">
+      <VisualLogicBuilder open={showVisual} onClose={() => setShowVisual(false)} blocks={blocks} />
+
       <div className="mb-4">
-        <h3 className="font-medium">Logique conditionnelle</h3>
-        <p className="text-sm text-gray-500 mt-1">Définissez des règles pour chaque question</p>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-medium">Logique conditionnelle</h3>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5 text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+            onClick={() => setShowVisual(true)}
+          >
+            <Workflow className="w-3.5 h-3.5" />
+            Vue visuelle
+          </Button>
+        </div>
+        <p className="text-sm text-gray-500">Définissez des règles pour chaque question</p>
       </div>
 
       <div className="relative">

@@ -15,7 +15,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - **Historique des versions** — snapshot automatique toutes les 10 sauvegardes + versions manuelles avec label optionnel ; restauration ou suppression depuis le builder ou le dashboard ; recherche dans les versions ; l'état courant est toujours préservé avant chaque restauration
 - **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs
 - **Webhooks** — envoi des réponses vers des URLs externes, mapping personnalisé, réorganisation par drag & drop, recherche
-- **Paramètres** — barre de progression (position, taille), numérotation, animations, branding
+- **Paramètres** — barre de progression (position, taille), numérotation, animations, branding, affichage du logo (position + alignement)
 
 ### Partage & Publication
 - Formulaires publics accessibles à `/{slug}` directement à la racine du site
@@ -27,6 +27,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 ### Panneau d'administration
 - Gestion des utilisateurs (créer, modifier, supprimer)
 - Corbeille / soft delete avec restauration et réassignation
+- **Personnalisation du site** — nom du site, logo et favicon appliqués globalement (en-tête du dashboard, onglet navigateur, page de connexion)
 - Gestion des polices personnalisées
 - Configuration SMTP avec test d'envoi
 - Intégration Nextcloud

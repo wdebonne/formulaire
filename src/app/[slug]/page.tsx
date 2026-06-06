@@ -24,15 +24,21 @@ export default async function PublicFormPage({ params }: { params: Promise<{ slu
     notFound()
   }
 
-  const form = await prisma.form.findFirst({
-    where: {
-      OR: [{ id: slug }, { slug }],
-      status: 'published',
-    },
-    include: {
-      theme: true,
-    },
-  })
+  const [form, systemSettings] = await Promise.all([
+    prisma.form.findFirst({
+      where: {
+        OR: [{ id: slug }, { slug }],
+        status: 'published',
+      },
+      include: {
+        theme: true,
+      },
+    }),
+    prisma.systemSettings.findFirst({
+      where: { id: 'system' },
+      select: { siteLogo: true },
+    }),
+  ])
 
   if (!form) {
     notFound()
@@ -73,5 +79,5 @@ export default async function PublicFormPage({ params }: { params: Promise<{ slu
         },
       }
 
-  return <PublicFormClient form={parsedForm} theme={parsedTheme} />
+  return <PublicFormClient form={parsedForm} theme={parsedTheme} siteLogo={systemSettings?.siteLogo ?? null} />
 }

@@ -15,7 +15,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - **Version history** — automatic snapshot every 10 saves + manual versions with optional label; restore or delete any version from the builder or dashboard; search across versions; current state always preserved before restore
 - **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles
 - **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
-- **Form settings** — progress bar (position, size), question numbers, animations, branding
+- **Form settings** — progress bar (position, size), question numbers, animations, branding, site logo display (position + alignment)
 
 ### Sharing & Publishing
 - Public forms accessible at `/{slug}` directly from the root URL
@@ -27,6 +27,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 ### Admin Panel
 - User management (create, edit, delete)
 - Trash / soft delete with restoration and user reassignment
+- **Site customization** — site name, logo, and favicon applied globally (dashboard header, browser tab, login page)
 - Custom fonts management
 - SMTP email configuration with test
 - Nextcloud integration

@@ -241,6 +241,9 @@ export interface FormSettings {
   showBranding?: boolean
   brandingText?: string
   logo?: string // URL du logo
+  showLogo?: boolean
+  logoPosition?: 'top' | 'bottom'
+  logoAlignment?: 'left' | 'center' | 'right'
 }
 
 export interface Form {

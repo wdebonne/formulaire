@@ -74,6 +74,10 @@ Builder state lives in a [Zustand](https://zustand-demo.pmnd.rs/) store (`src/st
 
 JWTs are stored in HTTP-only cookies. The `src/lib/auth.ts` module exposes helpers for signing, verifying tokens, and checking permissions. Middleware (`src/middleware.ts`) protects routes that require authentication.
 
+### Site Customization
+
+Site name, logo, and favicon are stored in the `SystemSettings` table (single row, `id = "system"`). Server pages that display branding (dashboard, layout) fetch this row at render time via Prisma. `src/app/layout.tsx` exports an async `generateMetadata()` to inject the dynamic title and favicon. The public endpoint `/api/settings/public` exposes only `siteName`, `siteLogo`, `siteFavicon`, and `registrationEnabled` without authentication (used by the login page and public-facing pages).
+
 ### Adding a New Block Type
 
 1. Add the new type to the `BlockType` union in `src/types/form.ts`

@@ -165,9 +165,19 @@ export function DatabaseSettingsClient() {
       const data = await res.json()
 
       if (res.ok) {
+        const s = data.stats || {}
+        const details = [
+          s.forms && `${s.forms} formulaire(s)`,
+          s.formVersions && `${s.formVersions} version(s)`,
+          s.responses && `${s.responses} réponse(s)`,
+          s.themes && `${s.themes} thème(s)`,
+          s.fonts && `${s.fonts} police(s)`,
+          s.templates && `${s.templates} template(s)`,
+          s.settings && `${s.settings} paramètre(s)`,
+        ].filter(Boolean).join(', ')
         toast({
           title: 'Import réussi',
-          description: 'Les données ont été importées avec succès',
+          description: details || 'Les données ont été importées avec succès',
         })
         fetchDatabaseInfo()
       } else {

@@ -119,6 +119,18 @@ Public forms are accessible directly at the root of the site:
 
 ---
 
+## 7. Site Customization
+
+After logging in as admin, go to **Admin → Customization** (`/admin/customization`) to set:
+
+- **Site name** — displayed in the dashboard header, browser tab, and login page
+- **Logo** — replaces the default "FB" icon in the dashboard header and login page (recommended: 200×50 px)
+- **Favicon** — shown in browser tabs (recommended: 32×32 px)
+
+Changes take effect immediately on the next page load.
+
+---
+
 ## Updating the Application
 
 To update to a newer version in Portainer:

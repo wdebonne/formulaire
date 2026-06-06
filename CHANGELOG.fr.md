@@ -10,7 +10,11 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ## [Non publié]
 
+### Corrections
+- **Personnalisation non appliquée** — le logo, le nom du site et le favicon enregistrés dans le panneau d'administration étaient ignorés par l'en-tête du dashboard (valeurs codées en dur "FB" / "FormBuilder") et le titre de l'onglet (métadonnées statiques) ; la page du dashboard récupère désormais `SystemSettings` côté serveur et passe `siteName` / `siteLogo` au composant client ; `layout.tsx` utilise `generateMetadata()` (async) pour injecter le titre et le favicon dynamiquement
+
 ### Ajouts
+- **Logo dans les formulaires** — affichage du logo de la personnalisation dans le formulaire public ; position configurable (en haut / en bas) et alignement (à gauche / au centre / à droite) depuis les paramètres du formulaire ; fonctionne dans les trois layouts (standard, float, split)
 - **Versionnage des formulaires** — historique hybride automatique/manuel pour chaque formulaire
   - Snapshot automatique toutes les 10 sauvegardes (badge Auto, bleu)
   - Bouton "Enregistrer la version actuelle" avec label optionnel (badge Manuel, vert)

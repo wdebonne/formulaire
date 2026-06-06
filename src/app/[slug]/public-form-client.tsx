@@ -699,6 +699,16 @@ interface PublicFormClientProps {
     name: string
     properties: ThemeProperties
   }
+  siteLogo?: string | null
+}
+
+function LogoBar({ siteLogo, alignment }: { siteLogo: string; alignment: 'left' | 'center' | 'right' }) {
+  const alignClasses = { left: 'justify-start', center: 'justify-center', right: 'justify-end' }
+  return (
+    <div className={`flex px-4 py-2 shrink-0 ${alignClasses[alignment] ?? 'justify-start'}`}>
+      <img src={siteLogo} alt="Logo" className="h-8 object-contain" />
+    </div>
+  )
 }
 
 // État pour un bloc répétable
@@ -742,7 +752,7 @@ function getNextVisibleInnerIndex(
   return null
 }
 
-export function PublicFormClient({ form, theme }: PublicFormClientProps) {
+export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [isAnimating, setIsAnimating] = useState(false)
@@ -1561,16 +1571,20 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
   }
 
   // Vérifier si le bloc actuel est un welcome-screen ou thankyou-screen avec un layout split
-  const hasSplitLayout = currentBlock && 
+  const hasSplitLayout = currentBlock &&
     ['welcome-screen', 'thankyou-screen'].includes(currentBlock.type) &&
     currentBlock.attributes.showAttachment &&
     ['split-left', 'split-right'].includes(currentBlock.attributes.attachmentLayout || '')
 
   // Vérifier si le bloc actuel a un layout float
-  const hasFloatLayout = currentBlock && 
+  const hasFloatLayout = currentBlock &&
     ['welcome-screen', 'thankyou-screen'].includes(currentBlock.type) &&
     currentBlock.attributes.showAttachment &&
     ['float-left', 'float-right'].includes(currentBlock.attributes.attachmentLayout || '')
+
+  const showLogo = form.settings.showLogo && siteLogo
+  const logoPosition: 'top' | 'bottom' = form.settings.logoPosition ?? 'top'
+  const logoAlignment: 'left' | 'center' | 'right' = form.settings.logoAlignment ?? 'left'
 
   // Rendu avec layout float pour welcome/thankyou screen
   if (hasFloatLayout && currentBlock) {
@@ -1685,23 +1699,27 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
 
     return (
       <div
-        className="min-h-screen flex flex-col md:flex-row transition-colors duration-300"
+        className="min-h-screen flex flex-col transition-colors duration-300"
         style={{
           backgroundColor: themeProps.backgroundColor,
           fontFamily: themeProps.font || 'Inter',
         }}
       >
-        {isImageOnLeft ? (
-          <>
-            {attachmentSection}
-            {contentSection}
-          </>
-        ) : (
-          <>
-            {contentSection}
-            {attachmentSection}
-          </>
-        )}
+        {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+        <div className="flex-1 flex flex-col md:flex-row">
+          {isImageOnLeft ? (
+            <>
+              {attachmentSection}
+              {contentSection}
+            </>
+          ) : (
+            <>
+              {contentSection}
+              {attachmentSection}
+            </>
+          )}
+        </div>
+        {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
       </div>
     )
   }
@@ -1775,23 +1793,27 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
 
     return (
       <div
-        className="min-h-screen flex flex-row transition-colors duration-300"
+        className="min-h-screen flex flex-col transition-colors duration-300"
         style={{
           ...getBackgroundStyle(themeProps),
           fontFamily: themeProps.font || 'Inter',
         }}
       >
-        {isImageOnLeft ? (
-          <>
-            {attachmentSection}
-            {contentSection}
-          </>
-        ) : (
-          <>
-            {contentSection}
-            {attachmentSection}
-          </>
-        )}
+        {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+        <div className="flex-1 flex flex-row">
+          {isImageOnLeft ? (
+            <>
+              {attachmentSection}
+              {contentSection}
+            </>
+          ) : (
+            <>
+              {contentSection}
+              {attachmentSection}
+            </>
+          )}
+        </div>
+        {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
       </div>
     )
   }
@@ -1846,6 +1868,9 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
         fontFamily: themeProps.font || 'Inter',
       }}
     >
+      {/* Logo - Top */}
+      {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+
       {/* Progress bar - Top */}
       {showProgressBar && progressBarPosition === 'top' && <HorizontalProgressBar />}
       
@@ -1951,9 +1976,12 @@ export function PublicFormClient({ form, theme }: PublicFormClientProps) {
 
       {/* Progress bar - Bottom */}
       {showProgressBar && progressBarPosition === 'bottom' && <HorizontalProgressBar />}
-      
+
       {/* Progress bar - Right */}
       {showProgressBar && progressBarPosition === 'right' && <VerticalProgressBar />}
+
+      {/* Logo - Bottom */}
+      {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
     </div>
   )
 }

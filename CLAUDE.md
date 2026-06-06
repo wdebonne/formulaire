@@ -33,11 +33,16 @@ Context for Claude Code when working on this project.
 | `src/components/builder/versions-modal.tsx` | Form version history modal (list, create, restore) |
 | `src/components/builder/block-editor.tsx` | Block settings panel (right sidebar) |
 | `src/components/builder/block-preview.tsx` | Block preview in builder center panel |
+| `src/components/builder/settings-editor.tsx` | Form settings panel (progress bar, logo, branding, slug, animations) |
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
 | `src/app/api/forms/[id]/versions/route.ts` | Versions API — GET list, POST create manual version |
 | `src/app/api/forms/[id]/versions/[versionId]/route.ts` | Versions API — DELETE a specific version |
 | `src/app/api/forms/[id]/versions/[versionId]/restore/route.ts` | Versions API — POST restore (snapshots current state first) |
+| `src/app/admin/customization/customization-client.tsx` | Site name / logo / favicon admin UI |
+| `src/app/api/admin/settings/route.ts` | SystemSettings API (GET/PUT, admin-only) |
+| `src/app/api/settings/public/route.ts` | Public settings endpoint (no auth) — used by login page and public forms |
+| `src/app/layout.tsx` | Root layout — `generateMetadata()` reads `SystemSettings` for dynamic title and favicon |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -90,6 +95,7 @@ When adding a new block type, update **all** of these:
 - `FormShare` model handles per-user permissions (Read/Edit/Admin)
 - `Theme` model stores `properties` as JSON
 - `Font` model stores Google Fonts added by admins
+- `FormSettings` (JSON stored in `Form.settings`) includes `showLogo`, `logoPosition` (`top`|`bottom`), `logoAlignment` (`left`|`center`|`right`) — the logo URL itself comes from `SystemSettings.siteLogo`, fetched server-side in `src/app/[slug]/page.tsx`
 
 ---
 

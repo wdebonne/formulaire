@@ -101,6 +101,18 @@ Depuis janvier 2026, les liens publics des formulaires sont accessibles directem
 - Les anciennes URLs `/f/[slug]` sont automatiquement redirigées vers la nouvelle structure.
 - Le lien de partage et l'URL affichée dans l'administration ont été mis à jour.
 
+## 6. Personnalisation du site
+
+Après connexion en tant qu'admin, rendez-vous dans **Admin → Personnalisation** (`/admin/customization`) pour configurer :
+
+- **Nom du site** — affiché dans l'en-tête du dashboard, l'onglet navigateur et la page de connexion
+- **Logo** — remplace l'icône "FB" par défaut dans l'en-tête et la page de connexion (recommandé : 200×50 px)
+- **Favicon** — affiché dans les onglets du navigateur (recommandé : 32×32 px)
+
+Les modifications prennent effet immédiatement au prochain chargement de page.
+
+---
+
 ## Notes
 - Le build peut prendre quelques minutes lors du premier déploiement (plus long sur ARM)
 - Pour la production, utilisez un JWT_SECRET sécurisé et unique

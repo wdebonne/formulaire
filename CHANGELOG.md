@@ -10,7 +10,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Site customization not applied** — logo, site name, and favicon saved in the admin panel were ignored by the dashboard header (hardcoded "FB" / "FormBuilder") and the browser tab title (hardcoded static metadata); the dashboard page now fetches `SystemSettings` server-side and passes `siteName` / `siteLogo` to the client; `layout.tsx` uses `generateMetadata()` (async) to set the dynamic title and favicon icons
+
 ### Added
+- **Logo in forms** — display the site logo (from admin customization) inside the published form; configurable position (top / bottom) and alignment (left / center / right) from the form settings panel; works across all three layouts (standard, float, split)
 - **Form versioning** — hybrid auto/manual version history for every form
   - Automatic snapshot every 10 saves (Auto badge, blue)
   - Manual "Save current version" button with optional label (Manual badge, green)

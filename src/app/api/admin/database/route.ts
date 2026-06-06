@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'backup') {
       // Exporter toutes les données
-      const [users, forms, themes, responses, settings, templates, formShares] = await Promise.all([
+      const [users, forms, themes, responses, settings, templates, formShares, formVersions, fonts] = await Promise.all([
         prisma.user.findMany(),
         prisma.form.findMany(),
         prisma.theme.findMany(),
@@ -83,19 +83,23 @@ export async function POST(request: NextRequest) {
         prisma.systemSettings.findMany(),
         prisma.emailTemplate.findMany(),
         prisma.formShare.findMany(),
+        prisma.formVersion.findMany(),
+        prisma.font.findMany(),
       ])
 
       const backup = {
-        version: '1.0',
+        version: '1.1',
         exportedAt: new Date().toISOString(),
         data: {
-          users: users.map(u => ({ ...u, password: '[REDACTED]' })), // Ne pas exporter les mots de passe
+          users: users.map(u => ({ ...u, password: '[REDACTED]' })),
           forms,
           themes,
           responses,
           settings,
           templates,
           formShares,
+          formVersions,
+          fonts,
         }
       }
 

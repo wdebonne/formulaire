@@ -74,6 +74,10 @@ L'état du builder est géré par un store [Zustand](https://zustand-demo.pmnd.r
 
 Les JWT sont stockés dans des cookies HTTP-only. Le module `src/lib/auth.ts` fournit des utilitaires pour la signature, la vérification des tokens et la vérification des permissions. Le middleware (`src/middleware.ts`) protège les routes qui nécessitent une authentification.
 
+### Personnalisation du site
+
+Le nom du site, le logo et le favicon sont stockés dans la table `SystemSettings` (ligne unique, `id = "system"`). Les pages serveur qui affichent la marque (dashboard, layout) récupèrent cette ligne au rendu via Prisma. `src/app/layout.tsx` exporte une fonction `generateMetadata()` async pour injecter le titre et le favicon dynamiquement. L'endpoint public `/api/settings/public` expose uniquement `siteName`, `siteLogo`, `siteFavicon` et `registrationEnabled` sans authentification (utilisé par la page de connexion et les pages publiques).
+
 ### Ajouter un nouveau type de bloc
 
 1. Ajouter le nouveau type dans l'union `BlockType` dans `src/types/form.ts`

@@ -2,12 +2,24 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
+import { prisma } from '@/lib/prisma'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
-  title: 'FormBuilder - Créateur de formulaires',
-  description: 'Créez des formulaires interactifs avec un éditeur visuel moderne',
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await prisma.systemSettings.findUnique({
+    where: { id: 'system' },
+    select: { siteName: true, siteFavicon: true },
+  }).catch(() => null)
+
+  const siteName = settings?.siteName ?? 'FormBuilder'
+  const siteFavicon = settings?.siteFavicon ?? null
+
+  return {
+    title: `${siteName} - Créateur de formulaires`,
+    description: 'Créez des formulaires interactifs avec un éditeur visuel moderne',
+    icons: siteFavicon ? { icon: siteFavicon } : undefined,
+  }
 }
 
 export const viewport: Viewport = {

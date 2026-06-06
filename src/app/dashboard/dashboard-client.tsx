@@ -62,9 +62,11 @@ interface UserData {
 interface DashboardClientProps {
   forms: FormData[]
   user: UserData
+  siteName?: string
+  siteLogo?: string | null
 }
 
-export function DashboardClient({ forms: initialForms, user }: DashboardClientProps) {
+export function DashboardClient({ forms: initialForms, user, siteName = 'FormBuilder', siteLogo = null }: DashboardClientProps) {
   const [forms, setForms] = useState(initialForms)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
@@ -250,10 +252,14 @@ export function DashboardClient({ forms: initialForms, user }: DashboardClientPr
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <span className="text-white font-bold">FB</span>
-              </div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">FormBuilder</h1>
+              {siteLogo ? (
+                <img src={siteLogo} alt={siteName} className="h-10 w-auto object-contain" />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                  <span className="text-white font-bold">{siteName.charAt(0).toUpperCase()}</span>
+                </div>
+              )}
+              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">{siteName}</h1>
             </div>
 
             <div className="flex items-center space-x-4">

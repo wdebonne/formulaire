@@ -12,6 +12,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - **Drag-and-drop editor** — reorder blocks visually with resizable panels
 - **25+ block types** — see the [full list](#block-types) below
 - **Visual conditional logic** — show/hide/jump/require blocks based on answers; text editor with block search + fullscreen visual flow builder (Tripetto-style) with SVG arrows, lane routing, and inline rule editor
+- **Version history** — automatic snapshot every 10 saves + manual versions with optional label; restore or delete any version from the builder or dashboard; search across versions; current state always preserved before restore
 - **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles
 - **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
 - **Form settings** — progress bar (position, size), question numbers, animations, branding

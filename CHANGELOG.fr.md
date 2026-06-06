@@ -11,6 +11,14 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Versionnage des formulaires** — historique hybride automatique/manuel pour chaque formulaire
+  - Snapshot automatique toutes les 10 sauvegardes (badge Auto, bleu)
+  - Bouton "Enregistrer la version actuelle" avec label optionnel (badge Manuel, vert)
+  - Modal d'historique accessible depuis le menu du dashboard ("Historique des versions") et le header du builder (bouton "Versions")
+  - Restauration en un clic — l'état courant est snapshoté automatiquement avant chaque restauration ("Avant restauration vN") pour ne jamais perdre de données
+  - Suppression d'une version avec confirmation en deux clics (évite les suppressions accidentelles)
+  - Barre de recherche (apparaît dès 4 versions) — filtre sur le label, le titre, le numéro et le type (auto/manuel) ; bouton × pour effacer ; compteur de résultats
+  - Versions listées par ordre chronologique inverse avec numéro, label, badge de type, titre et date
 - **Éditeur de logique visuel** — modal plein écran (style Tripetto) pour construire la logique conditionnelle visuellement ; cartes de blocs disposées en flux vertical, flèches SVG orthogonales reliant les blocs source et cible, coins arrondis, badges colorés sur les flèches affichant le résumé de la règle
   - Alternance gauche/droite des lanes par règle pour minimiser les chevauchements
   - Pools de lanes indépendants par côté avec algorithme d'assignation non chevauchant

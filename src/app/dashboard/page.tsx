@@ -3,13 +3,12 @@ import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DashboardClient } from './dashboard-client'
 
-// Forcer le rechargement des données à chaque visite
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function DashboardPage() {
   const session = await getSession()
-  
+
   if (!session) {
     redirect('/login')
   }
@@ -23,10 +22,14 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
+  const siteSettings = await prisma.systemSettings.findUnique({
+    where: { id: 'system' },
+    select: { siteName: true, siteLogo: true },
+  }).catch(() => null)
+
   let forms
-  
+
   if (user.role === 'admin') {
-    // Les admins voient tous les formulaires
     forms = await prisma.form.findMany({
       orderBy: { updatedAt: 'desc' },
       include: {
@@ -35,7 +38,6 @@ export default async function DashboardPage() {
       }
     })
   } else {
-    // Les utilisateurs voient leurs formulaires + ceux partagés
     const [ownForms, sharedForms] = await Promise.all([
       prisma.form.findMany({
         where: { userId: session.userId },
@@ -82,5 +84,12 @@ export default async function DashboardPage() {
     owner: form.user,
   }))
 
-  return <DashboardClient forms={formsData} user={user} />
+  return (
+    <DashboardClient
+      forms={formsData}
+      user={user}
+      siteName={siteSettings?.siteName ?? 'FormBuilder'}
+      siteLogo={siteSettings?.siteLogo ?? null}
+    />
+  )
 }

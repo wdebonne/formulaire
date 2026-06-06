@@ -11,6 +11,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Form versioning** — hybrid auto/manual version history for every form
+  - Automatic snapshot every 10 saves (Auto badge, blue)
+  - Manual "Save current version" button with optional label (Manual badge, green)
+  - Version history modal accessible from the dashboard dropdown ("Version history") and the builder header ("Versions" button)
+  - Restore any version with one click — current state is automatically snapshotted before restore ("Before restore vN") so nothing is ever lost
+  - Delete any version with two-step confirmation (no accidental deletions)
+  - Search bar (appears when more than 3 versions) — filters on label, title, number, and type (auto/manual); × button to clear; result counter
+  - Versions listed in reverse chronological order with number, label, type badge, title, and creation date
 - **Visual Logic Builder** — fullscreen Tripetto-style modal for building conditional logic visually; block cards arranged in a vertical flow, SVG orthogonal arrows connecting source and target blocks, rounded corners on paths, colored badges on arrows showing the rule summary
   - Left/right lane alternation per rule to minimize arrow overlap
   - Independent lane pools per side with non-overlapping lane assignment algorithm

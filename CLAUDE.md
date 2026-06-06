@@ -27,13 +27,17 @@ Context for Claude Code when working on this project.
 
 | File | Purpose |
 |------|---------|
-| `src/types/form.ts` | All TypeScript types (BlockType, FormBlock, LogicRule, Webhook, Theme…) |
+| `src/types/form.ts` | All TypeScript types (BlockType, FormBlock, LogicRule, Webhook, Theme, FormVersion…) |
 | `src/stores/form-builder.ts` | Zustand store — all builder state mutations |
 | `src/components/builder/visual-logic-builder.tsx` | Visual conditional logic editor |
+| `src/components/builder/versions-modal.tsx` | Form version history modal (list, create, restore) |
 | `src/components/builder/block-editor.tsx` | Block settings panel (right sidebar) |
 | `src/components/builder/block-preview.tsx` | Block preview in builder center panel |
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
+| `src/app/api/forms/[id]/versions/route.ts` | Versions API — GET list, POST create manual version |
+| `src/app/api/forms/[id]/versions/[versionId]/route.ts` | Versions API — DELETE a specific version |
+| `src/app/api/forms/[id]/versions/[versionId]/restore/route.ts` | Versions API — POST restore (snapshots current state first) |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -81,6 +85,8 @@ When adding a new block type, update **all** of these:
 
 - `Form` has a `deletedAt` field for soft delete (trash feature)
 - `Form` has `webhookStatus` for tracking last webhook delivery status
+- `Form` has `saveCount` (Int) — incremented on every PUT; used to trigger auto-versioning every 10 saves
+- `FormVersion` stores snapshots of `blocks`, `logic`, `settings`, `webhooks`, `themeId`, `title`; `isAuto` distinguishes auto vs manual; `number` is a sequential per-form counter
 - `FormShare` model handles per-user permissions (Read/Edit/Admin)
 - `Theme` model stores `properties` as JSON
 - `Font` model stores Google Fonts added by admins
@@ -100,3 +106,6 @@ Repeater state (current iteration, answers per iteration) is managed locally in 
 
 ### Webhooks Payload
 Webhooks serialize block values using human-readable labels (not raw values/slugs). Dates are locale-formatted. Use `findBlockDeep()` for nested field resolution.
+
+### Form Versioning
+Auto-versions are created inside the PUT `/api/forms/[id]` route when `saveCount % 10 === 0`, using a `$transaction` to update the form and create the version atomically. Manual versions are created via POST `/api/forms/[id]/versions`. Restore always snapshots the current state first (label: "Avant restauration vN") before overwriting, so no data is ever lost silently.

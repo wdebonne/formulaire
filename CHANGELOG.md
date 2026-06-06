@@ -1,346 +1,136 @@
 # Changelog
 
-## 2026-05-17 (suite)
+All notable changes to FormBuilder Standalone are documented here.
 
-### Ajouts
-- **Bloc "Oui / Non"** :
-  - Nouveau type de question avec deux boutons Oui / Non
-  - Option de masquage conditionnel : définir les blocs suivants à masquer selon la réponse choisie
-  - Disponible dans les blocs simples, groupes et répéteurs
-  - Aperçu en temps réel dans l'éditeur
-- **Recherche dans l'éditeur de logique** :
-  - Champ de recherche pour filtrer les blocs disponibles dans le panneau de logique conditionnelle
-  - Filtre en temps réel par label, insensible à la casse
-  - Facilite la gestion des formulaires comportant de nombreuses questions
-- **Webhooks — Glisser-déposer des mappings (vue agrandie)** :
-  - Poignée `⠿` en début de chaque ligne — glisser pour réordonner les mappings
-  - La poignée se désactive automatiquement quand un filtre de recherche est actif (évite la confusion)
-- **Webhooks — Champ de recherche des mappings (vue agrandie)** :
-  - Barre de recherche au-dessus des colonnes dans la modale agrandie
-  - Filtre simultanément sur la clé JSON et sur le label du champ sélectionné en valeur
-  - Compteur "X résultat(s) sur N" affiché pendant le filtrage
-  - Bouton × pour vider la recherche en un clic
-  - La recherche se réinitialise à chaque ouverture de la modale
+> **Version française** : [CHANGELOG.fr.md](CHANGELOG.fr.md)
 
-### Corrections
-- **GroupBlock — Transformation du texte** : La transformation automatique (MAJUSCULES / Première lettre) du bloc Texte Court n'était pas appliquée lorsque le champ était situé dans un groupe. Corrigé.
-- **InnerBlockInput — Stale closure** : `onNext()` était appelé avec une fermeture React périmée sur `answers` dans les blocs internes — la réponse courante n'était pas encore dans le store. Correction par fusion de `currentValue` dans les réponses avant l'appel.
-- **InnerBlockInput — Valeur non transmise à onNext** : La valeur sélectionnée n'était pas passée en second argument de `onNext()`, causant des incohérences dans la navigation entre blocs internes.
-- **isInnerBlockVisible / getNextVisibleInnerIndex** : Fonctions déplacées hors du composant React pour éviter les avertissements `react-hooks/exhaustive-deps` et supprimer les recrétations inutiles à chaque rendu.
-- **Type de onNext dans InnerBlockInputProps** : La prop `onNext` n'acceptait qu'un argument (`skipValidation`), générant une erreur TypeScript `TS2554` lors de l'appel `onNext(true, value)`.
-- **Éditeur de logique — Affichage** : Ajustements CSS pour améliorer la lisibilité des blocs et des règles dans le panneau de logique conditionnelle.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## 2026-05-17
-
-### Ajouts
-- **Champ de recherche dans la liste des blocs** :
-  - Champ de recherche avec icône loupe en haut du panneau de liste des blocs
-  - Filtre les blocs en temps réel par leur nom (insensible à la casse)
-  - Pour les groupes et répéteurs, remonte également si un de leurs blocs internes correspond
-  - Bouton × pour effacer la recherche en un clic
-  - État vide "Aucun bloc trouvé" affiché si aucun résultat
-  - Le glisser-déposer est suspendu pendant la recherche pour éviter les conflits
-- **Filtrage des choix dans le bloc Liste déroulante** :
-  - Nouvelle section "Filtrage des choix" (panneau violet) dans l'éditeur de chaque liste déroulante
-  - Sélection d'un **bloc source unique** (liste déroulante, choix multiple ou sélection image situé avant le bloc) dont la réponse pilote le masquage
-  - Pour chaque valeur possible du bloc source, un panneau dépliable liste les choix de la liste déroulante avec des **cases à cocher** (coché = masqué à l'utilisateur final)
-  - Compteur "N masqué(s)" affiché sur le panneau replié pour avoir un aperçu sans l'ouvrir
-  - **Champ de recherche** dans chaque panneau dépliable : filtre les choix en temps réel, insensible à la casse — indispensable pour les listes de 100 choix ou plus
-  - Zone de liste avec hauteur maximale et défilement vertical pour ne pas surcharger l'interface
-  - Le filtrage s'applique dans tous les contextes d'affichage : bloc principal, bloc dans un groupe et bloc dans un répéteur
-  - Les données de configuration sont stockées dans deux nouveaux attributs : `choiceFilterSourceBlockId` et `choiceFilters`
-- **Webhooks — Sélecteur de bloc avec recherche** :
-  - Le sélecteur de champ dans l'éditeur de mapping dispose désormais d'un champ de recherche intégré
-  - Filtre les blocs disponibles en temps réel par leur label
-  - Les blocs internes des groupes et répéteurs sont listés et filtrables
-
-### Améliorations
-- **Liste des blocs — Étiquettes des groupes et répéteurs** : Meilleur affichage des labels des blocs de type groupe et répétable dans le panneau latéral
-- **Webhooks — Options de mapping** : Les blocs internes des groupes et répéteurs sont désormais inclus dans la liste des options disponibles pour le mapping
+## [Unreleased]
 
 ---
 
-## 2026-05-16 (suite — nouvelles fonctionnalités)
+## [1.5.0] — 2026-05-17
 
-### Ajouts
-- **Nouveau bloc "Quantité"** :
-  - Permet de définir des articles/options avec une quantité saisissable pour chacun
-  - Configuration des lignes dans l'éditeur : label, quantité max, valeur par défaut
-  - Format de sortie configurable (résumé texte, JSON, etc.)
-  - Prise en charge complète dans les blocs simples, groupes et répéteurs
-  - Filtre de recherche intégré dans l'éditeur de choix pour les grandes listes
-  - Auto-initialisation des quantités à zéro pour les blocs internes
-- **Option "Autre" pour les blocs Choix multiple** :
-  - Nouvelle case "Permettre une réponse libre (Autre)" dans l'éditeur
-  - Affiche un champ de saisie libre en plus des options prédéfinies
-  - La valeur saisie est correctement exportée et affichée dans les réponses
-  - Fonctionne dans les blocs simples, groupes et répéteurs
-- **Masquer les choix déjà sélectionnés dans les répéteurs** :
-  - Nouvelle option sur les blocs de choix dans un répéteur
-  - Empêche de sélectionner deux fois la même option sur des itérations différentes
-  - Compatible avec les clés plates des répéteurs
-- **Redimensionnement des panneaux dans l'éditeur** :
-  - Les panneaux gauche (liste des blocs) et droit (propriétés) sont redimensionnables par glisser-déposer
-  - Améliore le confort de travail sur les formulaires complexes
-- **Réduction des groupes et répéteurs dans la liste des blocs** :
-  - Bouton de pliage/dépliage sur chaque groupe et répéteur dans le panneau latéral
-  - Les blocs internes sont masqués quand le groupe est réduit
+### Added
+- **Yes/No block** — two-button question with optional conditional hiding of subsequent blocks; works in standalone, group, and repeater contexts
+- **Conditional logic editor** — real-time block search field (case-insensitive filter by label)
+- **Blocks sidebar** — search field filtering blocks by name; also matches inner blocks of groups and repeaters; × button to clear; "No block found" empty state; drag-and-drop suspended during search
+- **Webhooks — drag-and-drop mapping reorder** (expanded view) — `⠿` handle on each mapping row; disabled automatically when a search filter is active
+- **Webhooks — mapping search** (expanded view) — search bar filters simultaneously on JSON key and field label; result counter; × button to clear; resets on each modal open
+- **Dropdown — dynamic choice filtering** — hide specific choices based on a previous block's answer (dropdown, multiple choice, or image selection); per-source-value configuration panels with checkboxes; "N hidden" counter on collapsed panel; built-in search for large option lists; works in standalone, group, and repeater
+- **Webhook mapping — block search** — integrated search field in the field selector; filters available blocks in real time by label
+- **Quantity block** — list of items with individual quantity inputs; configurable max and default value per line; selectable output format; works in standalone, group, and repeater; search filter in the choice editor for large lists
+- **Multiple choice — "Other" option** — optional free-text input alongside predefined choices; correctly exported in responses and webhooks; works in standalone, group, and repeater
+- **Exclude previously selected choices in repeaters** — prevents the same option from being picked in multiple iterations
+- **Resizable panels** in the builder — drag the border between left/right panels to adjust workspace width
+- **Collapsible groups and repeaters** in the block list — fold/unfold button to declutter the sidebar
 
-### Améliorations
-- **Gestion de la réponse "Autre"** : Formatage et affichage cohérents dans les réponses, l'export et les webhooks pour toutes les variantes de la réponse libre
-- **Bouton OK** : Comportement unifié sur les blocs Choix multiple et Liste déroulante avec valeur personnalisée
-- **RepeaterBlock** : Remontage propre des blocs internes pour éviter les états périmés entre itérations
-- **InnerBlockInput** : Meilleure gestion des callbacks et des mises à jour d'état pour éviter les écrasements involontaires
+### Changed
+- Webhooks now expose inner fields of groups and repeaters in the field mapping selector
+- Group and repeater labels display improved in the sidebar
+
+### Fixed
+- **Short text transform in groups** — auto-transform (UPPERCASE / Capitalize) was not applied to short-text blocks inside a group
+- **InnerBlockInput — stale closure** — `onNext()` was called with a stale React closure on `answers` in inner blocks; fixed by merging `currentValue` before the call
+- **InnerBlockInput — value not passed to onNext** — selected value was not forwarded as second argument to `onNext()`, causing navigation inconsistencies
+- **isInnerBlockVisible / getNextVisibleInnerIndex** — moved outside the React component to avoid `react-hooks/exhaustive-deps` warnings and unnecessary recreations
+- **TypeScript TS2554** — `onNext` prop only accepted one argument (`skipValidation`); now correctly typed for two arguments (`onNext(true, value)`)
+- **Logic editor layout** — CSS adjustments to improve readability of blocks and rules in the conditional logic panel
 
 ---
 
-## 2026-05-16 (soir)
+## [1.4.1] — 2026-05-16
 
-### Ajouts
-- **Corbeille des formulaires** :
-  - La suppression d'un formulaire est désormais un **soft delete** : le formulaire disparaît du tableau de bord de l'utilisateur mais n'est pas réellement effacé
-  - Nouveau champ `deletedAt` sur le modèle `Form` en base de données
-  - Nouvelle section **Corbeille** dans le panneau d'administration (`/admin/trash`) :
-    - Liste de tous les formulaires supprimés avec propriétaire d'origine, date de suppression et nombre de réponses
-    - Bouton **Restaurer** : remet le formulaire en ligne, avec possibilité de le réassigner à un autre utilisateur via un sélecteur
-    - Bouton **Supprimer définitivement** : suppression réelle avec confirmation et avertissement sur les réponses associées
-  - Les formulaires en corbeille n'apparaissent plus dans le dashboard ni dans les listes API (ni pour l'utilisateur, ni pour les admins dans le dashboard)
+### Added
+- **Form trash** — soft delete: deleted forms go to trash instead of being permanently removed (`deletedAt` field on `Form` model)
+- **Admin trash panel** (`/admin/trash`) — lists all deleted forms with original owner, deletion date, and response count; Restore (with optional user reassignment) and Permanently Delete (with confirmation warning) actions
+- **Address block** — single-line address input with real-time autocomplete via the official French Address API (BAN, free, no key required); 300ms debounce; keyboard navigation in suggestions (↑↓ Enter Escape); free-text fallback; configurable placeholder; works in standalone, group, and repeater
+- **Short text — auto-transform** — new "Response format" option: None / UPPERCASE / Capitalize, applied in real time while typing in the public form
+- **Thank-you screen — Restart button** — optional toggle in block properties; customizable label (default: "Restart"); fully resets the form (answers, index, repeater state) for a new submission; live preview in builder
+- **Webhooks — expanded view** — "Expand" button per webhook opens a full-screen modal with configuration and mapping side by side; inner blocks of groups and repeaters available in field selector
+- **Webhooks — custom value template** — new `_custom` value type with template editor; supports `{field:blockId}`, date/time tokens (`{date:dd-MM-YYYY}`, `{time:HH-mm-ss}`), `{entry_id}`, `{form_id}`; real-time preview of resolved value
 
-### Corrections
-- **Droits admin — suppression de formulaire** : Un administrateur système ne pouvait pas supprimer un formulaire appartenant à un autre utilisateur. La vérification utilisait un `findFirst({ userId })` direct au lieu de `checkFormAccess()` qui gère le rôle admin
-- **Import — formats et nom de fichier d'exportation** : Amélioration de la gestion des formats d'importation et correction du nom de fichier généré lors de l'export
-
----
-
-## 2026-05-16
-
-### Ajouts
-- **Nouveau bloc Adresse avec autocomplétion** :
-  - Champ de saisie d'adresse avec suggestions en temps réel via l'[API Adresse officielle](https://api-adresse.data.gouv.fr) (Base Adresse Nationale — gratuit, sans clé)
-  - Debounce 300ms pour limiter les appels réseau
-  - Navigation clavier dans les suggestions (↑↓ Entrée Échap)
-  - Sélection d'une suggestion → remplit l'adresse complète dans le champ
-  - Saisie libre toujours possible si l'adresse n'est pas trouvée par l'API
-  - Placeholder configurable dans l'éditeur
-  - Disponible dans les blocs simples, groupes et répéteurs
-- **Transformation automatique du texte (bloc Texte Court)** :
-  - Nouvelle option "Formatage de la réponse" dans l'éditeur : Aucun / MAJUSCULES / Première lettre
-  - Appliqué en temps réel pendant la frappe dans le formulaire public
-  - Utile pour standardiser la saisie (nom de famille en majuscules, etc.)
-- **Bouton "Recommencer" sur l'écran de remerciement** :
-  - Toggle activable dans les propriétés du bloc écran de fin
-  - Texte du bouton personnalisable (défaut : "Recommencer")
-  - Réinitialise complètement le formulaire (réponses, index, état des répéteurs) pour une nouvelle soumission
-  - Aperçu en temps réel dans l'éditeur
-- **Webhooks — Vue agrandie** :
-  - Bouton "Agrandir" dans l'en-tête de chaque webhook
-  - Modal plein écran avec 2 colonnes : configuration à gauche, mapping à droite
-  - Les blocs internes des groupes et répéteurs sont disponibles dans le sélecteur de champs
-- **Webhooks — Valeur personnalisée dans le mapping** :
-  - Nouveau type de valeur `_custom` avec un éditeur de template
-  - Insertion de champs via `{field:blockId}`, dates `{date:dd-MM-YYYY}`, heures `{time:HH-mm-ss}` et identifiants `{entry_id}`, `{form_id}`
-  - Aperçu en temps réel de la valeur résolue
-
-### Corrections
-- **Logique conditionnelle — Saut (jump) décalé** : Le saut vers un bloc cible utilisait l'index calculé au moment du clic, mais le `setTimeout(300ms)` se déclenchait après que `setAnswers` avait mis à jour `visibleBlocks` (indices décalés si un bloc était caché). Corrigé via une `ref` toujours synchronisée avec les blocs visibles
-- **Logique conditionnelle — Masquage prématuré** : L'opérateur `not_equals` avec une réponse `undefined` évaluait `undefined !== 'X' = true`, cachant les blocs dès le chargement avant toute interaction. Tous les opérateurs (sauf `is_empty` / `is_not_empty`) retournent désormais `false` si la réponse est absente
-- **Logique conditionnelle — Groupe masqué automatiquement** : Si tous les blocs internes d'un groupe sont cachés par la logique, le groupe lui-même est maintenant automatiquement masqué (évite l'affichage d'une page vide)
-- **Webhooks — TypeError sur blocs internes** : Le mapping webhook vers un bloc interne d'un groupe (ex : champ dans un groupe "Départ") retournait `undefined` car `blocks.find()` ne cherchait qu'au premier niveau. Ajout d'un `findBlockDeep()` qui cherche récursivement dans les `innerBlocks`
-- **Webhooks — Labels et dates formatés** : Les webhooks envoyaient les valeurs brutes (`peugeot-expert-2-(fn-492-fa)`, `2026-05-16`) au lieu des labels lisibles (`PEUGEOT EXPERT 2`, `16/05/2026`). Corrigé pour tous les contextes : mapping explicite, groupes, répéteurs et templates personnalisés
-- **Bloc Adresse — Valeur saisie ignorée lors de la sélection** : Condition de course résolue — quand l'utilisateur cliquait sur une suggestion, `onNext()` était appelé avec une fermeture React périmée sur `answers` (encore le texte tapé). La sélection met maintenant à jour la valeur sans auto-avancer ; l'utilisateur confirme avec OK ou Entrée
+### Fixed
+- **Admin rights — form delete** — an admin could not delete a form belonging to another user (check used `findFirst({ userId })` instead of `checkFormAccess()` which handles the admin role)
+- **Conditional logic — jump offset race condition** — the jump target index was calculated at click time but the 300ms `setTimeout` fired after `setAnswers` updated `visibleBlocks` (shifted indices when a block was hidden); fixed with a ref always in sync with visible blocks
+- **Conditional logic — premature hiding** — `not_equals` with `undefined` evaluated `undefined !== 'X' = true`, hiding blocks on load before any interaction; all operators (except `is_empty` / `is_not_empty`) now return `false` when the answer is absent
+- **Conditional logic — group auto-hide** — if all inner blocks of a group are hidden by logic, the group itself is now automatically hidden (avoids displaying an empty page)
+- **Webhooks — TypeError on inner blocks** — mapping to an inner field of a group returned `undefined` because `blocks.find()` only searched the first level; added recursive `findBlockDeep()` for `innerBlocks`
+- **Webhooks — human-readable labels and formatted dates** — webhooks were sending raw values (slugs, ISO dates) instead of human-readable labels and locale-formatted dates; fixed for all contexts: explicit mapping, groups, repeaters, and custom templates
+- **Address block — race condition on suggestion selection** — clicking a suggestion called `onNext()` with a stale closure on `answers` (still the typed text); selection now updates the value without auto-advancing; user confirms with OK or Enter
 
 ---
 
-## 2026-01-19
+## [1.4.0] — 2026-01-19
 
-### Corrections
-- **Logique conditionnelle "Sauter vers" pour les groupes** : Les règles de logique définies sur les blocs internes d'un groupe (4A, 4B, etc.) sont maintenant correctement évaluées et appliquées
-- **Logique conditionnelle "Sauter vers"** : La logique de saut fonctionne maintenant correctement - elle s'applique uniquement au bloc actuellement affiché au lieu de toutes les règles de tous les blocs
-- **Variables (@1, @2, etc.) dans les groupes** : Les variables de remplacement fonctionnent maintenant correctement dans les titres et descriptions des blocs groupe et de leurs questions internes
-- **Liste déroulante avec autocomplétion** : Le formulaire ne passe plus automatiquement à la question suivante pendant la saisie. Le passage se fait uniquement lors d'une sélection explicite (clic sur une option ou touche Entrée)
+### Added
+- **Dropdown — always-on autocomplete** — all dropdown blocks now use an autocomplete component; keyboard navigation (↑↓ Enter Escape); new "Allow custom answers" option: when disabled (default) user must pick from list, when enabled free-text is recorded
+- **Image Selection block** — choices illustrated with clickable images; two layout modes: side-by-side grid (2/3/4 columns, responsive) or stacked; configurable image size (small/medium/large), optional image labels, single or multi-select; integrated image upload or external URL; full support in groups and repeaters
+- **Phone block — advanced validation** — format choice (Standard 06... / International +33...); configurable expected digit count; numeric keyboard on mobile; real-time validation on submit
+- **Email block — advanced validation** — strict email validation enabled by default; supports complex formats (`test@test.fr`, `didier.jean-marie@neuf.com`); can be disabled per block
 
-### Ajouts
-- **Autocomplétion pour toutes les listes déroulantes** :
-  - Le champ de liste déroulante utilise maintenant **toujours** un composant avec autocomplétion
-  - L'utilisateur peut taper pour filtrer les options disponibles
-  - Navigation au clavier (flèches haut/bas, Entrée, Échap)
-  - Nouvelle option "Autoriser les réponses personnalisées" dans l'éditeur :
-    - **Désactivée (par défaut)** : L'utilisateur doit obligatoirement choisir une option de la liste
-    - **Activée** : L'utilisateur peut saisir une réponse qui n'est pas dans la liste
-  - Message informatif différent selon le mode :
-    - Mode fermé : "Aucune option correspondante. Veuillez sélectionner une option de la liste."
-    - Mode ouvert : "Aucune option trouvée. Votre réponse sera enregistrée."
-  - Fonctionne dans tous les contextes : blocs simples, groupes et répéteurs
-- **Nouveau bloc Sélection Image** :
-  - Permet de créer des choix avec des images cliquables
-  - Deux modes de disposition :
-    - **Côte à côte** : Grille avec 2, 3 ou 4 colonnes (responsive sur mobile)
-    - **Superposé** : Images empilées verticalement avec labels à côté
-  - Options de personnalisation :
-    - Taille des images : petite, moyenne ou grande
-    - Afficher/masquer les labels sous les images
-    - Sélection simple ou multiple
-  - Upload d'images intégré ou URL externe
-  - Design responsive adapté PC, tablette et mobile
-  - Support complet dans les groupes et blocs répétables
-- **Validation avancée du bloc Téléphone** :
-  - Choix du format : Standard (06 12 34 56 78) ou International (+33 6 12 34 56 78)
-  - Nombre de chiffres attendu configurable (par défaut 10 ou 11 selon le format)
-  - Seuls les chiffres et caractères autorisés (+, espaces, tirets, points) sont acceptés
-  - Clavier numérique automatique sur mobile
-  - Validation en temps réel lors de la soumission
-- **Validation avancée du bloc Email** :
-  - Validation stricte de l'adresse email (activée par défaut)
-  - Support des formats complexes : `test@test.fr`, `didier.jean-marie@neuf.com`
-  - Option pour désactiver la validation dans les paramètres du bloc
-- **Validation dans tous les contextes** :
-  - Blocs simples
-  - Blocs dans les groupes
-  - Blocs dans les répéteurs (repeaters)
+### Fixed
+- **Conditional logic "Jump to" for groups** — rules defined on inner blocks of a group (4A, 4B…) were not evaluated or applied
+- **Conditional logic "Jump to"** — logic was applied to all blocks instead of only the currently displayed block
+- **Variables (@1, @2, etc.) in groups** — replacement variables now work correctly in titles and descriptions of group blocks and their inner questions
+- **Dropdown — unwanted auto-advance** — the form no longer auto-advances during typing; navigation happens only on explicit selection (click or Enter)
 
 ---
 
-## 2026-01-18 (nuit - update 2)
+## [1.3.0] — 2026-01-18
 
-### Ajouts
-- **Support multi-architecture Docker** :
-  - `docker-compose.yml` : Configuration universelle avec auto-détection
-  - `docker-compose.amd64.yml` : Configuration optimisée pour Intel/AMD (x86_64)
-  - `docker-compose.arm64.yml` : Configuration optimisée pour ARM (Raspberry Pi, Apple Silicon)
-  - Healthcheck ajustés selon l'architecture
-  - Documentation complète dans DEPLOY-PORTAINER.md
+### Added
+- **Multi-arch Docker support** — `docker-compose.yml` (universal, auto-detect), `docker-compose.amd64.yml`, `docker-compose.arm64.yml`; adjusted healthchecks per architecture; full documentation in DEPLOY-PORTAINER.md
+- **Column selector** on the responses page — gear button opens a dropdown to choose visible columns; checkboxes per question; "Show all / Reset" button; Date always visible; first 4 questions shown by default
+- **Share dialog** — "Share" button in the builder (when published); 4 modes: direct link, customizable shortcode, embed (iframe), downloadable QR code (via `qrcode` library)
+- **User autocomplete for sharing** — replaces the plain email field; searches all non-admin users by name or email; 300ms debounce; shows name + email in suggestions
+- **3 permission levels for form sharing** — Read, Edit, Administrator; users with Edit/Admin can access the builder; all three can view responses; Admin can manage shares; inline permission change via dropdown
+- **Custom slug** — editable in form settings (before the Branding section)
+- **Public forms at root URL** — forms accessible at `/{slug}` directly; old `/f/[slug]` URLs redirect automatically; share link and admin URL updated accordingly
+- **Dashboard redesign** — gradient background, 4 stat cards (Total, Published, Draft, Responses), glassmorphism header, redesigned form cards with color indicator bar, modern status badges, animated hover effects
+- **Responses page redesign** — 3 stat cards, gradient table header with alternating rows, dates on two lines (day + time), clickable pagination, animated modals with blur
+- **Shared form access** — users with Edit or Admin permission can access the builder; all three levels can view responses
+- **Form duplication fix** — duplicated form appears immediately in the list without page reload
+- **Custom fonts loading** on public forms — Google Fonts loaded automatically; custom fonts now render correctly
+- **Webhook status indicator** per response — green (all ok), red (all failed), orange (partial), grey (not sent yet); updates after each send/resend
+- **Group block in response viewer** — inner fields displayed in detail modal and exported as separate columns in CSV/XLSX
+- **Mobile optimization** for public form — improved touch interface, adapted font sizes and buttons, responsive padding
+- **Progress bar** — configurable position (top/bottom/left/right) and size (small/medium/large)
+- **Custom fonts management** (`/admin/fonts`) — add/remove Google Fonts; live preview; auto-initialized with 20 default fonts; popular font suggestions; available in theme selector
+- **Advanced themes** — background types: solid color, gradient (2 colors + 8 directions + opacity 0-100%), background image (upload + opacity 0-100%); live preview in builder
+- **SMTP — Sender Name** — new field to customize the display name in emails
+- **Time block** — time picker or time range (start/end); customizable labels; modern design with clock icon; works in builder and public form; compatible with logic and export
+- **Per-response webhook replay** from the responses page
+- **Nextcloud integration** in admin panel
+- **Template library** in admin panel
 
-### Corrections
-- **Cache du Dashboard** : Les nouveaux formulaires apparaissent immédiatement sans rechargement manuel
-  - Ajout de `dynamic = 'force-dynamic'` pour forcer le rendu côté serveur
-
----
-
-## 2026-01-18 (nuit)
-
-### Ajouts
-- **Sélecteur de colonnes** sur la page des réponses :
-  - Bouton "Colonnes" avec icône d'engrenage
-  - Menu déroulant permettant de choisir les colonnes à afficher
-  - Cases à cocher pour chaque question du formulaire
-  - Bouton "Tout afficher / Réinitialiser"
-  - La colonne Date est toujours visible
-  - Par défaut, les 4 premières colonnes sont affichées
-- **Autocomplete pour le partage** :
-  - Remplacement du champ email par un champ de recherche avec autocomplétion
-  - Recherche parmi tous les utilisateurs non-administrateurs
-  - Affichage du nom et de l'email dans les suggestions
-  - Debounce de 300ms pour optimiser les requêtes
-- **Accès aux formulaires partagés** :
-  - Les utilisateurs avec permission "Édition" ou "Admin" peuvent accéder au builder
-  - Les utilisateurs avec permission "Lecture", "Édition" ou "Admin" peuvent voir les réponses
-- **Refonte visuelle du Dashboard** :
-  - Fond avec dégradé subtil
-  - 4 cartes de statistiques en haut (Total, Publiés, Brouillons, Réponses)
-  - Header avec effet glassmorphism
-  - Cartes de formulaires redessinées avec barre de couleur indicatrice
-  - Badges de statut modernisés avec indicateurs ronds
-  - Boutons de filtre intégrés dans un conteneur stylisé
-  - Animations et effets de survol améliorés
-- **Refonte visuelle de la page Réponses** :
-  - 3 cartes de statistiques (Total, Dernière réponse, Questions)
-  - Tableau avec en-tête dégradé et lignes alternées
-  - Dates affichées sur deux lignes (jour + heure)
-  - Pagination avec numéros de page cliquables
-  - Modales avec animations et effets blur
-  - Design cohérent avec le Dashboard
-
-### Améliorations
-- Meilleure gestion des permissions dans les routes API
-- Interface utilisateur plus moderne et cohérente
+### Fixed
+- **Dashboard cache** — new forms appear immediately without manual reload (`force-dynamic` rendering)
+- **Phone block render** in public form
+- **Dropdown render** in public form — now renders a real autocomplete select
+- **Image upload in Docker** — 404 resolved for standalone Docker deployment
+- **SMTP sender name** initialization — `webhookStatus` column added automatically if missing
 
 ---
 
-## 2026-01-18 (soir)
+## [1.0.0] — 2024-xx-xx
 
-### Ajouts
-- **Gestion avancée des droits de partage** :
-  - 3 niveaux de permissions : Lecture, Édition, Administrateur
-  - Les administrateurs de formulaire peuvent gérer les partages
-  - Modification des permissions en direct via menu déroulant
-  - Descriptions des niveaux de droits dans l'interface
-- **Chargement dynamique des polices** sur les formulaires publics :
-  - Les polices Google Fonts sont maintenant chargées automatiquement
-  - Correction de l'affichage des polices personnalisées
-- **Amélioration de la duplication** :
-  - Le formulaire dupliqué apparaît immédiatement dans la liste sans rafraîchissement
-
-### Corrections
-- Correction du script d'initialisation pour ajouter automatiquement la colonne `webhookStatus` si manquante
-
----
-
-## 2026-01-18 (après-midi)
-
-### Ajouts
-- **Indicateur visuel de statut webhook** dans la liste des réponses :
-  - Icône verte si tous les webhooks ont réussi
-  - Icône rouge si tous ont échoué
-  - Icône orange si résultat partiel
-  - Icône grise si pas encore envoyé
-  - Le statut se met à jour après chaque envoi/renvoi
-- **Support complet des blocs Groupe** dans l'affichage des réponses :
-  - Les champs internes d'un groupe sont maintenant affichés dans le modal de détail
-  - Export CSV avec colonnes séparées pour chaque champ du groupe
-- **Optimisation mobile** du formulaire public :
-  - Interface tactile améliorée
-  - Tailles de police et boutons adaptées
-  - Padding et espacements responsives
-- **Barre de progression configurable** :
-  - Position : haut, bas, gauche ou droite
-  - Taille : petite, moyenne ou grande
-  - Fonctionne sur le formulaire public
-
-### Corrections
-- Correction du rendu du bloc **téléphone** dans le formulaire public
-- Correction du rendu du bloc **dropdown** (menu déroulant) - affiche maintenant un vrai select
-- Correction de l'upload d'images en mode Docker standalone (404 résolu)
-- Bouton OK ajouté au bloc téléphone
-
----
-
-## 2026-01-18 (matin)
-
-### Ajouts
-- **Gestion des polices d'écriture** (Administration) :
-  - Nouvelle page d'administration `/admin/fonts` pour gérer les polices
-  - Ajout/suppression de polices Google Fonts
-  - Aperçu en direct de chaque police avec prévisualisation du rendu
-  - Initialisation automatique avec 20 polices par défaut
-  - Suggestions de polices populaires lors de la recherche
-  - Les polices ajoutées sont automatiquement disponibles dans le sélecteur de thème du form builder
-- **Thèmes avancés** :
-  - Type de fond : couleur unie, dégradé ou image
-  - Dégradé : choix des 2 couleurs, 8 directions possibles, opacité ajustable (0-100%)
-  - Image de fond : upload d'image, opacité ajustable (0-100%)
-  - **Live preview** : les modifications du thème s'affichent en temps réel dans l'aperçu central de l'éditeur
-- **Configuration SMTP** : Ajout du champ "Nom de l'expéditeur" permettant de personnaliser le nom affiché dans les emails (ex: "Mairie de Pavilly" au lieu de juste l'adresse email)
-- Bouton "Partager" dans l'éditeur visuel, affiché à droite de "Dépublier" lorsque le formulaire est publié
-- Modal de partage avec 4 options :
-  - Lien direct
-  - Shortcode personnalisable
-  - Code Embed (iframe)
-  - QR Code généré dynamiquement (téléchargeable)
-- Création du composant `ShareDialog` et intégration dans le builder
-- Installation de la librairie `qrcode` pour QR code fiable
-- Possibilité de modifier le slug (URL) du formulaire dans les paramètres, avant la section Marque
-- Bloc "Heure" (type `time`) :
-  - Saisie d'une heure au format 24h ou d'une plage horaire (début/fin)
-  - Labels personnalisables
-  - Aperçu moderne dans le builder et le formulaire public
-  - Design avec icône horloge, transitions, responsive
-  - Compatible logique conditionnelle et export
-
-### Modifications
-- Mise à jour du README.md et DEPLOY-PORTAINER.md pour documenter la nouvelle fonctionnalité de partage et la modification du slug
-
-### Corrections
-- Initialisation correcte du dépôt Git
-- .gitignore adapté à Next.js, Node, Prisma, Tailwind
+### Added
+- Initial release
+- Authentication (register, login, logout, forgot/reset password)
+- Visual drag-and-drop form builder
+- Core block types: short text, long text, email, phone, number, multiple choice, dropdown, date, website, welcome screen, thank-you screen
+- Conditional logic (show/hide/jump/require) with visual builder
+- Basic webhook support (POST/GET/PUT/PATCH, JSON/FORM)
+- Basic theme customization (colors, fonts, button/input styles)
+- Import/export forms as JSON
+- Response viewer with XLSX export
+- Partial response tracking
+- User management (admin panel)
+- Password reset via email (Nodemailer)
+- SQLite database via Prisma ORM
+- Docker deployment (multi-stage Dockerfile)
+- Default admin account seeded on first run

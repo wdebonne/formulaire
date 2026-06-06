@@ -1,5 +1,7 @@
 # Déploiement sur Portainer
 
+> **English version**: [DEPLOY-PORTAINER.en.md](DEPLOY-PORTAINER.en.md)
+
 > **Nouveautés (Janvier 2026)** :
 > - **Interface redessinée** : Dashboard et page Réponses avec design moderne
 > - **Sélecteur de colonnes** : Choisissez quelles colonnes afficher dans le tableau des réponses

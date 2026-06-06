@@ -1,355 +1,228 @@
 # FormBuilder Standalone
 
-Un créateur de formulaires autonome avec éditeur visuel, logique conditionnelle, webhooks et personnalisation avancée des thèmes.
+A self-hosted, feature-rich form builder with a visual drag-and-drop editor, conditional logic, webhooks, themes, and multi-user management.
 
-## 🆕 Nouveautés (Mai 2026)
+> **Version française** : [README.fr.md](README.fr.md)
 
-### ↕️ Webhooks — Glisser-déposer + recherche dans la vue agrandie (NOUVEAU)
-- Réorganisez vos mappings par **glisser-déposer** directement dans la modale agrandie (poignée `⠿` en début de ligne)
-- **Champ de recherche** pour trouver instantanément un mapping parmi des dizaines — filtre sur la clé JSON et le label du champ
-- La poignée de tri se désactive pendant la recherche pour éviter toute confusion
-- Compteur de résultats et bouton × pour vider le filtre en un clic
+---
 
-### ✅ Nouveau bloc "Oui / Non" (NOUVEAU)
-- Question avec deux boutons Oui / Non
-- Option de **masquage conditionnel** : définir les blocs à masquer selon la réponse
-- Compatible blocs simples, groupes et répéteurs
+## Features
 
-### 🔍 Recherche dans l'éditeur de logique conditionnelle (NOUVEAU)
-- Filtrez les blocs disponibles dans le panneau de logique conditionnelle
-- Indispensable sur les formulaires avec de nombreuses questions
+### Form Building
+- **Drag-and-drop editor** — reorder blocks visually with resizable panels
+- **25+ block types** — see the [full list](#block-types) below
+- **Visual conditional logic** — show/hide/jump/require blocks based on answers, with block search
+- **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles
+- **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
+- **Form settings** — progress bar (position, size), question numbers, animations, branding
 
-### 🔍 Champ de recherche dans la liste des blocs (NOUVEAU)
-- Filtrez instantanément vos blocs par nom directement dans le panneau latéral de l'éditeur
-- Recherche insensible à la casse, remonte également les blocs internes des groupes et répéteurs
-- Bouton × pour effacer la recherche, état "Aucun bloc trouvé" si aucun résultat
-- Indispensable pour les formulaires avec de nombreuses questions
+### Sharing & Publishing
+- Public forms accessible at `/{slug}` directly from the root URL
+- Share via direct link, shortcode, embed (iframe), or QR code
+- Custom slug editable in settings
+- 3 permission levels: **Read**, **Edit**, **Administrator**
+- User autocomplete when sharing
 
-### 🔢 Nouveau bloc "Quantité" (NOUVEAU)
-- Bloc dédié à la saisie de quantités sur une liste d'articles ou d'options
-- Quantité max et valeur par défaut configurables par ligne
-- Format de sortie paramétrable, compatible groupes et répéteurs
+### Admin Panel
+- User management (create, edit, delete)
+- Trash / soft delete with restoration and user reassignment
+- Custom fonts management
+- SMTP email configuration with test
+- Nextcloud integration
+- Database backup and restore
+- Template library
 
-### ✏️ Option "Autre" pour les Choix multiples (NOUVEAU)
-- Activez un champ de saisie libre en plus des options prédéfinies
-- La réponse libre est correctement exportée (CSV, webhooks, affichage des réponses)
-- Disponible dans les blocs simples, groupes et répéteurs
+### Responses
+- View all responses per form
+- Column selector (choose which fields to display)
+- Export to Excel (XLSX)
+- Partial and completed response tracking
+- Per-response webhook replay
+- Visual webhook status indicator (green / orange / red / grey)
 
-### 🔽 Filtrage des choix dans la Liste déroulante (NOUVEAU)
-- Masquez certains choix selon la réponse d'un **bloc précédent** (liste déroulante, choix multiple ou sélection image)
-- Configuration par valeur source : pour chaque option du bloc de référence, cochez les choix à masquer
-- **Champ de recherche intégré** dans le panneau de configuration — indispensable pour les listes de 100 choix ou plus
-- Fonctionne dans les blocs simples, les groupes et les répéteurs
+---
 
-### 🗑️ Corbeille des formulaires (NOUVEAU)
-- La suppression d'un formulaire est désormais un **soft delete** : le formulaire disparaît du tableau de bord sans être définitivement effacé
-- Les administrateurs accèdent à la corbeille depuis le panneau d'administration (`/admin/trash`)
-- **Restaurer** un formulaire avec possibilité de le réassigner à un autre utilisateur
-- **Supprimer définitivement** avec confirmation et avertissement sur les réponses
-- Les droits admin permettent désormais de supprimer les formulaires de n'importe quel utilisateur
+## Block Types
 
-### Nouveau bloc Adresse
-- Autocomplétion en temps réel via l'API Adresse officielle (Base Adresse Nationale)
-- Saisie libre possible si l'adresse n'est pas trouvée
-- Compatible groupes et répéteurs
+| Block | Description |
+|-------|-------------|
+| Welcome Screen | Form introduction page |
+| Short Text | Single-line input (optional auto-transform: uppercase, capitalize) |
+| Long Text | Multi-line textarea |
+| Email | Email field with configurable strict validation |
+| Phone | Phone field (standard or international format, configurable digit count) |
+| Address | Address field with autocomplete (French BAN API) |
+| Number | Numeric input |
+| Multiple Choice | Single or multi-select (with optional "Other" free-text option) |
+| Image Selection | Choice illustrated with clickable images |
+| Dropdown | Searchable list with optional free input and dynamic filtering based on another block |
+| Quantity | List of items with individual quantity inputs |
+| Date | Native date picker |
+| Advanced Date | Visual calendar with date range support and configurable min/max constraints |
+| Time | Time picker or time range |
+| File Upload | File attachment |
+| Signature | Touch/mouse signature pad |
+| Slider | Numeric value with a slider |
+| Website | URL with validation |
+| Legal | Required checkbox |
+| Statement | Informational text (no input) |
+| Yes / No | Two-button yes/no question |
+| Group | Group multiple questions on the same page |
+| Repeater | Dynamically repeat a set of questions |
+| Thank-You Screen | Custom end page (optional "Restart" button) |
 
-### Éditeur amélioré
-- **Panneaux redimensionnables** : faites glisser la bordure des panneaux gauche et droit pour adapter l'espace de travail
-- **Groupes et répéteurs pliables** dans la liste des blocs pour désencombrer la vue
-- **Webhooks** : sélecteur de bloc avec recherche intégrée dans l'éditeur de mapping
-- **Masquer les choix déjà sélectionnés** dans les répéteurs (évite les doublons entre itérations)
+---
 
-### Webhooks améliorés
-- **Vue agrandie** : modal plein écran avec configuration et mapping côte à côte
-- **Glisser-déposer** : réorganisez l'ordre des mappings par drag & drop dans la vue agrandie
-- **Recherche de mappings** : filtrez la liste par clé JSON ou label de champ dans la vue agrandie
-- **Valeur personnalisée** : templates avec champs `{field:id}`, dates, heures et identifiants
-- **Labels lisibles** : les webhooks envoient désormais les libellés des choix et les dates formatées (plus de valeurs slug ou ISO brutes)
-- **Blocs internes** : les champs dans les groupes et répéteurs sont maintenant accessibles dans le mapping
+## Tech Stack
 
-### Logique conditionnelle
-- Correction du saut décalé (race condition sur les indices après mise à jour des blocs visibles)
-- Correction du masquage prématuré au chargement (`not_equals` avec champ vide)
-- Masquage automatique d'un groupe si tous ses blocs internes sont cachés
+| Layer | Technology |
+|-------|-----------|
+| Framework | [Next.js 14](https://nextjs.org/) (App Router) |
+| Language | TypeScript |
+| Database | SQLite via [Prisma ORM](https://www.prisma.io/) |
+| Auth | JWT (HTTP-only cookies) + bcrypt |
+| UI | [Tailwind CSS](https://tailwindcss.com/) + [Radix UI](https://www.radix-ui.com/) |
+| Drag & Drop | [@dnd-kit](https://dndkit.com/) |
+| State | [Zustand](https://zustand-demo.pmnd.rs/) |
+| Email | [Nodemailer](https://nodemailer.com/) |
+| Animations | [Framer Motion](https://www.framer.com/motion/) |
+| Deployment | Docker (multi-stage, multi-arch AMD64 + ARM64) |
 
-### Autres ajouts
-- **Texte Court** : transformation automatique en majuscules ou initiales pendant la frappe
-- **Écran de remerciement** : bouton "Recommencer" pour soumettre plusieurs fois de suite
+---
 
-Consultez le fichier [CHANGELOG.md](CHANGELOG.md) pour le détail complet des évolutions.
+## Quick Start (Local Development)
 
-## ✨ Fonctionnalités
-
-- 🔐 **Authentification** - Inscription, connexion, mot de passe oublié
-- 📝 **Éditeur visuel** - Glisser-déposer pour construire vos formulaires
-- 🎯 **Logique conditionnelle** - Afficher/masquer des questions selon les réponses
-- 🔗 **Webhooks** - Envoyer les données à des services externes avec indicateur de statut
-- 📊 **Réponses** - Visualiser et exporter les réponses en CSV (incluant groupes et repeaters)
-- 🎨 **Thèmes avancés** - Personnaliser l'apparence avec fonds unis, dégradés ou images
-- 📤 **Import/Export** - Sauvegarder et partager vos formulaires en JSON
-- 📱 **Mobile optimisé** - Interface responsive et tactile pour formulaires publics
-- 📊 **Barre de progression** - Position (haut/bas/gauche/droite) et taille configurables
-
-## 🎨 Personnalisation des thèmes (NOUVEAU)
-
-- **Type de fond au choix** :
-  - **Couleur unie** : choisir une couleur de fond simple
-  - **Dégradé** : 2 couleurs + direction (8 directions disponibles) + opacité ajustable
-  - **Image** : upload d'image de fond + opacité ajustable
-- **Live preview** : visualisez les modifications du thème en temps réel dans l'éditeur
-- Plus de 20 polices disponibles
-- Choix de la forme des boutons et des champs (arrondi, carré, pilule, etc.)
-- Styles d'inputs : souligné, encadré, rempli
-- Suppression des thèmes personnalisés (les thèmes par défaut sont protégés)
-
-## 📅 Bloc Date Avancée (NOUVEAU)
-
-- Bloc "Date Avancée" avec calendrier visuel intégré (remplace l'input natif)
-- Sélection d'une date ou d'une **plage de dates** (date de début + date de fin)
-- Affichage des dates désactivées (min/max, variables, etc.)
-- Navigation mois/année, week-ends en rouge, aujourd'hui surligné
-- Labels personnalisables pour la plage de dates
-- Aperçu fidèle dans le builder (live view)
-
-**Exemples d'usages :**
-- Limiter la saisie à une période (ex : réservation, congés)
-- Empêcher la sélection de dates passées ou trop lointaines
-- Synchroniser la date min/max avec une autre question du formulaire
-
-Voir le bloc "Date Avancée" dans l'éditeur pour toutes les options.
-
-## 🕒 Bloc Heure (NOUVEAU)
-
-- Bloc "Heure" permettant de saisir une heure au format 24h ou une **plage horaire** (heure de début + heure de fin)
-- Labels personnalisables pour chaque champ
-- Aperçu moderne et responsive dans le builder et le formulaire public
-- Design avec icône horloge, effets visuels, et transitions
-- Compatible avec la logique conditionnelle et l'export des réponses
-
-**Exemples d'usages :**
-- Prise de rendez-vous (heure unique ou créneau)
-- Saisie d'horaires d'ouverture/fermeture
-- Plage horaire pour réservation de salle, matériel, etc.
-
-Voir le bloc "Heure" dans l'éditeur pour toutes les options.
-
-## � Bloc Groupe (NOUVEAU)
-
-- Regroupe plusieurs questions sous un même ensemble
-- Les réponses des blocs internes sont affichées dans le détail et exportées en CSV
-- Utile pour organiser des questions liées (ex: informations de contact)
-
-## 🔗 Indicateur de statut Webhook (NOUVEAU)
-
-- L'icône webhook dans la liste des réponses affiche maintenant un indicateur visuel :
-  - 🟢 **Vert** : Tous les webhooks ont réussi
-  - 🔴 **Rouge** : Tous les webhooks ont échoué
-  - 🟠 **Orange** : Certains webhooks ont réussi, d'autres ont échoué
-  - ⚪ **Gris** : Pas encore envoyé
-- Le statut se met à jour automatiquement après chaque envoi/renvoi
-
-## 👥 Gestion des droits et partage (NOUVEAU)
-
-### Niveaux de permissions
-
-| Permission | Description |
-|------------|-------------|
-| **Lecture** | Peut voir les réponses du formulaire |
-| **Édition** | Peut modifier le formulaire et voir les réponses |
-| **Administrateur** | Peut tout faire, y compris gérer les partages |
-
-### Fonctionnalités
-
-- **Partage avec utilisateurs** : Partagez vos formulaires avec d'autres utilisateurs de la plateforme
-- **Autocomplete** : Recherchez facilement les utilisateurs par nom ou email
-- **Modification des droits** : Changez le niveau de permission d'un utilisateur à tout moment
-- **Niveau Administrateur** : Les utilisateurs avec ce droit peuvent eux-mêmes partager le formulaire
-- **Notification par email** : Les utilisateurs reçoivent un email lors du partage
-
-### Options de partage
-
-- **Lien direct** : URL publique du formulaire
-- **Shortcode** : Code personnalisable pour intégration
-- **Embed** : Code iframe pour sites externes
-- **QR Code** : Code QR téléchargeable
-
-## 🗑️ Corbeille des formulaires (NOUVEAU)
-
-Lorsqu'un utilisateur supprime un formulaire, celui-ci est placé dans la **corbeille** plutôt que d'être effacé immédiatement.
-
-### Pour les utilisateurs
-- Le formulaire disparaît du tableau de bord
-- Un message informe que le formulaire peut être restauré par un administrateur
-
-### Pour les administrateurs
-La section **Corbeille** dans le panneau d'administration (`/admin/trash`) permet de :
-
-| Action | Description |
-|--------|-------------|
-| **Restaurer** | Remet le formulaire en ligne pour son propriétaire d'origine ou un autre utilisateur au choix |
-| **Supprimer définitivement** | Efface le formulaire et toutes ses réponses de façon irréversible |
-
-> Les formulaires en corbeille n'apparaissent pas dans le dashboard des utilisateurs ni dans les listes admin du tableau de bord.
-
-## 📊 Sélecteur de colonnes (NOUVEAU)
-
-Sur la page des réponses, un bouton **Colonnes** permet de :
-- Choisir quelles colonnes de questions afficher dans le tableau
-- Afficher toutes les colonnes ou réinitialiser à la vue par défaut
-- La colonne Date est toujours visible
-- Par défaut, les 4 premières questions sont affichées
-
-## 🚀 Installation
-
-### Prérequis
-
+### Prerequisites
 - Node.js 18+
-- npm ou yarn
+- npm or yarn
 
-### Installation
-
-1. Clonez le repository et installez les dépendances :
+### Setup
 
 ```bash
-cd formbuilder-standalone
+# Install dependencies
 npm install
-```
 
-2. Copiez le fichier d'environnement :
-
-```bash
+# Configure environment
 cp .env.example .env
-```
+# Edit .env with your values
 
-3. Modifiez les variables dans `.env` selon votre configuration
-
-4. Initialisez la base de données :
-
-```bash
+# Initialize the database
 npm run db:push
 npm run db:seed
-```
 
-5. Lancez le serveur de développement :
-
-```bash
+# Start dev server
 npm run dev
 ```
 
+Open [http://localhost:3000](http://localhost:3000).
 
-6. Ouvrez http://localhost:3000
+### Default credentials
 
-## 🐳 Déploiement Docker/Portainer
+| Field | Value |
+|-------|-------|
+| Email | `admin@formbuilder.local` |
+| Password | `admin123` |
 
-Un guide complet est disponible dans le fichier `DEPLOY-PORTAINER.md` pour déployer l'application sur Portainer avec Docker Compose.
+> **Change this password immediately after first login.**
 
-## 📂 Fichiers utiles
+You can also register a new account at `/register`.
 
-- `.gitignore` : fichiers/dossiers exclus du versionnement Git
-- `DEPLOY-PORTAINER.md` : guide de déploiement sur Portainer
+---
 
-## 📦 Types de blocs disponibles
+## Docker Deployment
 
-- **Écran d'accueil** - Introduction au formulaire
-- **Texte court** - Champ de saisie simple (avec transformation optionnelle : majuscules, initiales)
-- **Texte long** - Zone de texte multi-lignes
-- **Email** - Champ email avec validation stricte configurable (format exemple@domaine.fr)
-- **Téléphone** - Champ téléphone avec validation (format standard ou international, nombre de chiffres configurable)
-- **Adresse** - Champ adresse avec autocomplétion (API Adresse / BAN, données officielles françaises)
-- **Nombre** - Champ numérique
-- **Choix multiple** - Sélection unique ou multiple (avec option "Autre" pour réponse libre)
-- **Sélection Image** - Choix illustrés par des images cliquables
-- **Menu déroulant** - Liste de choix avec autocomplétion, saisie libre optionnelle et filtrage dynamique des choix selon un bloc précédent
-- **Quantité** - Liste d'articles avec saisie de quantités individuelles
-- **Date** - Sélecteur de date
-- **Date avancée** - Calendrier visuel avec plage de dates et contraintes configurables
-- **Heure** - Sélecteur d'heure ou plage horaire
-- **Téléchargement** - Upload de fichiers
-- **Signature** - Zone de signature tactile/souris
-- **Curseur** - Valeur numérique avec slider
-- **Site web** - URL avec validation
-- **Mention légale** - Case à cocher obligatoire
-- **Énoncé** - Texte informatif sans saisie
-- **Groupe** - Regroupement de plusieurs questions sur une même page
-- **Bloc répétable** - Répétition dynamique d'un ensemble de questions
-- **Écran de remerciement** - Page de fin personnalisée (avec bouton "Recommencer" optionnel)
+```bash
+docker compose up -d
+```
 
-## 🔧 Configuration
+The app runs on port `3110` by default (`http://localhost:3110`).
 
-### Variables d'environnement
+For Portainer and production deployment, see [DEPLOY-PORTAINER.en.md](DEPLOY-PORTAINER.en.md).
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | URL de la base de données SQLite |
-| `JWT_SECRET` | Secret pour les tokens JWT |
-| `SMTP_HOST` | Serveur SMTP pour les emails |
-| `SMTP_PORT` | Port SMTP |
-| `SMTP_USER` | Utilisateur SMTP |
-| `SMTP_PASS` | Mot de passe SMTP |
-| `SMTP_FROM` | Adresse email d'expédition |
-| `SMTP_FROM_NAME` | Nom de l'expéditeur (affiché dans les emails) |
-| `APP_URL` | URL de base de l'application |
+---
 
-## 📁 Structure du projet
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | SQLite file path | `file:./dev.db` |
+| `JWT_SECRET` | Secret key for JWT tokens | *(required in prod)* |
+| `NEXT_PUBLIC_APP_URL` | Public URL of the app | `http://localhost:3000` |
+| `SMTP_HOST` | SMTP server hostname | — |
+| `SMTP_PORT` | SMTP server port | `587` |
+| `SMTP_USER` | SMTP username | — |
+| `SMTP_PASS` | SMTP password | — |
+| `SMTP_FROM` | Sender email address | `noreply@formbuilder.local` |
+| `SMTP_FROM_NAME` | Sender display name | `FormBuilder` |
+
+---
+
+## Project Structure
 
 ```
 formbuilder-standalone/
 ├── prisma/
-│   ├── schema.prisma    # Schéma de base de données
-│   └── seed.ts          # Données initiales (thèmes)
+│   ├── schema.prisma        # Database schema
+│   └── seed.ts              # Default data (themes, admin user)
 ├── src/
 │   ├── app/
-│   │   ├── api/         # Routes API
-│   │   ├── builder/     # Éditeur de formulaires
-│   │   ├── dashboard/   # Tableau de bord
-│   │   ├── [slug]/      # Formulaires publics (accès direct via /mon-formulaire)
-│   │   ├── forms/       # Gestion des réponses
-│   │   ├── login/       # Authentification
-│   │   └── ...
+│   │   ├── [slug]/          # Public form page (/{slug})
+│   │   ├── admin/           # Admin panel (users, fonts, SMTP, trash…)
+│   │   ├── builder/[id]/    # Form builder editor
+│   │   ├── dashboard/       # Forms list
+│   │   ├── forms/[id]/responses/  # Response viewer
+│   │   └── api/             # REST API endpoints
 │   ├── components/
-│   │   ├── builder/     # Composants de l'éditeur
-│   │   └── ui/          # Composants UI réutilisables
-│   ├── hooks/           # Hooks React personnalisés
-│   ├── lib/             # Utilitaires (Prisma, auth, etc.)
-│   ├── stores/          # État global (Zustand)
-│   └── types/           # Types TypeScript
-└── ...
+│   │   ├── builder/         # Builder UI (blocks, logic, theme, webhooks…)
+│   │   └── ui/              # Generic UI components (Button, Dialog, Input…)
+│   ├── lib/                 # Auth, Prisma client, email, utilities
+│   ├── hooks/               # Custom React hooks
+│   ├── stores/              # Zustand global state
+│   └── types/               # TypeScript type definitions
+├── docker-compose.yml       # Universal Docker Compose (auto-detects arch)
+├── docker-compose.amd64.yml # AMD64-specific
+├── docker-compose.arm64.yml # ARM64-specific (Raspberry Pi, Apple Silicon)
+└── Dockerfile               # Multi-stage build
 ```
 
-## 🔒 Sécurité
+---
 
-- Mots de passe hashés avec bcrypt
-- Tokens JWT avec expiration
-- Protection CSRF sur les formulaires
-- Validation côté serveur
+## Available Scripts
 
-## 📄 Licence
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run db:push` | Push Prisma schema to database |
+| `npm run db:studio` | Open Prisma Studio |
+| `npm run db:generate` | Regenerate Prisma client |
+| `npm run db:seed` | Seed database with default data |
 
-MIT
+---
 
-## 🙏 Crédits
+## Security
 
-Inspiré par [QuillForms](https://quillforms.com)
+- Passwords hashed with bcrypt
+- JWT tokens with expiration (HTTP-only cookies)
+- Server-side validation on all API routes
+- Authorization checks on all protected endpoints
 
-# 🚀 Accès public des formulaires
+---
 
-Depuis janvier 2026, les liens publics des formulaires sont accessibles directement à la racine du site :
+## Contributing
 
-- Exemple : `https://www.monsite.fr/test2` (au lieu de `https://www.monsite.fr/f/test2`)
-- Les anciennes URLs `/f/[slug]` sont automatiquement redirigées vers la nouvelle structure.
-- Le lien de partage et l'URL affichée dans l'administration ont été mis à jour.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
-## 👤 Compte administrateur par défaut
+## Changelog
 
-Après le premier déploiement, un compte administrateur est créé automatiquement :
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
-| Champ | Valeur |
-|-------|--------|
-| **Email** | `admin@formbuilder.local` |
-| **Mot de passe** | `admin123` |
+## License
 
-⚠️ **Important** : Changez ce mot de passe immédiatement après la première connexion !
+Private project — all rights reserved.
 
-### Créer un nouveau compte
+---
 
-Vous pouvez également créer un nouveau compte via la page d'inscription : `/register`
+*Inspired by [QuillForms](https://quillforms.com)*

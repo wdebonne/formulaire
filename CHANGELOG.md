@@ -10,6 +10,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Theme — choice background color** (`choicesBgColor`) — new theme property to set an independent background color for unselected options in Multiple Choice, Image Selection, and Dropdown blocks; applied to the dropdown suggestion panel, choice items in the published form, the central editor preview, and the sidebar block preview
+
+### Fixed
+- **Theme not applied in central editor preview** — `buttonsBorderRadius`, `inputStyle`, and `inputBorderRadius` were ignored by the builder's central block preview (`CenterBlockPreview`); all buttons and text fields now faithfully reflect the active theme style (border radius, underline/outlined/filled) immediately when changed in the theme editor, without waiting for publication
+
 ### Changed
 - **Builder preview (Aperçu) — faithful rendering** — the Aperçu button no longer uses a custom in-app re-implementation (`form-preview.tsx`) that diverged from the real form; it now auto-saves any pending changes, then opens an auth-protected iframe at `/forms/[id]/preview` that renders the exact same `PublicFormClient` component as the published form — preview is guaranteed to be pixel-perfect with production at all times; `form-preview.tsx` is kept but no longer used
 

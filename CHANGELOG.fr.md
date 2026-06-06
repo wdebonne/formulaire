@@ -10,6 +10,12 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ## [Non publié]
 
+### Ajouts
+- **Thème — couleur de fond des choix** (`choicesBgColor`) — nouvelle propriété de thème permettant de définir une couleur de fond indépendante pour les options non sélectionnées dans les blocs Choix multiple, Sélection image et Listes déroulantes ; appliquée au panneau de suggestions des listes déroulantes, aux items de choix dans le formulaire publié, dans l'aperçu central de l'éditeur et dans l'aperçu latéral
+
+### Corrections
+- **Thème non appliqué dans l'aperçu central** — les propriétés `buttonsBorderRadius`, `inputStyle` et `inputBorderRadius` n'étaient pas pris en compte par le preview central de l'éditeur (`CenterBlockPreview`) ; tous les boutons et champs texte reflètent désormais fidèlement le style du thème (arrondi, style souligné/bordure/rempli) dès la modification dans l'éditeur de thème, sans attendre la publication
+
 ### Modifications
 - **Aperçu du builder — rendu fidèle** — le bouton Aperçu n'utilise plus une réimplémentation interne (`form-preview.tsx`) qui divergeait du vrai rendu ; il sauvegarde maintenant les modifications en attente, puis ouvre un iframe auth-protégé vers `/forms/[id]/preview` qui rend exactement le même composant `PublicFormClient` que le formulaire publié — l'aperçu est garanti identique à la production en toutes circonstances ; `form-preview.tsx` est conservé mais n'est plus utilisé
 

@@ -1304,7 +1304,13 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     if (!skipValidation && displayBlock?.type === 'group' && displayBlock.innerBlocks) {
       for (const innerBlock of displayBlock.innerBlocks) {
         const innerAnswer = answers[innerBlock.id]
-        
+
+        // Validation champ requis dans les groupes
+        if (innerBlock.attributes.required && (innerAnswer === undefined || innerAnswer === null || innerAnswer === '')) {
+          setError(`Le champ "${innerBlock.attributes.label || 'Ce champ'}" est requis`)
+          return
+        }
+
         // Validation email dans les groupes
         if (innerBlock.type === 'email' && innerAnswer) {
           const shouldValidate = innerBlock.attributes.validateEmail !== false
@@ -1367,7 +1373,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     }
   }, [currentIndex, visibleBlocks, currentBlock, answers, isAnimating, getJumpTarget])
 
-  const goToPrev = () => {
+  const goToPrev = useCallback(() => {
     if (currentIndex > 0 && !isAnimating) {
       setIsAnimating(true)
       setTimeout(() => {
@@ -1375,7 +1381,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
         setIsAnimating(false)
       }, 300)
     }
-  }
+  }, [currentIndex, isAnimating])
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
@@ -1487,7 +1493,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     }
   }
 
-  // Keyboard navigation
+  // Keyboard and wheel navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -1496,9 +1502,26 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
       }
     }
 
+    let wheelCooldown = false
+    const handleWheel = (e: WheelEvent) => {
+      if (wheelCooldown) return
+      if (Math.abs(e.deltaY) < 30) return
+      wheelCooldown = true
+      setTimeout(() => { wheelCooldown = false }, 600)
+      if (e.deltaY > 0) {
+        goToNext()
+      } else {
+        goToPrev()
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [goToNext])
+    window.addEventListener('wheel', handleWheel, { passive: true })
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('wheel', handleWheel)
+    }
+  }, [goToNext, goToPrev])
 
   // Réinitialise complètement le formulaire pour une nouvelle soumission
   const handleRestart = () => {

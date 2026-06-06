@@ -14,7 +14,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - **Logique conditionnelle visuelle** — afficher/masquer/sauter/rendre obligatoire selon les réponses ; éditeur texte avec recherche de blocs + éditeur de flux visuel plein écran (style Tripetto) avec flèches SVG, routage en lanes et éditeur de règle intégré
 - **Aperçu temps réel et fidèle** — le panneau central se met à jour instantanément à chaque modification (libellé, choix, type, thème) via Zustand ; le bouton Aperçu sauvegarde les changements puis affiche le formulaire dans un iframe plein écran avec exactement le même renderer que la page publiée — aucune différence visuelle
 - **Historique des versions** — snapshot automatique toutes les 10 sauvegardes + versions manuelles avec label optionnel ; restauration ou suppression depuis le builder ou le dashboard ; recherche dans les versions ; l'état courant est toujours préservé avant chaque restauration
-- **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs
+- **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs, couleur de fond des choix ; l'aperçu central de l'éditeur reflète le thème en temps réel (arrondi, style des champs, couleurs)
 - **Webhooks** — envoi des réponses vers des URLs externes, mapping personnalisé, réorganisation par drag & drop, recherche
 - **Paramètres** — barre de progression (position, taille), numérotation, animations, branding, affichage du logo (position + alignement)
 

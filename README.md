@@ -14,7 +14,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - **Visual conditional logic** — show/hide/jump/require blocks based on answers; text editor with block search + fullscreen visual flow builder (Tripetto-style) with SVG arrows, lane routing, and inline rule editor
 - **Faithful live preview** — center panel updates in real-time on every change (label, choices, type, theme) via Zustand; the Aperçu button auto-saves then renders the form in a full-screen iframe using the exact same renderer as the published form — no visual discrepancy
 - **Version history** — automatic snapshot every 10 saves + manual versions with optional label; restore or delete any version from the builder or dashboard; search across versions; current state always preserved before restore
-- **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles
+- **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles, choice background color; the central editor preview reflects the active theme in real time (border radius, field style, colors)
 - **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
 - **Form settings** — progress bar (position, size), question numbers, animations, branding, site logo display (position + alignment)
 

@@ -270,12 +270,12 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                         `}
                         fill={stroke}
                       />
-                      {/* Label badge — above the exit segment, near source block */}
+                      {/* Label badge — on the vertical lane segment */}
                       <foreignObject
-                        x={BR + 10}
-                        y={sy - 20}
-                        width={160}
-                        height={18}
+                        x={laneX + 6}
+                        y={midY - 11}
+                        width={140}
+                        height={22}
                         style={{ pointerEvents: 'none', overflow: 'visible' }}
                       >
                         <span
@@ -285,10 +285,10 @@ export function VisualLogicBuilder({ open, onClose, blocks }: VisualLogicBuilder
                             color: 'white',
                             fontSize: 10,
                             fontWeight: 600,
-                            padding: '1px 7px',
+                            padding: '2px 7px',
                             borderRadius: 99,
                             whiteSpace: 'nowrap',
-                            maxWidth: 156,
+                            maxWidth: 136,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             boxShadow: '0 1px 4px rgba(0,0,0,.18)',

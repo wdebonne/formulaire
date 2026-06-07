@@ -76,7 +76,13 @@ Les JWT sont stockés dans des cookies HTTP-only. Le module `src/lib/auth.ts` fo
 
 ### Personnalisation du site
 
-Le nom du site, le logo et le favicon sont stockés dans la table `SystemSettings` (ligne unique, `id = "system"`). Les pages serveur qui affichent la marque (dashboard, layout) récupèrent cette ligne au rendu via Prisma. `src/app/layout.tsx` exporte une fonction `generateMetadata()` async pour injecter le titre et le favicon dynamiquement. L'endpoint public `/api/settings/public` expose uniquement `siteName`, `siteLogo`, `siteFavicon` et `registrationEnabled` sans authentification (utilisé par la page de connexion et les pages publiques).
+Le nom du site, le logo et le favicon sont stockés dans la table `SystemSettings` (ligne unique, `id = "system"`). Les pages serveur qui affichent la marque (dashboard, layout) récupèrent cette ligne au rendu via Prisma. `src/app/layout.tsx` exporte une fonction `generateMetadata()` async pour injecter le titre et le favicon dynamiquement. L'endpoint public `/api/settings/public` expose uniquement `siteName`, `siteLogo`, `siteFavicon`, `registrationEnabled` et `loginPageSettings` sans authentification (utilisé par la page de connexion et les pages publiques).
+
+**Important** : cette route n'a aucune fonction dynamique (`cookies()`, `headers()`, paramètre `Request`), donc sans `export const dynamic = 'force-dynamic'`, Next.js met sa réponse en cache au moment du build — toute modification de réglage faite après `next build` ne serait jamais répercutée sur le site en ligne. Conserver cet export ; il reproduit le même correctif appliqué sur `src/app/dashboard/page.tsx`.
+
+#### Personnalisation de la page de connexion
+
+`SystemSettings.loginPageSettings` stocke un blob JSON (colonne texte, même convention que `Form.settings`) typé `LoginPageSettings` dans `src/types/form.ts` — contrôle la visibilité du lien "mot de passe oublié" et le fond de la page (couleur unie / dégradé / image avec flou). `src/lib/utils.ts` exporte `getLoginBackgroundStyle()`, source unique de vérité pour transformer ces réglages en CSS ; la page `src/app/login/page.tsx` et l'aperçu en direct dans `src/app/admin/customization/customization-client.tsx` l'utilisent tous les deux, garantissant un rendu identique au pixel près. Le bascule "Autoriser les inscriptions" de cette section écrit dans la même colonne `registrationEnabled` que Admin → Paramètres généraux — c'est un raccourci de confort, pas un indicateur séparé.
 
 ### Ajouter un nouveau type de bloc
 

@@ -11,6 +11,16 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Personnalisation de la page de connexion** — nouvelle carte "Page de connexion" dans Admin → Personnalisation (`/admin/customization`) permettant de configurer :
+  - L'affichage ou non du lien "Mot de passe oublié ?"
+  - Le fond de la page : couleur unie, dégradé (8 directions, couleurs de départ/fin personnalisées) ou image — avec un flou réglable (0–40 px) créant un effet fondu derrière la carte de connexion (qui reste toujours nette)
+  - Un raccourci pour "Autoriser les inscriptions" — reflète le même réglage global `registrationEnabled` que Admin → Paramètres généraux, toujours synchronisé
+  - Un aperçu en direct identique pixel pour pixel à la vraie page de connexion (fonction partagée `getLoginBackgroundStyle()`)
+
+### Corrections
+- **Lien "S'inscrire" persistant sur la page de connexion** — `/api/settings/public` était une route sans fonction dynamique, donc Next.js mettait sa réponse en cache au moment du build en production ; désactiver "Autoriser les inscriptions" dans l'administration n'était jamais répercuté sur la page de connexion en ligne avant un nouveau build. Ajout de `export const dynamic = 'force-dynamic'` (même correctif que celui déjà utilisé sur la page du dashboard) pour que le réglage soit relu à chaque requête.
+
+### Ajouts
 - **Thème — couleur de fond des choix** (`choicesBgColor`) — nouvelle propriété de thème permettant de définir une couleur de fond indépendante pour les options non sélectionnées dans les blocs Choix multiple, Sélection image et Listes déroulantes ; appliquée au panneau de suggestions des listes déroulantes, aux items de choix dans le formulaire publié, dans l'aperçu central de l'éditeur et dans l'aperçu latéral
 
 ### Corrections

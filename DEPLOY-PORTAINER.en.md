@@ -127,6 +127,14 @@ After logging in as admin, go to **Admin → Customization** (`/admin/customizat
 - **Logo** — replaces the default "FB" icon in the dashboard header and login page (recommended: 200×50 px)
 - **Favicon** — shown in browser tabs (recommended: 32×32 px)
 
+Further down the same page, the **Login page** card lets you customize:
+
+- Whether the **"Forgot password?"** link is shown
+- The **page background** — solid color, gradient (with direction and custom colors), or an image with an **adjustable blur** that creates a fade effect behind the login card
+- The **"Allow registrations"** toggle — a shortcut to the same setting as the General settings section
+
+A live preview shows exactly how the login page will look before you save.
+
 Changes take effect immediately on the next page load.
 
 ---

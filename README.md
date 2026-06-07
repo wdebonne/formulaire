@@ -29,6 +29,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - User management (create, edit, delete)
 - Trash / soft delete with restoration and user reassignment
 - **Site customization** — site name, logo, and favicon applied globally (dashboard header, browser tab, login page)
+- **Login page customization** — show/hide the "forgot password" and "sign up" links, and set a custom background (solid color, gradient, or blurred image)
 - Custom fonts management
 - SMTP email configuration with test
 - Nextcloud integration

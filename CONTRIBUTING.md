@@ -76,7 +76,13 @@ JWTs are stored in HTTP-only cookies. The `src/lib/auth.ts` module exposes helpe
 
 ### Site Customization
 
-Site name, logo, and favicon are stored in the `SystemSettings` table (single row, `id = "system"`). Server pages that display branding (dashboard, layout) fetch this row at render time via Prisma. `src/app/layout.tsx` exports an async `generateMetadata()` to inject the dynamic title and favicon. The public endpoint `/api/settings/public` exposes only `siteName`, `siteLogo`, `siteFavicon`, and `registrationEnabled` without authentication (used by the login page and public-facing pages).
+Site name, logo, and favicon are stored in the `SystemSettings` table (single row, `id = "system"`). Server pages that display branding (dashboard, layout) fetch this row at render time via Prisma. `src/app/layout.tsx` exports an async `generateMetadata()` to inject the dynamic title and favicon. The public endpoint `/api/settings/public` exposes only `siteName`, `siteLogo`, `siteFavicon`, `registrationEnabled`, and `loginPageSettings` without authentication (used by the login page and public-facing pages).
+
+**Important**: this Route Handler has no dynamic functions (`cookies()`, `headers()`, a `Request` param), so without `export const dynamic = 'force-dynamic'` Next.js statically caches its response at build time — any setting change made after `next build` would never reach the live site. Keep that export in place; it mirrors the same fix on `src/app/dashboard/page.tsx`.
+
+#### Login Page Customization
+
+`SystemSettings.loginPageSettings` stores a JSON blob (string column, same convention as `Form.settings`) typed as `LoginPageSettings` in `src/types/form.ts` — controls the "forgot password" link visibility and the page background (solid / gradient / image with blur). `src/lib/utils.ts` exports `getLoginBackgroundStyle()`, the single source of truth for turning those settings into CSS; both `src/app/login/page.tsx` and the live preview in `src/app/admin/customization/customization-client.tsx` call it, guaranteeing pixel-identical rendering. The "Allow registrations" toggle in this section writes to the same top-level `registrationEnabled` column as Admin → General — it's a convenience duplicate, not a separate flag.
 
 ### Adding a New Block Type
 

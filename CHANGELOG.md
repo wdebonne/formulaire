@@ -11,6 +11,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Login page customization** — new "Login page" card in Admin → Customization (`/admin/customization`) to configure:
+  - Show/hide the "Forgot password?" link
+  - Page background: solid color, gradient (8 directions, custom start/end colors), or image — with an adjustable blur (0–40 px) that creates a fade effect behind the (always sharp) login card
+  - Convenience toggle for "Allow registrations" — mirrors the same global `registrationEnabled` setting as Admin → General, always kept in sync
+  - Live preview that renders pixel-identically to the real login page (shared `getLoginBackgroundStyle()` helper)
+
+### Fixed
+- **Stale "Sign up" link on the login page** — `/api/settings/public` was a Route Handler with no dynamic functions, so Next.js cached its response at build time in production; toggling "Allow registrations" off in the admin panel never reached the live login page until a rebuild. Added `export const dynamic = 'force-dynamic'` (same pattern already used on the dashboard page) so the setting is read fresh on every request.
+
+### Added
 - **Theme — choice background color** (`choicesBgColor`) — new theme property to set an independent background color for unselected options in Multiple Choice, Image Selection, and Dropdown blocks; applied to the dropdown suggestion panel, choice items in the published form, the central editor preview, and the sidebar block preview
 
 ### Fixed

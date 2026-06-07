@@ -29,6 +29,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - Gestion des utilisateurs (créer, modifier, supprimer)
 - Corbeille / soft delete avec restauration et réassignation
 - **Personnalisation du site** — nom du site, logo et favicon appliqués globalement (en-tête du dashboard, onglet navigateur, page de connexion)
+- **Personnalisation de la page de connexion** — afficher ou masquer les liens "mot de passe oublié" et "s'inscrire", et définir un fond personnalisé (couleur unie, dégradé ou image floutée)
 - Gestion des polices personnalisées
 - Configuration SMTP avec test d'envoi
 - Intégration Nextcloud

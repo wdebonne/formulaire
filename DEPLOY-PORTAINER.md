@@ -109,6 +109,14 @@ Après connexion en tant qu'admin, rendez-vous dans **Admin → Personnalisation
 - **Logo** — remplace l'icône "FB" par défaut dans l'en-tête et la page de connexion (recommandé : 200×50 px)
 - **Favicon** — affiché dans les onglets du navigateur (recommandé : 32×32 px)
 
+Plus bas sur la même page, la carte **Page de connexion** permet de personnaliser :
+
+- L'affichage ou non du lien **"Mot de passe oublié ?"**
+- Le **fond de la page** : couleur unie, dégradé (avec direction et couleurs personnalisées), ou image avec un **flou réglable** pour créer un effet fondu derrière la carte de connexion
+- L'option **"Autoriser les inscriptions"** — un raccourci vers le même réglage que la section Paramètres généraux
+
+Un aperçu en direct affiche le rendu exact de la page de connexion avant l'enregistrement.
+
 Les modifications prennent effet immédiatement au prochain chargement de page.
 
 ---

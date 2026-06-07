@@ -41,9 +41,10 @@ Context for Claude Code when working on this project.
 | `src/app/api/forms/[id]/versions/route.ts` | Versions API — GET list, POST create manual version |
 | `src/app/api/forms/[id]/versions/[versionId]/route.ts` | Versions API — DELETE a specific version |
 | `src/app/api/forms/[id]/versions/[versionId]/restore/route.ts` | Versions API — POST restore (snapshots current state first) |
-| `src/app/admin/customization/customization-client.tsx` | Site name / logo / favicon admin UI |
+| `src/app/admin/customization/customization-client.tsx` | Site name / logo / favicon admin UI + "Login page" card (forgot-password toggle, background, registration shortcut) with live preview |
+| `src/app/login/page.tsx` | Login page — renders branding, background, and forgot-password/sign-up links from `SystemSettings` |
 | `src/app/api/admin/settings/route.ts` | SystemSettings API (GET/PUT, admin-only) |
-| `src/app/api/settings/public/route.ts` | Public settings endpoint (no auth) — used by login page and public forms |
+| `src/app/api/settings/public/route.ts` | Public settings endpoint (no auth, `force-dynamic`) — used by login page and public forms |
 | `src/app/layout.tsx` | Root layout — `generateMetadata()` reads `SystemSettings` for dynamic title and favicon |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
@@ -98,6 +99,7 @@ When adding a new block type, update **all** of these:
 - `Theme` model stores `properties` as JSON
 - `Font` model stores Google Fonts added by admins
 - `FormSettings` (JSON stored in `Form.settings`) includes `showLogo`, `logoPosition` (`top`|`bottom`), `logoAlignment` (`left`|`center`|`right`) — the logo URL itself comes from `SystemSettings.siteLogo`, fetched server-side in `src/app/[slug]/page.tsx`
+- `SystemSettings.loginPageSettings` (JSON stored as string, same convention as `Form.settings`) — typed as `LoginPageSettings` in `src/types/form.ts`; controls the login page's "forgot password" link visibility and background (solid/gradient/image + blur)
 
 ---
 
@@ -128,6 +130,11 @@ The "Aperçu" button in the builder does **not** use a custom re-implementation 
 3. That page (`src/app/forms/[id]/preview/page.tsx`) is auth-protected and renders the exact same `PublicFormClient` component as the public form — regardless of published/draft status.
 
 This guarantees the preview is always pixel-perfect with the published form. `src/components/builder/form-preview.tsx` is a legacy component that is no longer used.
+
+### Login Page Customization & Public Settings Caching
+`SystemSettings.loginPageSettings` drives the forgot-password link visibility and the page background (solid/gradient/image+blur). `src/lib/utils.ts` exports `getLoginBackgroundStyle()` — the single source of truth for turning those settings into CSS (separate blurred image layer behind the card so the card itself stays sharp). Both `src/app/login/page.tsx` and the live preview in `customization-client.tsx` call this helper, so they always render identically.
+
+`src/app/api/settings/public/route.ts` has no dynamic functions (`cookies()`, `headers()`, `Request` param), so Next.js statically caches it at build time in production unless `export const dynamic = 'force-dynamic'` is present — **never remove that export**, or settings changes (registration toggle, login customization, branding) will silently stop reaching the live site until the next rebuild. The "Allow registrations" toggle inside the "Login page" customization card writes to the same top-level `registrationEnabled` column as Admin → General — a convenience duplicate, not an independent flag.
 
 ### Builder Center Preview (Reactive)
 The center panel (`CenterBlockPreview`) is driven entirely by the Zustand store. Every `updateBlock`, `updateInnerBlock`, `addBlock`, `removeBlock`, or `moveBlock` call immediately updates `blocks` in the store, which causes `FormBuilderClient` to recompute `selectedBlock` and pass the updated prop to `CenterBlockPreview` — no refresh needed. Theme changes are also reflected in real-time via the `themes` state in `FormBuilderClient`.

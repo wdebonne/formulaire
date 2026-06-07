@@ -162,7 +162,7 @@ export function BlocksList() {
           <p className="text-xs">Aucun bloc trouvé</p>
         </div>
       ) : searchQuery ? (
-        <div className="space-y-1.5 flex-1 overflow-auto">
+        <div className="space-y-1.5 flex-1 overflow-auto pr-2 -mr-2">
           {filteredBlocks.map((block, index) => (
             <SortableBlock
               key={block.id}
@@ -187,7 +187,7 @@ export function BlocksList() {
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={blockIds} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1.5 flex-1 overflow-auto">
+            <div className="space-y-1.5 flex-1 overflow-auto pr-2 -mr-2">
               {blocks.map((block, index) => (
                 <SortableBlock
                   key={block.id}

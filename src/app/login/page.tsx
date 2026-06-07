@@ -9,11 +9,14 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
+import { cn, getLoginBackgroundStyle } from '@/lib/utils'
+import type { LoginPageSettings } from '@/types/form'
 
 interface PublicSettings {
   siteName: string
   siteLogo: string | null
   registrationEnabled: boolean
+  loginPageSettings: LoginPageSettings | null
 }
 
 export default function LoginPage() {
@@ -24,6 +27,7 @@ export default function LoginPage() {
     siteName: 'FormBuilder',
     siteLogo: null,
     registrationEnabled: true,
+    loginPageSettings: null,
   })
   const router = useRouter()
   const { toast } = useToast()
@@ -70,9 +74,16 @@ export default function LoginPage() {
     }
   }
 
+  const background = getLoginBackgroundStyle(settings.loginPageSettings)
+  const showForgotPassword = settings.loginPageSettings?.showForgotPassword ?? true
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-700 p-4">
-      <Card className="w-full max-w-md">
+    <div
+      className={cn('relative min-h-screen flex items-center justify-center p-4 overflow-hidden', background.className)}
+      style={background.style}
+    >
+      {background.imageLayerStyle && <div style={background.imageLayerStyle} />}
+      <Card className="relative z-10 w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             {settings.siteLogo ? (
@@ -114,14 +125,16 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <div className="text-right">
-              <Link 
-                href="/forgot-password" 
-                className="text-sm text-primary hover:underline"
-              >
-                Mot de passe oublié ?
-              </Link>
-            </div>
+            {showForgotPassword && (
+              <div className="text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-primary hover:underline"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>

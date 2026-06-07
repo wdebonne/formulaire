@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
+import { cn, getLoginBackgroundStyle } from '@/lib/utils'
+import type { LoginPageSettings, BackgroundType, GradientDirection } from '@/types/form'
 import {
   ArrowLeft,
   Palette,
@@ -16,26 +18,53 @@ import {
   Trash2,
 } from 'lucide-react'
 
+const loginBackgroundTypeOptions: { value: BackgroundType; label: string }[] = [
+  { value: 'solid', label: 'Couleur unie' },
+  { value: 'gradient', label: 'Dégradé' },
+  { value: 'image', label: 'Image' },
+]
+
+const loginGradientDirectionOptions: { value: GradientDirection; label: string }[] = [
+  { value: 'to-right', label: '→ Droite' },
+  { value: 'to-left', label: '← Gauche' },
+  { value: 'to-bottom', label: '↓ Bas' },
+  { value: 'to-top', label: '↑ Haut' },
+  { value: 'to-bottom-right', label: '↘ Bas-Droite' },
+  { value: 'to-bottom-left', label: '↙ Bas-Gauche' },
+  { value: 'to-top-right', label: '↗ Haut-Droite' },
+  { value: 'to-top-left', label: '↖ Haut-Gauche' },
+]
+
 interface CustomizationSettings {
   siteName: string
   siteLogo: string | null
   siteFavicon: string | null
+  registrationEnabled: boolean
+  loginPageSettings: LoginPageSettings
 }
 
 export function CustomizationClient() {
   const { toast } = useToast()
   const logoInputRef = useRef<HTMLInputElement>(null)
   const faviconInputRef = useRef<HTMLInputElement>(null)
+  const loginBgInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingFavicon, setUploadingFavicon] = useState(false)
+  const [uploadingLoginBg, setUploadingLoginBg] = useState(false)
 
   const [settings, setSettings] = useState<CustomizationSettings>({
     siteName: 'FormBuilder',
     siteLogo: null,
     siteFavicon: null,
+    registrationEnabled: true,
+    loginPageSettings: {},
   })
+
+  const updateLoginPageSettings = (patch: Partial<LoginPageSettings>) => {
+    setSettings((prev) => ({ ...prev, loginPageSettings: { ...prev.loginPageSettings, ...patch } }))
+  }
 
   const fetchSettings = async () => {
     try {
@@ -46,6 +75,8 @@ export function CustomizationClient() {
           siteName: data.siteName || 'FormBuilder',
           siteLogo: data.siteLogo || null,
           siteFavicon: data.siteFavicon || null,
+          registrationEnabled: data.registrationEnabled !== false,
+          loginPageSettings: data.loginPageSettings || {},
         })
       }
     } catch (error) {
@@ -133,6 +164,40 @@ export function CustomizationClient() {
     })
   }
 
+  const handleLoginBgUpload = async (file: File) => {
+    setUploadingLoginBg(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Erreur lors de l'upload")
+      }
+
+      updateLoginPageSettings({ backgroundImage: data.url })
+
+      toast({
+        title: 'Image uploadée',
+        description: "L'image de fond de la page de connexion a été mise à jour",
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setUploadingLoginBg(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -140,6 +205,8 @@ export function CustomizationClient() {
       </div>
     )
   }
+
+  const loginBackgroundPreview = getLoginBackgroundStyle(settings.loginPageSettings)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -297,6 +364,233 @@ export function CustomizationClient() {
                     Supprimer
                   </Button>
                 )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Login page */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Page de connexion</CardTitle>
+            <CardDescription>
+              Personnalisez l'apparence et les liens affichés sur la page de connexion
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Afficher "Mot de passe oublié ?"</p>
+                  <p className="text-sm text-gray-500">
+                    Le lien de récupération de mot de passe sous le formulaire de connexion
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.loginPageSettings.showForgotPassword ?? true}
+                    onChange={(e) => updateLoginPageSettings({ showForgotPassword: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Autoriser les inscriptions</p>
+                  <p className="text-sm text-gray-500">
+                    Affiche le lien "S'inscrire" sur la page de connexion — identique au réglage de Paramètres généraux
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.registrationEnabled}
+                    onChange={(e) => setSettings({ ...settings, registrationEnabled: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Arrière-plan</Label>
+              <div className="flex gap-2 max-w-md">
+                {loginBackgroundTypeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => updateLoginPageSettings({ backgroundType: option.value })}
+                    className={`flex-1 px-3 py-2 text-sm border-2 transition-all rounded ${
+                      (settings.loginPageSettings.backgroundType || 'gradient') === option.value
+                        ? 'border-primary bg-primary/10'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {settings.loginPageSettings.backgroundType === 'solid' && (
+              <div className="space-y-2 max-w-md">
+                <Label>Couleur de fond</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="color"
+                    value={settings.loginPageSettings.backgroundColor || '#7c3aed'}
+                    onChange={(e) => updateLoginPageSettings({ backgroundColor: e.target.value })}
+                    className="w-10 h-10 rounded cursor-pointer"
+                  />
+                  <Input
+                    value={settings.loginPageSettings.backgroundColor || '#7c3aed'}
+                    onChange={(e) => updateLoginPageSettings({ backgroundColor: e.target.value })}
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+            )}
+
+            {(!settings.loginPageSettings.backgroundType || settings.loginPageSettings.backgroundType === 'gradient') && (
+              <div className="space-y-4 max-w-md">
+                <div className="space-y-2">
+                  <Label>Direction du dégradé</Label>
+                  <select
+                    value={settings.loginPageSettings.gradientDirection || 'to-bottom-right'}
+                    onChange={(e) => updateLoginPageSettings({ gradientDirection: e.target.value as GradientDirection })}
+                    className="w-full px-3 py-2 text-sm border rounded-md"
+                  >
+                    {loginGradientDirectionOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Couleur de départ</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={settings.loginPageSettings.gradientStartColor || '#a855f7'}
+                      onChange={(e) => updateLoginPageSettings({ gradientStartColor: e.target.value })}
+                      className="w-10 h-10 rounded cursor-pointer"
+                    />
+                    <Input
+                      value={settings.loginPageSettings.gradientStartColor || '#a855f7'}
+                      onChange={(e) => updateLoginPageSettings({ gradientStartColor: e.target.value })}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Couleur de fin</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={settings.loginPageSettings.gradientEndColor || '#4338ca'}
+                      onChange={(e) => updateLoginPageSettings({ gradientEndColor: e.target.value })}
+                      className="w-10 h-10 rounded cursor-pointer"
+                    />
+                    <Input
+                      value={settings.loginPageSettings.gradientEndColor || '#4338ca'}
+                      onChange={(e) => updateLoginPageSettings({ gradientEndColor: e.target.value })}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {settings.loginPageSettings.backgroundType === 'image' && (
+              <div className="space-y-4 max-w-md">
+                <div className="space-y-2">
+                  <Label>Image de fond</Label>
+                  <div className="flex items-start space-x-6">
+                    <div className="w-32 h-20 border-2 border-dashed rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden">
+                      {settings.loginPageSettings.backgroundImage ? (
+                        <div
+                          className="w-full h-full bg-cover bg-center"
+                          style={{ backgroundImage: `url(${settings.loginPageSettings.backgroundImage})` }}
+                        />
+                      ) : (
+                        <Image className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <input
+                        type="file"
+                        ref={loginBgInputRef}
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleLoginBgUpload(file)
+                        }}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => loginBgInputRef.current?.click()}
+                        disabled={uploadingLoginBg}
+                      >
+                        {uploadingLoginBg ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        Uploader une image
+                      </Button>
+                      {settings.loginPageSettings.backgroundImage && (
+                        <Button
+                          variant="ghost"
+                          className="text-red-600"
+                          onClick={() => updateLoginPageSettings({ backgroundImage: undefined })}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Supprimer
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Flou — effet fondu ({settings.loginPageSettings.backgroundBlur ?? 0}px)</Label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="40"
+                    value={settings.loginPageSettings.backgroundBlur ?? 0}
+                    onChange={(e) => updateLoginPageSettings({ backgroundBlur: parseInt(e.target.value) })}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Net</span>
+                    <span>Très flou</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Aperçu de la page de connexion</Label>
+              <div
+                className={cn(
+                  'relative h-40 rounded-lg overflow-hidden border flex items-center justify-center',
+                  loginBackgroundPreview.className
+                )}
+                style={loginBackgroundPreview.style}
+              >
+                {loginBackgroundPreview.imageLayerStyle && <div style={loginBackgroundPreview.imageLayerStyle} />}
+                <div className="relative z-10 bg-white rounded-md shadow px-6 py-3 text-sm font-medium text-gray-700">
+                  Connectez-vous à votre compte
+                </div>
               </div>
             </div>
           </CardContent>

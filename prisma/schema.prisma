@@ -121,6 +121,7 @@ model SystemSettings {
   smtpFrom            String?
   smtpSecure          Boolean  @default(false)
   registrationEnabled Boolean  @default(true)
+  loginPageSettings   String   @default("{}")
   updatedAt           DateTime @updatedAt
   smtpFromName        String?
   // NextCloud WebDAV (partagé entre tous les administrateurs)

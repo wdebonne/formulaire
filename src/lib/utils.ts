@@ -193,24 +193,24 @@ function formatAnswer(answer: any, choices?: { label: string; value: string }[])
   return String(answer)
 }
 
-import type { ThemeProperties, GradientDirection } from '@/types/form'
+import type { ThemeProperties, GradientDirection, LoginPageSettings } from '@/types/form'
+
+const gradientDirectionMap: Record<GradientDirection, string> = {
+  'to-right': 'to right',
+  'to-left': 'to left',
+  'to-bottom': 'to bottom',
+  'to-top': 'to top',
+  'to-bottom-right': 'to bottom right',
+  'to-bottom-left': 'to bottom left',
+  'to-top-right': 'to top right',
+  'to-top-left': 'to top left',
+}
 
 /**
  * Génère le style CSS de fond en fonction des propriétés du thème
  * Supporte les couleurs unies, les dégradés et les images
  */
 export function getBackgroundStyle(themeProps: ThemeProperties): React.CSSProperties {
-  const gradientDirectionMap: Record<GradientDirection, string> = {
-    'to-right': 'to right',
-    'to-left': 'to left',
-    'to-bottom': 'to bottom',
-    'to-top': 'to top',
-    'to-bottom-right': 'to bottom right',
-    'to-bottom-left': 'to bottom left',
-    'to-top-right': 'to top right',
-    'to-top-left': 'to top left',
-  }
-
   if (themeProps.backgroundType === 'gradient') {
     const direction = gradientDirectionMap[themeProps.gradientDirection || 'to-bottom'] || 'to bottom'
     const startColor = themeProps.gradientStartColor || '#667eea'
@@ -244,5 +244,62 @@ export function getBackgroundStyle(themeProps: ThemeProperties): React.CSSProper
   
   return {
     backgroundColor: themeProps.backgroundColor || '#ffffff',
+  }
+}
+
+export interface LoginBackgroundResult {
+  className: string
+  style: React.CSSProperties
+  // Calque séparé pour l'image floutée : flouter le conteneur flouterait aussi la carte de connexion
+  imageLayerStyle?: React.CSSProperties
+}
+
+const DEFAULT_LOGIN_GRADIENT_CLASSNAME = 'bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-700'
+
+/**
+ * Génère le style de fond de la page de connexion à partir de SystemSettings.loginPageSettings
+ * Utilisé à la fois par /login et par son aperçu dans Personnalisation, pour un rendu identique
+ */
+export function getLoginBackgroundStyle(settings?: LoginPageSettings | null): LoginBackgroundResult {
+  const type = settings?.backgroundType
+
+  if (type === 'solid') {
+    return {
+      className: '',
+      style: { backgroundColor: settings?.backgroundColor || '#7c3aed' },
+    }
+  }
+
+  if (type === 'gradient') {
+    const direction = gradientDirectionMap[settings?.gradientDirection || 'to-bottom-right'] || 'to bottom right'
+    const start = settings?.gradientStartColor || '#a855f7'
+    const end = settings?.gradientEndColor || '#4338ca'
+    return {
+      className: '',
+      style: { backgroundImage: `linear-gradient(${direction}, ${start}, ${end})` },
+    }
+  }
+
+  if (type === 'image' && settings?.backgroundImage) {
+    const blur = Math.min(40, Math.max(0, settings?.backgroundBlur ?? 0))
+    return {
+      className: 'bg-gray-900',
+      style: {},
+      imageLayerStyle: {
+        position: 'absolute',
+        inset: 0,
+        backgroundImage: `url(${settings.backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        filter: blur > 0 ? `blur(${blur}px)` : undefined,
+        transform: blur > 0 ? 'scale(1.1)' : undefined,
+      },
+    }
+  }
+
+  // Pas de personnalisation (ou type "image" sans image) : on garde l'apparence d'origine
+  return {
+    className: DEFAULT_LOGIN_GRADIENT_CLASSNAME,
+    style: {},
   }
 }

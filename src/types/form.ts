@@ -197,6 +197,18 @@ export interface Webhook {
 export type BackgroundType = 'solid' | 'gradient' | 'image'
 export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' | 'to-bottom-right' | 'to-bottom-left' | 'to-top-right' | 'to-top-left'
 
+// Personnalisation de la page de connexion (SystemSettings.loginPageSettings)
+export interface LoginPageSettings {
+  showForgotPassword?: boolean
+  backgroundType?: BackgroundType
+  backgroundColor?: string
+  gradientStartColor?: string
+  gradientEndColor?: string
+  gradientDirection?: GradientDirection
+  backgroundImage?: string
+  backgroundBlur?: number // 0-40, en px — effet de fondu sur l'image de fond
+}
+
 export interface ThemeProperties {
   font?: string
   fontSize?: { lg: string; sm: string }

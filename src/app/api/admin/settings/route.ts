@@ -72,7 +72,19 @@ function splitData(data: Record<string, any>) {
     if (NC_FIELDS.has(k)) ncData[k] = v
     else prismaData[k] = v
   }
+  // loginPageSettings est stocké en JSON texte (comme Form.settings)
+  if (prismaData.loginPageSettings && typeof prismaData.loginPageSettings === 'object') {
+    prismaData.loginPageSettings = JSON.stringify(prismaData.loginPageSettings)
+  }
   return { prismaData, ncData }
+}
+
+function parseLoginPageSettings(raw: string | null | undefined) {
+  try {
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
 }
 
 // GET system settings
@@ -105,8 +117,10 @@ export async function GET() {
           smtpFromName: null,
           smtpSecure: false,
           registrationEnabled: true,
+          loginPageSettings: '{}',
         }),
         ...ncFields,
+        loginPageSettings: parseLoginPageSettings(settings?.loginPageSettings),
       })
     }
 
@@ -149,7 +163,11 @@ export async function PUT(request: NextRequest) {
     // Renvoie la config complète fusionnée
     const settings = await prisma.systemSettings.findUnique({ where: { id: 'system' } })
     const ncFields = await readNextcloudFields()
-    return NextResponse.json({ ...settings, ...ncFields })
+    return NextResponse.json({
+      ...settings,
+      ...ncFields,
+      loginPageSettings: parseLoginPageSettings(settings?.loginPageSettings),
+    })
   } catch (error) {
     console.error('Update settings error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

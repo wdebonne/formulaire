@@ -759,6 +759,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [gdprNoticeOpen, setGdprNoticeOpen] = useState(false)
   const [visibleBlocks, setVisibleBlocks] = useState<FormBlock[]>([])
   // Ref toujours synchronisée avec visibleBlocks pour l'utiliser dans les timeouts
   const visibleBlocksRef = useRef<FormBlock[]>([])
@@ -1551,45 +1552,53 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     const restartLabel = thankyouBlock?.attributes.restartButtonText || 'Recommencer'
 
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-8"
-        style={{
-          backgroundColor: themeProps.backgroundColor,
-          fontFamily: themeProps.font || 'Inter',
-        }}
-      >
-        <div className="max-w-xl w-full text-center">
-          <div
-            className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center"
-            style={{ backgroundColor: themeProps.buttonsBgColor }}
-          >
-            <Check className="w-8 h-8" style={{ color: themeProps.buttonsFontColor }} />
-          </div>
-          <h1
-            className="text-3xl font-bold mb-4"
-            style={{ color: themeProps.questionsColor }}
-          >
-            {thankyouBlock?.attributes.label || 'Merci !'}
-          </h1>
-          {thankyouBlock?.attributes.description && (
-            <p className="text-lg mb-6" style={{ color: themeProps.answersColor }}>
-              {thankyouBlock.attributes.description}
-            </p>
-          )}
-          {showRestart && (
-            <button
-              onClick={handleRestart}
-              className="mt-4 px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2 mx-auto"
-              style={{
-                backgroundColor: themeProps.buttonsBgColor,
-                color: themeProps.buttonsFontColor,
-              }}
+      <>
+        <div
+          className="min-h-screen flex items-center justify-center p-8"
+          style={{
+            backgroundColor: themeProps.backgroundColor,
+            fontFamily: themeProps.font || 'Inter',
+          }}
+        >
+          <div className="max-w-xl w-full text-center">
+            <div
+              className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center"
+              style={{ backgroundColor: themeProps.buttonsBgColor }}
             >
-              {restartLabel}
-            </button>
-          )}
+              <Check className="w-8 h-8" style={{ color: themeProps.buttonsFontColor }} />
+            </div>
+            <h1
+              className="text-3xl font-bold mb-4"
+              style={{ color: themeProps.questionsColor }}
+            >
+              {thankyouBlock?.attributes.label || 'Merci !'}
+            </h1>
+            {thankyouBlock?.attributes.description && (
+              <p className="text-lg mb-6" style={{ color: themeProps.answersColor }}>
+                {thankyouBlock.attributes.description}
+              </p>
+            )}
+            {showRestart && (
+              <button
+                onClick={handleRestart}
+                className="mt-4 px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2 mx-auto"
+                style={{
+                  backgroundColor: themeProps.buttonsBgColor,
+                  color: themeProps.buttonsFontColor,
+                }}
+              >
+                {restartLabel}
+              </button>
+            )}
+            {thankyouBlock && (
+              <div className="mt-4">
+                <GdprNoticeLink block={thankyouBlock} themeProps={themeProps} onOpen={() => setGdprNoticeOpen(true)} className="" />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+        <GdprNoticeModal block={thankyouBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+      </>
     )
   }
 
@@ -1693,6 +1702,10 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
             </div>
           )}
           
+          <div className={isImageOnLeft ? '' : 'flex justify-end'}>
+            <GdprNoticeLink block={currentBlock} themeProps={themeProps} onOpen={() => setGdprNoticeOpen(true)} />
+          </div>
+
           {/* Footer */}
           {form.settings.showBranding !== false && (
             <div className="mt-8 text-sm opacity-50" style={{ color: themeProps.answersColor }}>
@@ -1732,29 +1745,32 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     )
 
     return (
-      <div
-        className="min-h-screen flex flex-col transition-colors duration-300"
-        style={{
-          backgroundColor: themeProps.backgroundColor,
-          fontFamily: themeProps.font || 'Inter',
-        }}
-      >
-        {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
-        <div className="flex-1 flex flex-col md:flex-row">
-          {isImageOnLeft ? (
-            <>
-              {attachmentSection}
-              {contentSection}
-            </>
-          ) : (
-            <>
-              {contentSection}
-              {attachmentSection}
-            </>
-          )}
+      <>
+        <div
+          className="min-h-screen flex flex-col transition-colors duration-300"
+          style={{
+            backgroundColor: themeProps.backgroundColor,
+            fontFamily: themeProps.font || 'Inter',
+          }}
+        >
+          {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+          <div className="flex-1 flex flex-col md:flex-row">
+            {isImageOnLeft ? (
+              <>
+                {attachmentSection}
+                {contentSection}
+              </>
+            ) : (
+              <>
+                {contentSection}
+                {attachmentSection}
+              </>
+            )}
+          </div>
+          {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
-        {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
-      </div>
+        <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+      </>
     )
   }
 
@@ -1789,6 +1805,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
               themeProps={themeProps}
               onNext={goToNext}
               buttonBorderRadius={buttonBorderRadius}
+              onOpenGdprNotice={() => setGdprNoticeOpen(true)}
             />
           </div>
         </div>
@@ -1826,29 +1843,32 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     )
 
     return (
-      <div
-        className="min-h-screen flex flex-col transition-colors duration-300"
-        style={{
-          ...getBackgroundStyle(themeProps),
-          fontFamily: themeProps.font || 'Inter',
-        }}
-      >
-        {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
-        <div className="flex-1 flex flex-row">
-          {isImageOnLeft ? (
-            <>
-              {attachmentSection}
-              {contentSection}
-            </>
-          ) : (
-            <>
-              {contentSection}
-              {attachmentSection}
-            </>
-          )}
+      <>
+        <div
+          className="min-h-screen flex flex-col transition-colors duration-300"
+          style={{
+            ...getBackgroundStyle(themeProps),
+            fontFamily: themeProps.font || 'Inter',
+          }}
+        >
+          {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+          <div className="flex-1 flex flex-row">
+            {isImageOnLeft ? (
+              <>
+                {attachmentSection}
+                {contentSection}
+              </>
+            ) : (
+              <>
+                {contentSection}
+                {attachmentSection}
+              </>
+            )}
+          </div>
+          {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
-        {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
-      </div>
+        <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+      </>
     )
   }
 
@@ -1895,6 +1915,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
   )
 
   return (
+    <>
     <div
       className="min-h-screen flex flex-col transition-colors duration-300"
       style={{
@@ -1979,6 +2000,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
               inputStyle={inputStyle}
               buttonBorderRadius={buttonBorderRadius}
               inputBorderRadius={inputBorderRadius}
+              onOpenGdprNotice={currentBlock.type === 'welcome-screen' ? () => setGdprNoticeOpen(true) : undefined}
             />
           ) : null}
         </div>
@@ -2017,6 +2039,8 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
       {/* Logo - Bottom */}
       {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
     </div>
+    <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+    </>
   )
 }
 
@@ -2037,6 +2061,7 @@ interface QuestionBlockProps {
   inputStyle?: React.CSSProperties
   buttonBorderRadius?: string
   inputBorderRadius?: string
+  onOpenGdprNotice?: () => void
 }
 
 // Helper : construit la liste des items à afficher pour un bloc Quantité.
@@ -2091,6 +2116,7 @@ function QuestionBlock({
   inputStyle = {},
   buttonBorderRadius = '8px',
   inputBorderRadius = '8px',
+  onOpenGdprNotice,
 }: QuestionBlockProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -2160,6 +2186,9 @@ function QuestionBlock({
               {block.attributes.buttonText || 'Commencer'}
               <ChevronDown className="w-5 h-5 ml-2 rotate-[-90deg]" />
             </button>
+            {onOpenGdprNotice && (
+              <GdprNoticeLink block={block} themeProps={themeProps} onOpen={onOpenGdprNotice} />
+            )}
           </div>
         )
 
@@ -5409,9 +5438,10 @@ interface WelcomeScreenContentProps {
   themeProps: ThemeProperties
   onNext: () => void
   buttonBorderRadius: string
+  onOpenGdprNotice?: () => void
 }
 
-function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius }: WelcomeScreenContentProps) {
+function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius, onOpenGdprNotice }: WelcomeScreenContentProps) {
   return (
     <div>
       <h1
@@ -5440,6 +5470,62 @@ function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius }:
           {block.attributes.buttonText || 'Commencer'}
           <ChevronDown className="w-5 h-5 ml-2 rotate-[-90deg]" />
         </button>
+      </div>
+
+      {onOpenGdprNotice && (
+        <GdprNoticeLink block={block} themeProps={themeProps} onOpen={onOpenGdprNotice} />
+      )}
+    </div>
+  )
+}
+
+interface GdprNoticeLinkProps {
+  block: FormBlock
+  themeProps: ThemeProperties
+  onOpen: () => void
+  className?: string
+}
+
+// Lien discret affiché sous le contenu d'un écran d'accueil/de fin, ouvrant la mention RGPD configurée par l'admin
+function GdprNoticeLink({ block, themeProps, onOpen, className }: GdprNoticeLinkProps) {
+  if (!block.attributes.showGdprNotice || !block.attributes.gdprNoticeText) return null
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`text-sm underline opacity-60 hover:opacity-100 transition-opacity ${className || 'mt-4'}`}
+      style={{ color: themeProps.answersColor }}
+    >
+      {block.attributes.gdprNoticeLinkText || 'Politique de confidentialité'}
+    </button>
+  )
+}
+
+interface GdprNoticeModalProps {
+  block: FormBlock | null | undefined
+  open: boolean
+  onClose: () => void
+}
+
+// Modale affichant le texte RGPD configuré par l'admin du formulaire (durée de conservation, droits, contact…)
+function GdprNoticeModal({ block, open, onClose }: GdprNoticeModalProps) {
+  if (!open || !block?.attributes.showGdprNotice || !block.attributes.gdprNoticeText) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <span className="font-semibold text-sm text-gray-800">
+            {block.attributes.gdprNoticeLinkText || 'Politique de confidentialité'}
+          </span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-auto p-4">
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{block.attributes.gdprNoticeText}</p>
+        </div>
       </div>
     </div>
   )

@@ -73,8 +73,10 @@ $env:PROCESSOR_ARCHITECTURE
 ## 3. Volumes persistants
 
 Le docker-compose configure automatiquement :
-- `sqlite-data` : Base de données SQLite
+- `sqlite-data` : Base de données SQLite (`/app/prisma/data`)
 - `uploads-data` : Fichiers uploadés
+
+> La base de données réside dans son propre sous-dossier `/app/prisma/data` (et non directement dans `/app/prisma`) afin que le volume persistant ne recouvre pas `schema.prisma` et les fichiers de migration embarqués dans l'image.
 
 ## 4. Accéder à l'application
 
@@ -118,6 +120,19 @@ Plus bas sur la même page, la carte **Page de connexion** permet de personnalis
 Un aperçu en direct affiche le rendu exact de la page de connexion avant l'enregistrement.
 
 Les modifications prennent effet immédiatement au prochain chargement de page.
+
+---
+
+## 7. Sécurité (anti-bruteforce et contrôle d'accès par IP)
+
+Rendez-vous dans **Admin → Sécurité** (`/admin/security`) pour configurer :
+
+- **Protection anti-bruteforce** — activation/désactivation, nombre maximal de tentatives échouées, fenêtre de temps et durée de blocage qui en résulte
+- **Liste blanche d'IP** — adresses qui contournent toujours le blocage, quel que soit le nombre de tentatives échouées
+- **Liste noire d'IP** — adresses rejetées (HTTP 403) avant même d'atteindre l'application, directement au niveau du `middleware.ts`
+- **IP actuellement bloquées** — liste en direct avec le nombre de tentatives échouées et le temps de blocage restant, avec possibilité de débloquer manuellement
+
+> Les changements de liste blanche/noire peuvent prendre jusqu'à 60 secondes pour se propager, le middleware Edge rafraîchissant son cache d'IP depuis la base de données à cet intervalle.
 
 ---
 

@@ -11,6 +11,16 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Panneau d'administration Sécurité** (`/admin/security`) — protection anti-bruteforce et contrôle d'accès par adresse IP :
+  - Protection anti-bruteforce configurable : activation/désactivation, nombre maximal de tentatives échouées, fenêtre de temps et durée de blocage
+  - Listes blanche / noire d'adresses IP avec note optionnelle ; les IP en liste blanche contournent toujours le blocage
+  - Liste en direct des IP actuellement bloquées avec le nombre de tentatives échouées et le temps de blocage restant
+  - Les IP en liste noire sont rejetées directement au niveau du middleware Edge (`middleware.ts`) via un cache mémoire rafraîchi toutes les 60 secondes depuis l'endpoint interne `/api/internal/ip-lists` (le Edge Runtime ne peut pas utiliser Prisma/SQLite directement) ; "fail open" en cas d'échec réseau pour ne jamais bloquer tout le monde par accident
+
+### Corrections
+- **Docker — le volume SQLite recouvrait les fichiers Prisma embarqués** — les fichiers `docker-compose*.yml` montaient le volume `sqlite-data` directement sur `/app/prisma`, masquant `schema.prisma` et les migrations copiés dans l'image au moment du build ; la base de données réside désormais dans un sous-dossier dédié `/app/prisma/data` (`DATABASE_URL=file:/app/prisma/data/dev.db`)
+
+### Ajouts
 - **Personnalisation de la page de connexion** — nouvelle carte "Page de connexion" dans Admin → Personnalisation (`/admin/customization`) permettant de configurer :
   - L'affichage ou non du lien "Mot de passe oublié ?"
   - Le fond de la page : couleur unie, dégradé (8 directions, couleurs de départ/fin personnalisées) ou image — avec un flou réglable (0–40 px) créant un effet fondu derrière la carte de connexion (qui reste toujours nette)

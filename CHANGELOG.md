@@ -11,6 +11,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Security admin panel** (`/admin/security`) — anti-bruteforce protection and IP access control:
+  - Configurable brute-force protection: enable/disable, max failed login attempts, attempt window, and block duration
+  - IP whitelist / blacklist with optional notes; whitelisted IPs always bypass blocking
+  - Live list of currently blocked IPs with failed attempt count and remaining block time
+  - Blacklisted IPs are rejected at the edge in `middleware.ts` via an in-memory cache refreshed every 60s from the internal `/api/internal/ip-lists` endpoint (the Edge Runtime cannot use Prisma/SQLite directly); fails open on fetch error so a transient outage never locks everyone out
+
+### Fixed
+- **Docker — SQLite volume overlaying the bundled Prisma files** — `docker-compose*.yml` mounted the `sqlite-data` volume directly on `/app/prisma`, hiding the `schema.prisma` and migration files copied into the image at build time; the database now lives in a dedicated `/app/prisma/data` subdirectory (`DATABASE_URL=file:/app/prisma/data/dev.db`)
+
+### Added
 - **Login page customization** — new "Login page" card in Admin → Customization (`/admin/customization`) to configure:
   - Show/hide the "Forgot password?" link
   - Page background: solid color, gradient (8 directions, custom start/end colors), or image — with an adjustable blur (0–40 px) that creates a fade effect behind the (always sharp) login card

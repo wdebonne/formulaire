@@ -130,6 +130,7 @@ model SystemSettings {
   nextcloudPass       String?  // Mot de passe d'application NextCloud
   nextcloudBasePath   String?  @default("/") // Dossier racine dans NextCloud
   securitySettings    String   @default("{}") // Règles anti-bruteforce (JSON stocké en texte)
+  gdprSettings        String   @default("{}") // Paramètres RGPD : durée de conservation des réponses (JSON stocké en texte)
 }
 
 model IpRule {

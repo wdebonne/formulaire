@@ -15,6 +15,7 @@ import {
   Trash2,
   Cloud,
   Lock,
+  ShieldCheck,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -90,6 +91,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: Lock,
       href: '/admin/security',
       color: 'bg-slate-700',
+    },
+    {
+      title: 'RGPD',
+      description: 'Durée de conservation des réponses, recherche et droits des personnes',
+      icon: ShieldCheck,
+      href: '/admin/gdpr',
+      color: 'bg-emerald-600',
     },
   ]
 

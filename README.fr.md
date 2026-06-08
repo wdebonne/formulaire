@@ -27,6 +27,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 
 ### Panneau d'administration
 - Gestion des utilisateurs (créer, modifier, supprimer)
+- **Sécurité** — protection anti-bruteforce de la connexion (tentatives max, fenêtre de temps et durée de blocage configurables) et listes blanche/noire d'adresses IP avec vue en direct des IP bloquées
 - Corbeille / soft delete avec restauration et réassignation
 - **Personnalisation du site** — nom du site, logo et favicon appliqués globalement (en-tête du dashboard, onglet navigateur, page de connexion)
 - **Personnalisation de la page de connexion** — afficher ou masquer les liens "mot de passe oublié" et "s'inscrire", et définir un fond personnalisé (couleur unie, dégradé ou image floutée)
@@ -214,6 +215,7 @@ formbuilder-standalone/
 - Tokens JWT avec expiration (cookies HTTP-only)
 - Validation côté serveur sur toutes les routes API
 - Vérification des autorisations sur tous les endpoints protégés
+- Protection anti-bruteforce de la connexion avec seuils configurables et listes blanche/noire d'IP (`/admin/security`)
 
 ---
 
@@ -227,7 +229,7 @@ Consultez [CHANGELOG.fr.md](CHANGELOG.fr.md) pour l'historique des versions.
 
 ## Licence
 
-Projet privé — tous droits réservés.
+[GNU Affero General Public License v3.0](LICENSE)
 
 ---
 

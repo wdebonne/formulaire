@@ -107,6 +107,10 @@ export interface BlockAttributes {
   // Attributs pour l'écran de remerciement (thankyou-screen)
   showRestartButton?: boolean // Afficher un bouton "Recommencer" pour relancer le formulaire
   restartButtonText?: string // Texte du bouton de recommencement
+  // Mention RGPD (welcome-screen et thankyou-screen)
+  showGdprNotice?: boolean // Afficher un lien vers une mention RGPD
+  gdprNoticeLinkText?: string // Texte du lien (ex: "Politique de confidentialité")
+  gdprNoticeText?: string // Contenu affiché dans la fenêtre (durée de conservation, droits, contact…)
   // Attributs pour le bloc Texte Court
   textTransform?: 'none' | 'uppercase' | 'capitalize' // Formatage automatique de la réponse
   // Attributs pour le bloc Quantité
@@ -196,6 +200,12 @@ export interface Webhook {
 // Theme types
 export type BackgroundType = 'solid' | 'gradient' | 'image'
 export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' | 'to-bottom-right' | 'to-bottom-left' | 'to-top-right' | 'to-top-left'
+
+// Paramètres RGPD (SystemSettings.gdprSettings)
+export interface GdprSettings {
+  retentionEnabled?: boolean
+  retentionMonths?: number // durée légale par défaut : 36 mois
+}
 
 // Personnalisation de la page de connexion (SystemSettings.loginPageSettings)
 export interface LoginPageSettings {

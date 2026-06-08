@@ -46,6 +46,10 @@ Context for Claude Code when working on this project.
 | `src/app/api/admin/settings/route.ts` | SystemSettings API (GET/PUT, admin-only) |
 | `src/app/api/settings/public/route.ts` | Public settings endpoint (no auth, `force-dynamic`) — used by login page and public forms |
 | `src/app/layout.tsx` | Root layout — `generateMetadata()` reads `SystemSettings` for dynamic title and favicon |
+| `src/lib/security.ts` | Anti-bruteforce core: `SecuritySettings`, `getClientIp()`, `checkIpAccess()`, `recordFailedLogin()`, `recordSuccessfulLogin()` |
+| `src/app/admin/security/security-client.tsx` | Security admin UI — anti-bruteforce settings, IP whitelist/blacklist management, live blocked-IP list |
+| `src/app/api/admin/security/route.ts` | Security settings API (GET/PUT, admin-only) — `maxFailedAttempts`, `attemptWindowMinutes`, `blockDurationMinutes` |
+| `src/app/api/internal/ip-lists/route.ts` | Internal endpoint (shared-secret auth via `x-internal-secret`) returning whitelist/blacklist IPs — polled by the Edge middleware cache |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -138,3 +142,8 @@ This guarantees the preview is always pixel-perfect with the published form. `sr
 
 ### Builder Center Preview (Reactive)
 The center panel (`CenterBlockPreview`) is driven entirely by the Zustand store. Every `updateBlock`, `updateInnerBlock`, `addBlock`, `removeBlock`, or `moveBlock` call immediately updates `blocks` in the store, which causes `FormBuilderClient` to recompute `selectedBlock` and pass the updated prop to `CenterBlockPreview` — no refresh needed. Theme changes are also reflected in real-time via the `themes` state in `FormBuilderClient`.
+
+### Anti-bruteforce / IP Access Control (Edge Middleware Cache)
+`src/lib/security.ts` holds the core logic — `checkIpAccess()` (whitelist/blacklist/temporary block lookup), `recordFailedLogin()` / `recordSuccessfulLogin()` (failure counting and block duration from `SecuritySettings`, stored as JSON in `SystemSettings.securitySettings`). It's used from `src/app/api/auth/login/route.ts` and is Prisma-backed, so it can only run in the Node runtime.
+
+`src/middleware.ts` runs in the Edge Runtime and **cannot** use Prisma/SQLite directly, so blacklist/whitelist enforcement there works differently: it keeps an in-memory `Set`-based cache refreshed at most every 60s by fetching `src/app/api/internal/ip-lists/route.ts` (authenticated via a shared `x-internal-secret` header derived from `JWT_SECRET`). The internal route is excluded from the IP filter itself to avoid self-blocking, and a fetch failure leaves the existing cache in place ("fail open") so a transient DB/network issue never locks everyone out. Only the blacklist/whitelist check happens at the edge — failed-attempt counting and temporary blocks are evaluated in the login route itself (`checkIpAccess()` / `recordFailedLogin()`), where Prisma is available.

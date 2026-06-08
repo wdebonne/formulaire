@@ -80,8 +80,10 @@ Docker Compose automatically configures:
 
 | Volume | Content |
 |--------|---------|
-| `sqlite-data` | SQLite database (`/app/prisma`) |
+| `sqlite-data` | SQLite database (`/app/prisma/data`) |
 | `uploads-data` | Uploaded files (`/app/public/uploads`) |
+
+> The database lives in its own `/app/prisma/data` subdirectory (not directly in `/app/prisma`) so the persistent volume doesn't overlay the `schema.prisma` and migration files bundled in the image.
 
 > Make sure these volumes are **not recreated** on each redeployment, otherwise your data will be lost.
 
@@ -136,6 +138,19 @@ Further down the same page, the **Login page** card lets you customize:
 A live preview shows exactly how the login page will look before you save.
 
 Changes take effect immediately on the next page load.
+
+---
+
+## 8. Security (Anti-bruteforce & IP Access Control)
+
+Go to **Admin → Security** (`/admin/security`) to configure:
+
+- **Brute-force protection** — enable/disable, maximum failed login attempts, attempt time window, and resulting block duration
+- **IP whitelist** — addresses that always bypass blocking, regardless of failed attempts
+- **IP blacklist** — addresses rejected outright (HTTP 403) before reaching the application, enforced directly in `middleware.ts`
+- **Currently blocked IPs** — live list with failed attempt count and remaining block time, with the option to unblock manually
+
+> Blacklist/whitelist changes can take up to 60 seconds to propagate, since the edge middleware refreshes its IP cache from the database on that interval.
 
 ---
 

@@ -27,6 +27,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 
 ### Admin Panel
 - User management (create, edit, delete)
+- **Security** — anti-bruteforce login protection (configurable max attempts, time window, block duration) and IP whitelist/blacklist with live view of currently blocked addresses
 - Trash / soft delete with restoration and user reassignment
 - **Site customization** — site name, logo, and favicon applied globally (dashboard header, browser tab, login page)
 - **Login page customization** — show/hide the "forgot password" and "sign up" links, and set a custom background (solid color, gradient, or blurred image)
@@ -214,6 +215,7 @@ formbuilder-standalone/
 - JWT tokens with expiration (HTTP-only cookies)
 - Server-side validation on all API routes
 - Authorization checks on all protected endpoints
+- Anti-bruteforce login protection with configurable thresholds and IP whitelist/blacklist (`/admin/security`)
 
 ---
 
@@ -227,7 +229,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 
-Private project — all rights reserved.
+[GNU Affero General Public License v3.0](LICENSE)
 
 ---
 

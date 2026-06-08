@@ -276,6 +276,53 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         <WelcomeScreenAttachment block={block} updateAttribute={updateAttribute} />
       )}
 
+      {/* Mention RGPD (welcome-screen et thankyou-screen) */}
+      {['welcome-screen', 'thankyou-screen'].includes(block.type) && (
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="showGdprNotice">Mention RGPD</Label>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Affiche un lien discret ouvrant un texte d'information (durée de conservation, droits, contact…)
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                id="showGdprNotice"
+                checked={block.attributes.showGdprNotice || false}
+                onChange={(e) => updateAttribute('showGdprNotice', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+          {block.attributes.showGdprNotice && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="gdprNoticeLinkText">Texte du lien</Label>
+                <Input
+                  id="gdprNoticeLinkText"
+                  value={block.attributes.gdprNoticeLinkText || ''}
+                  onChange={(e) => updateAttribute('gdprNoticeLinkText', e.target.value)}
+                  placeholder="Politique de confidentialité"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="gdprNoticeText">Contenu affiché</Label>
+                <textarea
+                  id="gdprNoticeText"
+                  value={block.attributes.gdprNoticeText || ''}
+                  onChange={(e) => updateAttribute('gdprNoticeText', e.target.value)}
+                  placeholder="Vos données sont conservées pendant X mois et utilisées pour... Pour exercer vos droits, contactez..."
+                  className="w-full min-h-[120px] px-3 py-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Média pour les blocs de saisie et de choix */}
       {['short-text', 'long-text', 'multiple-choice', 'dropdown'].includes(block.type) && (
         <BlockMediaEditor block={block} updateAttribute={updateAttribute} />

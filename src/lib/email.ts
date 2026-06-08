@@ -206,6 +206,44 @@ function getDefaultFormSharedTemplate(formTitle: string, sharedByName: string, s
   `
 }
 
+// Template par défaut pour l'alerte de tentatives de connexion échouées
+function getDefaultFailedLoginAlertTemplate(ipAddress: string, attempts: number, siteName: string, securityUrl: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+          .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${siteName}</h1>
+          </div>
+          <div class="content">
+            <h2>Tentatives de connexion échouées détectées</h2>
+            <p><strong>${attempts}</strong> tentative(s) de connexion échouée(s) ont été enregistrées depuis l'adresse IP <strong>${ipAddress}</strong>.</p>
+            <p>Si cela ne vous semble pas habituel, vous pouvez consulter le journal d'activité et ajuster les règles anti-bruteforce depuis l'administration.</p>
+            <p style="text-align: center;">
+              <a href="${securityUrl}" class="button">Voir la sécurité</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} ${siteName}. Tous droits réservés.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `
+}
+
 export async function sendPasswordResetEmail(email: string, resetToken: string) {
   const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`
   const siteName = await getSiteName()
@@ -323,6 +361,31 @@ export async function sendFormSharedEmail(email: string, formTitle: string, shar
     return { success: true }
   } catch (error) {
     console.error('Error sending form shared email:', error)
+    return { success: false, error }
+  }
+}
+
+export async function sendFailedLoginAlertEmail(to: string, ipAddress: string, attempts: number) {
+  const securityUrl = `${process.env.NEXT_PUBLIC_APP_URL}/admin/security`
+  const siteName = await getSiteName()
+
+  const subject = `Alerte sécurité — ${attempts} tentatives de connexion échouées - ${siteName}`
+  const htmlContent = getDefaultFailedLoginAlertTemplate(ipAddress, attempts, siteName, securityUrl)
+
+  const { transporter, from } = await createTransporter()
+
+  const mailOptions = {
+    from,
+    to,
+    subject,
+    html: htmlContent,
+  }
+
+  try {
+    await transporter.sendMail(mailOptions)
+    return { success: true }
+  } catch (error) {
+    console.error('Error sending failed login alert email:', error)
     return { success: false, error }
   }
 }

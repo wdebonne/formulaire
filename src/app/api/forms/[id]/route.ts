@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { generateSlug } from '@/lib/utils'
+import { getClientIp } from '@/lib/security'
+import { logEvent, type AuditAction } from '@/lib/audit-log'
 
 interface RouteParams {
   params: { id: string }
@@ -121,6 +123,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       saveCount: newSaveCount,
     }
 
+    const ip = getClientIp(request)
+
     let form
     if (newSaveCount % 10 === 0) {
       const last = await prisma.formVersion.findFirst({
@@ -151,6 +155,29 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       form = await prisma.form.update({ where: { id: params.id }, data: formData })
     }
 
+    await logEvent({
+      action: 'form.update',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: ip,
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
+    })
+
+    if (existingForm.status !== formData.status) {
+      const transitionAction: AuditAction = formData.status === 'published' ? 'form.publish' : 'form.unpublish'
+      await logEvent({
+        action: transitionAction,
+        userId: session.userId,
+        userEmail: session.email,
+        ipAddress: ip,
+        targetType: 'form',
+        targetId: form.id,
+        targetLabel: form.title,
+      })
+    }
+
     return NextResponse.json(form)
   } catch (error) {
     console.error('Update form error:', error)
@@ -175,6 +202,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await prisma.form.update({
       where: { id: params.id },
       data: { deletedAt: new Date() }
+    })
+
+    await logEvent({
+      action: 'form.delete',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
     })
 
     return NextResponse.json({ success: true })

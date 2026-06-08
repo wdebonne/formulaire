@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, hashPassword } from '@/lib/auth'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 // GET single user
 export async function GET(
@@ -89,6 +91,20 @@ export async function PUT(
       }
     })
 
+    await logEvent({
+      action: 'user.update',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'user',
+      targetId: user.id,
+      targetLabel: user.email,
+      metadata: {
+        changedFields: Object.keys(updateData),
+        ...(role && role !== existingUser.role ? { roleChange: { from: existingUser.role, to: role } } : {}),
+      },
+    })
+
     return NextResponse.json(user)
   } catch (error) {
     console.error('Update user error:', error)
@@ -121,6 +137,16 @@ export async function DELETE(
     }
 
     await prisma.user.delete({ where: { id } })
+
+    await logEvent({
+      action: 'user.delete',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'user',
+      targetId: existingUser.id,
+      targetLabel: existingUser.email,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

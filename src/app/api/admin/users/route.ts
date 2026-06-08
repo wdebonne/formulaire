@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, hashPassword } from '@/lib/auth'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 // GET all users (admin only)
 export async function GET() {
@@ -69,6 +71,17 @@ export async function POST(request: NextRequest) {
         role: true,
         createdAt: true,
       }
+    })
+
+    await logEvent({
+      action: 'user.create',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'user',
+      targetId: user.id,
+      targetLabel: user.email,
+      metadata: { role: user.role },
     })
 
     return NextResponse.json(user)

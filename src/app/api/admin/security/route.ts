@@ -34,6 +34,9 @@ export async function PUT(request: NextRequest) {
       maxFailedAttempts: clampPositiveInt(body.maxFailedAttempts, DEFAULT_SECURITY_SETTINGS.maxFailedAttempts),
       attemptWindowMinutes: clampPositiveInt(body.attemptWindowMinutes, DEFAULT_SECURITY_SETTINGS.attemptWindowMinutes),
       blockDurationMinutes: clampPositiveInt(body.blockDurationMinutes, DEFAULT_SECURITY_SETTINGS.blockDurationMinutes),
+      notifyOnFailedLogin: body.notifyOnFailedLogin === true,
+      notifyThreshold: clampPositiveInt(body.notifyThreshold, DEFAULT_SECURITY_SETTINGS.notifyThreshold),
+      notifyEmail: typeof body.notifyEmail === 'string' ? body.notifyEmail.trim().slice(0, 200) : '',
     }
 
     await prisma.systemSettings.upsert({

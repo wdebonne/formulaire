@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateResetToken } from '@/lib/auth'
 import { sendPasswordResetEmail } from '@/lib/email'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +37,13 @@ export async function POST(request: NextRequest) {
     })
 
     await sendPasswordResetEmail(user.email, resetToken)
+
+    await logEvent({
+      action: 'auth.password_reset_request',
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: getClientIp(request),
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

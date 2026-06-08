@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 interface RouteParams {
   params: { id: string }
@@ -83,6 +85,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         themeId: form.themeId,
         createdBy: session.userId,
       },
+    })
+
+    await logEvent({
+      action: 'form.version_create',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
+      metadata: { versionNumber: version.number, label: version.label },
     })
 
     return NextResponse.json(version, { status: 201 })

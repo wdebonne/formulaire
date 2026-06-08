@@ -131,6 +131,25 @@ model SystemSettings {
   nextcloudBasePath   String?  @default("/") // Dossier racine dans NextCloud
   securitySettings    String   @default("{}") // Règles anti-bruteforce (JSON stocké en texte)
   gdprSettings        String   @default("{}") // Paramètres RGPD : durée de conservation des réponses (JSON stocké en texte)
+  logSettings         String   @default("{}") // Rétention du journal d'activité (JSON stocké en texte)
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String // ex: "auth.login_success", "form.update"...
+  status      String   @default("success") // "success" | "failure"
+  userId      String?
+  userEmail   String? // copie figée — survit à la suppression de l'utilisateur
+  ipAddress   String?
+  targetType  String? // "form" | "user" | ...
+  targetId    String?
+  targetLabel String? // copie figée (ex: titre du formulaire au moment de l'action)
+  metadata    String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([action])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model IpRule {

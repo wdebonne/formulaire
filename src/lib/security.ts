@@ -1,11 +1,15 @@
 import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendFailedLoginAlertEmail } from '@/lib/email'
 
 export interface SecuritySettings {
   enabled: boolean
   maxFailedAttempts: number
   attemptWindowMinutes: number
   blockDurationMinutes: number
+  notifyOnFailedLogin: boolean
+  notifyThreshold: number
+  notifyEmail: string
 }
 
 export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
@@ -13,6 +17,9 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
   maxFailedAttempts: 5,
   attemptWindowMinutes: 15,
   blockDurationMinutes: 15,
+  notifyOnFailedLogin: false,
+  notifyThreshold: 3,
+  notifyEmail: '',
 }
 
 export function getClientIp(request: NextRequest): string {
@@ -99,6 +106,14 @@ export async function recordFailedLogin(ipAddress: string): Promise<void> {
     create: { ipAddress, failedAttempts, lastAttemptAt: now, blockedUntil },
     update: { failedAttempts, lastAttemptAt: now, blockedUntil },
   })
+
+  // Égalité stricte : un seul email par cycle (le compteur retombe à 0 sur
+  // connexion réussie ou nouvelle fenêtre), pas un email à chaque tentative
+  if (settings.notifyOnFailedLogin && settings.notifyEmail && failedAttempts === settings.notifyThreshold) {
+    sendFailedLoginAlertEmail(settings.notifyEmail, ipAddress, failedAttempts).catch((error) => {
+      console.error('Failed login alert email error:', error)
+    })
+  }
 }
 
 export async function recordSuccessfulLogin(ipAddress: string): Promise<void> {

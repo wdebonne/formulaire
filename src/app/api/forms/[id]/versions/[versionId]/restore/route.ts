@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 interface RouteParams {
   params: { id: string; versionId: string }
@@ -67,6 +69,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       }),
     ])
+
+    await logEvent({
+      action: 'form.version_restore',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
+      metadata: { versionNumber: version.number, versionLabel: version.label },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

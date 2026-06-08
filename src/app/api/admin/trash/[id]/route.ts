@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 interface RouteParams {
   params: { id: string }
@@ -33,6 +35,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     })
 
+    await logEvent({
+      action: 'form.restore',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Restore form error:', error)
@@ -57,6 +69,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     await prisma.form.delete({ where: { id: params.id } })
+
+    await logEvent({
+      action: 'form.permanent_delete',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

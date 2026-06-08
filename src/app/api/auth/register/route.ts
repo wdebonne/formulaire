@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, generateToken } from '@/lib/auth'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,6 +87,13 @@ export async function POST(request: NextRequest) {
           }),
         },
       ],
+    })
+
+    await logEvent({
+      action: 'auth.register',
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: getClientIp(request),
     })
 
     const token = generateToken({ userId: user.id, email: user.email, role: user.role })

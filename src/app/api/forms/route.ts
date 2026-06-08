@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { generateSlug } from '@/lib/utils'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 // GET all forms for user (including shared forms)
 export async function GET() {
@@ -134,6 +136,16 @@ export async function POST(request: NextRequest) {
           animationDirection: 'vertical',
         })
       }
+    })
+
+    await logEvent({
+      action: 'form.create',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: form.id,
+      targetLabel: form.title,
     })
 
     return NextResponse.json(form)

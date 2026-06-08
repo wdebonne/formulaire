@@ -16,6 +16,7 @@ import {
   Cloud,
   Lock,
   ShieldCheck,
+  ScrollText,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -98,6 +99,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: ShieldCheck,
       href: '/admin/gdpr',
       color: 'bg-emerald-600',
+    },
+    {
+      title: 'Logs',
+      description: 'Journal d\'activité : connexions, formulaires, utilisateurs — filtres, export et alertes',
+      icon: ScrollText,
+      href: '/admin/logs',
+      color: 'bg-indigo-600',
     },
   ]
 

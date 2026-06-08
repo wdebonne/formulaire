@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { generateSlug } from '@/lib/utils'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 interface RouteParams {
   params: { id: string }
@@ -44,6 +46,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         themeId: form.themeId,
         userId: session.userId,
       }
+    })
+
+    await logEvent({
+      action: 'form.duplicate',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'form',
+      targetId: newForm.id,
+      targetLabel: newForm.title,
+      metadata: { sourceFormId: form.id, sourceFormTitle: form.title },
     })
 
     return NextResponse.json(newForm)

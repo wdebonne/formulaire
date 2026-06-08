@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword, generateToken } from '@/lib/auth'
 import { getClientIp, checkIpAccess, recordFailedLogin, recordSuccessfulLogin } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,6 +37,13 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       await recordFailedLogin(ip)
+      await logEvent({
+        action: 'auth.login_failed',
+        status: 'failure',
+        userEmail: email.toLowerCase(),
+        ipAddress: ip,
+        metadata: { reason: 'unknown_email' },
+      })
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
         { status: 401 }
@@ -46,6 +54,14 @@ export async function POST(request: NextRequest) {
 
     if (!isValid) {
       await recordFailedLogin(ip)
+      await logEvent({
+        action: 'auth.login_failed',
+        status: 'failure',
+        userId: user.id,
+        userEmail: user.email,
+        ipAddress: ip,
+        metadata: { reason: 'wrong_password' },
+      })
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
         { status: 401 }
@@ -53,6 +69,12 @@ export async function POST(request: NextRequest) {
     }
 
     await recordSuccessfulLogin(ip)
+    await logEvent({
+      action: 'auth.login_success',
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: ip,
+    })
 
     const token = generateToken({ userId: user.id, email: user.email, role: user.role })
 

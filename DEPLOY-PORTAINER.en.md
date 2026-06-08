@@ -154,6 +154,19 @@ Go to **Admin → Security** (`/admin/security`) to configure:
 
 ---
 
+## 9. GDPR (Retention & Data Subject Rights)
+
+Go to **Admin → GDPR** (`/admin/gdpr`) to configure:
+
+- **Response retention period** — enable/disable and set a duration in months (default legal retention: 36 months, with a one-click reset); the panel shows how many responses currently exceed that period (broken down per form) before any purge — deletion is **always triggered manually**, there is no scheduled job
+- **Search & data subject rights** — global, cross-form search for responses belonging to a person (name, email, or any text within the submitted data); results must be reviewed and ticked/unticked before acting, then:
+  - **Export** as an Excel portability sheet (plain-text values) or a nominative PDF summary ("Form — Submission date") to hand to the person
+  - **Delete** (right to erasure) the selected responses, with confirmation
+
+> The PDF export requires `pdfkit` to be present in the built image (see [Troubleshooting](#troubleshooting) below if the export fails with a 500 error after an update).
+
+---
+
 ## Updating the Application
 
 To update to a newer version in Portainer:
@@ -179,6 +192,9 @@ docker logs formbuilder
 
 ### Empty Database After Restart
 Ensure the `sqlite-data` volume is persistent and not recreated on each deployment.
+
+### 500 Error on PDF Export (GDPR)
+If **Admin → GDPR → Export (PDF)** returns a 500 error, the running image predates the fix that bundles `pdfkit` correctly into the `standalone` build (the module and its `.afm` font files are missing from the image). Rebuild the image (`docker compose build --no-cache`, or trigger a full stack redeploy in Portainer) and restart the container — a plain restart without a rebuild won't pick up the fix.
 
 ### Slow First Start on ARM64
 The ARM64 build takes longer (especially on Raspberry Pi). The healthcheck `start_period` is adjusted accordingly — wait up to 2 minutes on first start.

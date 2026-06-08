@@ -136,6 +136,19 @@ Rendez-vous dans **Admin → Sécurité** (`/admin/security`) pour configurer :
 
 ---
 
+## 8. RGPD (rétention et droits des personnes)
+
+Rendez-vous dans **Admin → RGPD** (`/admin/gdpr`) pour configurer :
+
+- **Durée de conservation des réponses** — activation/désactivation et durée en mois (durée légale par défaut : 36 mois, avec un bouton de réinitialisation) ; le panneau affiche le nombre de réponses actuellement au-delà de cette durée (avec répartition par formulaire) avant toute purge — la suppression est **toujours déclenchée manuellement**, il n'y a pas de tâche planifiée
+- **Recherche & droits des personnes** — recherche globale (tous formulaires confondus) des réponses correspondant à une personne (nom, email, tout texte présent dans les données) ; les résultats sont à revoir et cocher/décocher avant d'agir, puis :
+  - **Export** au format Excel (portabilité — valeurs en clair) ou PDF (récapitulatif nominatif "Formulaire — Date de soumission") à transmettre à la personne
+  - **Suppression** (droit à l'effacement) des réponses sélectionnées, avec confirmation
+
+> L'export PDF nécessite que `pdfkit` soit présent dans l'image construite (voir [Dépannage](#dépannage) ci-dessous si l'export échoue avec une erreur 500 après une mise à jour).
+
+---
+
 ## Notes
 - Le build peut prendre quelques minutes lors du premier déploiement (plus long sur ARM)
 - Pour la production, utilisez un JWT_SECRET sécurisé et unique
@@ -152,3 +165,6 @@ Vérifiez les logs avec : `docker logs formbuilder`
 
 ### Base de données vide après redémarrage
 Assurez-vous que le volume `sqlite-data` est bien persistant et non recréé à chaque déploiement.
+
+### Erreur 500 sur l'export PDF (RGPD)
+Si **Admin → RGPD → Exporter (PDF)** renvoie une erreur 500, l'image en cours d'exécution date d'avant le correctif intégrant `pdfkit` au build `standalone` (le module et ses fichiers de polices `.afm` ne sont alors pas présents dans l'image). Reconstruisez l'image (`docker compose build --no-cache` ou un nouveau déploiement complet du stack dans Portainer) puis redémarrez le conteneur — un simple redémarrage sans reconstruction ne suffit pas.

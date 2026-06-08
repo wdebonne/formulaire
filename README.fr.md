@@ -27,6 +27,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 
 ### Panneau d'administration
 - Gestion des utilisateurs (créer, modifier, supprimer)
+- **RGPD** (`/admin/gdpr`) — durée de conservation des réponses configurable (durée légale par défaut : 36 mois) avec purge manuelle des données expirées ; recherche globale, tous formulaires confondus, des réponses d'une personne avec revue avant action (export Excel de portabilité ou récapitulatif PDF nominatif) et suppression au titre du droit à l'effacement ; mention RGPD optionnelle (lien + fenêtre modale) sur les écrans d'accueil et de fin
 - **Sécurité** — protection anti-bruteforce de la connexion (tentatives max, fenêtre de temps et durée de blocage configurables) et listes blanche/noire d'adresses IP avec vue en direct des IP bloquées
 - Corbeille / soft delete avec restauration et réassignation
 - **Personnalisation du site** — nom du site, logo et favicon appliqués globalement (en-tête du dashboard, onglet navigateur, page de connexion)

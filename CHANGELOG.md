@@ -11,6 +11,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **GDPR / RGPD compliance panel** (`/admin/gdpr`) — new admin section for data retention and data-subject rights:
+  - Configurable maximum retention period for responses (default: legal retention of 36 months); a "Purge expired responses" button previews the count (with a per-form breakdown) before manually deleting anything — no automatic cron purge
+  - Global cross-form search for responses belonging to a person (name, email, or any text within the submitted data), with a review step — admins tick/untick individual matches before acting, so exports and deletions only ever touch explicitly reviewed response IDs
+  - Export the selected responses as a portability spreadsheet (Excel — one sheet per form, human-readable values with choice labels resolved and dates formatted) or as a PDF summary (form title + submission date per response) to hand to the data subject; the PDF can be addressed by name (`Concernant : <nom>`) using the search term that identified the person
+  - Manual deletion (right to erasure) of the selected responses, with confirmation
+  - Optional "GDPR notice" link and modal on Welcome Screen / Thank-You Screen blocks — form admins write custom privacy text (retention period, rights, DPO contact…) shown to respondents on demand
+
+### Fixed
+- **PDF export crashing in production (`500` on `/api/admin/gdpr/export`)** — `pdfkit` loads its font metrics (`.afm` files) at runtime via `__dirname`-relative paths; in `output: 'standalone'` builds, webpack bundled the package into the server chunks, so `__dirname` no longer pointed at its real directory and `fs.readFileSync` threw `ENOENT`. Marked `pdfkit` as an external package via `experimental.serverComponentsExternalPackages` in `next.config.js` (so Next traces it intact into `.next/standalone/node_modules`) and added an explicit `COPY` for it in the `Dockerfile`, mirroring the existing `bcryptjs` workaround for packages missed by automatic file tracing
+
+### Added
 - **Security admin panel** (`/admin/security`) — anti-bruteforce protection and IP access control:
   - Configurable brute-force protection: enable/disable, max failed login attempts, attempt window, and block duration
   - IP whitelist / blacklist with optional notes; whitelisted IPs always bypass blocking

@@ -50,6 +50,10 @@ Context for Claude Code when working on this project.
 | `src/app/admin/security/security-client.tsx` | Security admin UI — anti-bruteforce settings, IP whitelist/blacklist management, live blocked-IP list |
 | `src/app/api/admin/security/route.ts` | Security settings API (GET/PUT, admin-only) — `maxFailedAttempts`, `attemptWindowMinutes`, `blockDurationMinutes` |
 | `src/app/api/internal/ip-lists/route.ts` | Internal endpoint (shared-secret auth via `x-internal-secret`) returning whitelist/blacklist IPs — polled by the Edge middleware cache |
+| `src/lib/gdpr.ts` | GDPR core — `GdprSettings`, `getGdprSettings()`, `getRetentionCutoffDate()`; same JSON-settings pattern as `security.ts` |
+| `src/lib/response-format.ts` | Shared response-label resolution — `findBlockDeep`, `formatBlockValue`, `formatDateString`, `resolveDataLabels`; extracted from the webhook submit route, reused by the GDPR export so both resolve choice slugs → labels and format dates identically |
+| `src/app/admin/gdpr/gdpr-client.tsx` | GDPR admin UI (`/admin/gdpr`) — retention settings + manual purge of expired responses; global cross-form person search with review-then-act export (Excel/PDF) and right-to-erasure deletion |
+| `src/app/api/admin/gdpr/export/route.ts` | GDPR export API — builds the Excel portability workbook (`xlsx`) and the PDF summary (`pdfkit`) for admin-reviewed response IDs only |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -104,6 +108,7 @@ When adding a new block type, update **all** of these:
 - `Font` model stores Google Fonts added by admins
 - `FormSettings` (JSON stored in `Form.settings`) includes `showLogo`, `logoPosition` (`top`|`bottom`), `logoAlignment` (`left`|`center`|`right`) — the logo URL itself comes from `SystemSettings.siteLogo`, fetched server-side in `src/app/[slug]/page.tsx`
 - `SystemSettings.loginPageSettings` (JSON stored as string, same convention as `Form.settings`) — typed as `LoginPageSettings` in `src/types/form.ts`; controls the login page's "forgot password" link visibility and background (solid/gradient/image + blur)
+- `SystemSettings.gdprSettings` (JSON stored as string) — typed as `GdprSettings` in `src/types/form.ts`; holds `retentionEnabled`/`retentionMonths` (default legal retention: 36 months), read via `getGdprSettings()` in `src/lib/gdpr.ts`
 
 ---
 
@@ -147,3 +152,14 @@ The center panel (`CenterBlockPreview`) is driven entirely by the Zustand store.
 `src/lib/security.ts` holds the core logic — `checkIpAccess()` (whitelist/blacklist/temporary block lookup), `recordFailedLogin()` / `recordSuccessfulLogin()` (failure counting and block duration from `SecuritySettings`, stored as JSON in `SystemSettings.securitySettings`). It's used from `src/app/api/auth/login/route.ts` and is Prisma-backed, so it can only run in the Node runtime.
 
 `src/middleware.ts` runs in the Edge Runtime and **cannot** use Prisma/SQLite directly, so blacklist/whitelist enforcement there works differently: it keeps an in-memory `Set`-based cache refreshed at most every 60s by fetching `src/app/api/internal/ip-lists/route.ts` (authenticated via a shared `x-internal-secret` header derived from `JWT_SECRET`). The internal route is excluded from the IP filter itself to avoid self-blocking, and a fetch failure leaves the existing cache in place ("fail open") so a transient DB/network issue never locks everyone out. Only the blacklist/whitelist check happens at the edge — failed-attempt counting and temporary blocks are evaluated in the login route itself (`checkIpAccess()` / `recordFailedLogin()`), where Prisma is available.
+
+### GDPR / RGPD — Retention, Search, Export & Erasure
+`SystemSettings.gdprSettings` (JSON-as-string, same convention as `securitySettings`/`loginPageSettings`) holds `retentionEnabled`/`retentionMonths` (default legal retention: **36 months**), read via `getGdprSettings()` / `getRetentionCutoffDate()` in `src/lib/gdpr.ts`. Purging expired responses (`/api/admin/gdpr/retention` DELETE) is **manual only** — no cron — and always recomputes the cutoff server-side rather than trusting a client-supplied date.
+
+The person-search/export/erasure flow (`/admin/gdpr` Card B) is intentionally **review-then-act**: `POST /api/admin/gdpr/search` returns candidate matches across *all* forms, but the export (`/api/admin/gdpr/export`) and purge (`/api/admin/gdpr/purge`) routes only ever operate on the explicit `responseIds` the admin has ticked — they never re-run the search server-side. This guarantees that what gets exported to (or deleted for) a data subject exactly matches what the admin visually verified, with no risk of an unreviewed false-positive slipping through.
+
+`src/lib/response-format.ts` centralizes `findBlockDeep`/`formatBlockValue`/`formatDateString`/`resolveDataLabels` (originally inline in the webhook submit route) so the GDPR Excel export resolves choice values to human-readable labels and formats dates exactly like webhook payloads do — per the "Choice Value vs Label" convention, raw slugs are never handed to an external person.
+
+The optional "GDPR notice" on `welcome-screen`/`thankyou-screen` blocks (`showGdprNotice`/`gdprNoticeLinkText`/`gdprNoticeText` in `BlockAttributes`) follows the existing modal pattern in `public-form-client.tsx` (`fixed inset-0 z-50 … bg-black/60`) via two small reusable components, `GdprNoticeLink`/`GdprNoticeModal`, wired into all four welcome/thank-you render paths (stack, float, split, and the post-submission thank-you screen).
+
+**`pdfkit` + `output: 'standalone'` gotcha**: `pdfkit` reads its font metrics (`.afm` files) at runtime via `fs.readFileSync(__dirname + '/data/<Font>.afm')`. Left to webpack, it gets bundled into the server chunks — `__dirname` then resolves inside `.next/server/...` instead of the package's real directory, `readFileSync` throws `ENOENT`, and the route 500s. Fixed by declaring `pdfkit` in `experimental.serverComponentsExternalPackages` (`next.config.js`) so Next traces it intact into `.next/standalone/node_modules`, **plus** an explicit `COPY --from=builder /app/node_modules/pdfkit ./node_modules/pdfkit` in the `Dockerfile` as a safety net — the same belt-and-suspenders approach already used for `bcryptjs`, which Next's automatic file tracing also misses. `xlsx` does **not** have this problem (no `__dirname` usage — its `readFileSync` calls are generic helpers for user-supplied file paths).

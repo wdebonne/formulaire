@@ -27,6 +27,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 
 ### Admin Panel
 - User management (create, edit, delete)
+- **GDPR / RGPD** (`/admin/gdpr`) — configurable response retention period (default: 36-month legal retention) with manual purge of expired data; global cross-form search for a person's responses with review-then-act export (Excel portability sheet or nominative PDF summary) and right-to-erasure deletion; optional "GDPR notice" link/modal on Welcome and Thank-You screens
 - **Security** — anti-bruteforce login protection (configurable max attempts, time window, block duration) and IP whitelist/blacklist with live view of currently blocked addresses
 - Trash / soft delete with restoration and user reassignment
 - **Site customization** — site name, logo, and favicon applied globally (dashboard header, browser tab, login page)

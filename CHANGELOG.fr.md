@@ -11,6 +11,17 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Panneau de conformité RGPD** (`/admin/gdpr`) — nouvelle section d'administration pour la durée de conservation et les droits des personnes :
+  - Durée de conservation maximale des réponses configurable (durée légale par défaut : 36 mois) ; un bouton "Purger les réponses expirées" affiche d'abord le nombre concerné (avec répartition par formulaire) avant toute suppression manuelle — pas de purge automatique par tâche planifiée
+  - Recherche globale, tous formulaires confondus, des réponses appartenant à une personne (nom, email, ou tout texte présent dans les données soumises), avec une étape de revue — l'admin coche/décoche chaque résultat avant d'agir, de sorte que l'export et la suppression ne portent jamais que sur des identifiants explicitement vérifiés
+  - Export des réponses sélectionnées au format Excel (portabilité — une feuille par formulaire, valeurs lisibles avec libellés de choix résolus et dates formatées) ou récapitulatif PDF (formulaire + date de soumission par réponse) à transmettre à la personne concernée ; le PDF peut être nominatif (`Concernant : <nom>`) en reprenant le terme de recherche utilisé pour identifier la personne
+  - Suppression manuelle (droit à l'effacement) des réponses sélectionnées, avec confirmation
+  - Mention RGPD optionnelle (lien + fenêtre modale) sur les blocs Écran d'accueil / Écran de fin — l'admin du formulaire rédige un texte personnalisé (durée de conservation, droits, contact DPO…) affiché à la demande aux répondants
+
+### Corrections
+- **Export PDF en échec en production (`500` sur `/api/admin/gdpr/export`)** — `pdfkit` charge ses métriques de polices (fichiers `.afm`) au runtime via des chemins relatifs à `__dirname` ; en mode `output: 'standalone'`, webpack embarquait le module dans les chunks serveur, si bien que `__dirname` ne pointait plus vers son vrai dossier et `fs.readFileSync` échouait avec `ENOENT`. Le module `pdfkit` est désormais déclaré comme dépendance externe via `experimental.serverComponentsExternalPackages` dans `next.config.js` (Next le trace alors intact dans `.next/standalone/node_modules`), et une copie explicite a été ajoutée dans le `Dockerfile`, sur le même principe que le contournement déjà en place pour `bcryptjs`
+
+### Ajouts
 - **Panneau d'administration Sécurité** (`/admin/security`) — protection anti-bruteforce et contrôle d'accès par adresse IP :
   - Protection anti-bruteforce configurable : activation/désactivation, nombre maximal de tentatives échouées, fenêtre de temps et durée de blocage
   - Listes blanche / noire d'adresses IP avec note optionnelle ; les IP en liste blanche contournent toujours le blocage

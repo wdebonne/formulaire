@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const responseIds: string[] = Array.isArray(body.responseIds) ? body.responseIds.filter((v: any) => typeof v === 'string') : []
     const exportFormat = body.format === 'pdf' ? 'pdf' : body.format === 'xlsx' ? 'xlsx' : null
+    const subjectName: string = typeof body.subjectName === 'string' ? body.subjectName.trim().slice(0, 200) : ''
 
     if (responseIds.length === 0 || !exportFormat) {
       return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (exportFormat === 'pdf') {
-      const buffer = await buildSummaryPdf(responses)
+      const buffer = await buildSummaryPdf(responses, subjectName)
       return new NextResponse(buffer as any, {
         headers: {
           'Content-Type': 'application/pdf',
@@ -99,7 +100,7 @@ function buildPortabilityWorkbook(responses: ExportResponse[]): Buffer {
 
 // Récapitulatif PDF : liste simple "Formulaire — Date de soumission", à transmettre à la personne
 // pour qu'elle puisse vérifier les données détenues avant une éventuelle demande d'effacement.
-function buildSummaryPdf(responses: ExportResponse[]): Promise<Buffer> {
+function buildSummaryPdf(responses: ExportResponse[], subjectName: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50 })
     const chunks: Buffer[] = []
@@ -108,6 +109,10 @@ function buildSummaryPdf(responses: ExportResponse[]): Promise<Buffer> {
     doc.on('error', reject)
 
     doc.fontSize(16).text('Récapitulatif des réponses détenues', { align: 'center' })
+    if (subjectName) {
+      doc.moveDown(0.3)
+      doc.fontSize(12).fillColor('#444').text(`Concernant : ${subjectName}`, { align: 'center' })
+    }
     doc.moveDown(0.5)
     doc.fontSize(10).fillColor('#666').text(
       `Document généré le ${format(new Date(), 'dd/MM/yyyy à HH:mm', { locale: fr })} — ${responses.length} réponse(s)`,

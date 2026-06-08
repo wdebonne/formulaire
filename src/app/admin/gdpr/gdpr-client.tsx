@@ -185,7 +185,7 @@ export function GdprClient() {
       const res = await fetch('/api/admin/gdpr/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ responseIds: Array.from(selectedIds), format: exportFormat }),
+        body: JSON.stringify({ responseIds: Array.from(selectedIds), format: exportFormat, subjectName: searchTerm.trim() }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

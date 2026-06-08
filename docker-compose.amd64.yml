@@ -14,7 +14,7 @@ services:
     ports:
       - "3110:3000"
     environment:
-      - DATABASE_URL=file:/app/prisma/dev.db
+      - DATABASE_URL=file:/app/prisma/data/dev.db
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - APP_URL=${APP_URL:-http://localhost:3110}
       - SMTP_HOST=${SMTP_HOST:-}
@@ -24,7 +24,7 @@ services:
       - SMTP_FROM=${SMTP_FROM:-noreply@formbuilder.local}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME:-FormBuilder}
     volumes:
-      - sqlite-data:/app/prisma
+      - sqlite-data:/app/prisma/data
       - uploads-data:/app/public/uploads
     restart: unless-stopped
     healthcheck:

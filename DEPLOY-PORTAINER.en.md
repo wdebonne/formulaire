@@ -167,6 +167,16 @@ Go to **Admin → GDPR** (`/admin/gdpr`) to configure:
 
 ---
 
+## 10. Activity Log / Audit Trail
+
+Go to **Admin → Logs** (`/admin/logs`) to review and configure:
+
+- **Activity log** — searchable, filterable, paginated record of logins (who, IP address, success/failure and reason), form lifecycle events (create, update, publish/unpublish, delete, restore, duplicate, versions), and user management actions (create, update, delete); filter by action/category, status, date range, or free-text search, then export the current view to Excel
+- **Retention** — enable/disable and set a duration in days (default: 365); the panel shows how many entries currently exceed that period before any purge — deletion is **always triggered manually**, there is no scheduled job
+- **Failed-login email alerts** — configured alongside the anti-bruteforce settings in **Admin → Security**: enable, set the consecutive-attempt threshold, and the address that should receive the alert; exactly one email is sent per failure cycle (the counter resets on a successful login or a new time window), not one per attempt past the threshold
+
+---
+
 ## Updating the Application
 
 To update to a newer version in Portainer:

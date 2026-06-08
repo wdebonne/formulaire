@@ -29,6 +29,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - User management (create, edit, delete)
 - **GDPR / RGPD** (`/admin/gdpr`) — configurable response retention period (default: 36-month legal retention) with manual purge of expired data; global cross-form search for a person's responses with review-then-act export (Excel portability sheet or nominative PDF summary) and right-to-erasure deletion; optional "GDPR notice" link/modal on Welcome and Thank-You screens
 - **Security** — anti-bruteforce login protection (configurable max attempts, time window, block duration) and IP whitelist/blacklist with live view of currently blocked addresses
+- **Activity log / audit trail** (`/admin/logs`) — searchable, filterable, paginated record of logins (who, IP, success/failure), form lifecycle events (create, update, publish, delete, restore, duplicate, versions), and user management actions; export to Excel, configurable retention with manual purge, and an email alert to a dedicated address after a configurable number of consecutive failed login attempts (set alongside the anti-bruteforce thresholds in `/admin/security`)
 - Trash / soft delete with restoration and user reassignment
 - **Site customization** — site name, logo, and favicon applied globally (dashboard header, browser tab, login page)
 - **Login page customization** — show/hide the "forgot password" and "sign up" links, and set a custom background (solid color, gradient, or blurred image)
@@ -217,6 +218,7 @@ formbuilder-standalone/
 - Server-side validation on all API routes
 - Authorization checks on all protected endpoints
 - Anti-bruteforce login protection with configurable thresholds and IP whitelist/blacklist (`/admin/security`)
+- Activity log / audit trail of logins, form lifecycle, and user management actions, with email alerts on repeated failed logins (`/admin/logs`)
 
 ---
 

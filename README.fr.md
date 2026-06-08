@@ -29,6 +29,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - Gestion des utilisateurs (créer, modifier, supprimer)
 - **RGPD** (`/admin/gdpr`) — durée de conservation des réponses configurable (durée légale par défaut : 36 mois) avec purge manuelle des données expirées ; recherche globale, tous formulaires confondus, des réponses d'une personne avec revue avant action (export Excel de portabilité ou récapitulatif PDF nominatif) et suppression au titre du droit à l'effacement ; mention RGPD optionnelle (lien + fenêtre modale) sur les écrans d'accueil et de fin
 - **Sécurité** — protection anti-bruteforce de la connexion (tentatives max, fenêtre de temps et durée de blocage configurables) et listes blanche/noire d'adresses IP avec vue en direct des IP bloquées
+- **Journal d'activité** (`/admin/logs`) — historique consultable, filtrable et paginé des connexions (qui, IP, succès/échec), des événements liés aux formulaires (création, modification, publication, suppression, restauration, duplication, versions) et des actions de gestion des utilisateurs ; export Excel, durée de conservation configurable avec purge manuelle, et alerte email vers une adresse dédiée après un nombre configurable de tentatives de connexion échouées consécutives (réglage situé aux côtés des seuils anti-bruteforce dans `/admin/security`)
 - Corbeille / soft delete avec restauration et réassignation
 - **Personnalisation du site** — nom du site, logo et favicon appliqués globalement (en-tête du dashboard, onglet navigateur, page de connexion)
 - **Personnalisation de la page de connexion** — afficher ou masquer les liens "mot de passe oublié" et "s'inscrire", et définir un fond personnalisé (couleur unie, dégradé ou image floutée)
@@ -217,6 +218,7 @@ formbuilder-standalone/
 - Validation côté serveur sur toutes les routes API
 - Vérification des autorisations sur tous les endpoints protégés
 - Protection anti-bruteforce de la connexion avec seuils configurables et listes blanche/noire d'IP (`/admin/security`)
+- Journal d'activité (audit trail) des connexions, du cycle de vie des formulaires et des actions de gestion des utilisateurs, avec alertes email en cas de tentatives de connexion échouées répétées (`/admin/logs`)
 
 ---
 

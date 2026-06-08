@@ -149,6 +149,16 @@ Rendez-vous dans **Admin → RGPD** (`/admin/gdpr`) pour configurer :
 
 ---
 
+## 9. Journal d'activité (audit trail)
+
+Rendez-vous dans **Admin → Logs** (`/admin/logs`) pour consulter et configurer :
+
+- **Journal d'activité** — historique consultable, filtrable et paginé des connexions (qui, adresse IP, succès/échec et raison), des événements liés au cycle de vie des formulaires (création, modification, publication/dépublication, suppression, restauration, duplication, versions) et des actions de gestion des utilisateurs (création, modification, suppression) ; filtrage par action/catégorie, statut, plage de dates ou recherche libre, puis export de la vue actuelle vers Excel
+- **Conservation** — activation/désactivation et durée en jours (365 par défaut) ; le panneau affiche le nombre d'entrées actuellement au-delà de cette durée avant toute purge — la suppression est **toujours déclenchée manuellement**, il n'y a pas de tâche planifiée
+- **Alertes email en cas de connexions échouées** — réglage situé aux côtés des paramètres anti-bruteforce dans **Admin → Sécurité** : activation, seuil de tentatives consécutives, et adresse devant recevoir l'alerte ; un seul email est envoyé par cycle d'échecs (le compteur revient à zéro sur connexion réussie ou nouvelle fenêtre de temps), pas un par tentative au-delà du seuil
+
+---
+
 ## Notes
 - Le build peut prendre quelques minutes lors du premier déploiement (plus long sur ARM)
 - Pour la production, utilisez un JWT_SECRET sécurisé et unique

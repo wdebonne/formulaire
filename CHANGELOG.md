@@ -11,6 +11,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Activity log / audit trail panel** (`/admin/logs`) — new admin section recording and surfacing security-relevant and content-changing events:
+  - Logs logins (who, IP address, success or failure and reason), logouts, registrations, password reset requests/completions, the full form lifecycle (create, update, publish/unpublish, delete, restore, permanent delete, duplicate, version create/restore), and user management actions (create, update with role-change tracking, delete)
+  - Filterable, paginated table (`/api/admin/logs`) — by action/category, status (success/failure), date range, and free-text search across user, email, IP address, and target label
+  - Export the current filtered view to Excel (`/api/admin/logs/export`, capped at 50,000 rows) — guaranteed to match exactly what the admin has filtered, sharing the same `buildAuditLogWhere`/`parseLogFilters` helpers as the list endpoint
+  - Configurable retention (in days, default 365) with a manual "Purge expired entries" button — same review-before-purge pattern as the GDPR retention card, cutoff date always recomputed server-side
+  - Optional email alert to a dedicated, configurable address after a configurable number of consecutive failed login attempts (default disabled; threshold set alongside the existing anti-bruteforce settings in `/admin/security`) — sends exactly one alert per failure cycle (the counter resets on success or on a new time window), not one per attempt past the threshold
+
+### Added
 - **GDPR / RGPD compliance panel** (`/admin/gdpr`) — new admin section for data retention and data-subject rights:
   - Configurable maximum retention period for responses (default: legal retention of 36 months); a "Purge expired responses" button previews the count (with a per-form breakdown) before manually deleting anything — no automatic cron purge
   - Global cross-form search for responses belonging to a person (name, email, or any text within the submitted data), with a review step — admins tick/untick individual matches before acting, so exports and deletions only ever touch explicitly reviewed response IDs

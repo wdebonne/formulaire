@@ -11,6 +11,14 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Panneau Journal d'activité** (`/admin/logs`) — nouvelle section d'administration qui enregistre et présente les événements de sécurité et de modification de contenu :
+  - Journalise les connexions (qui, adresse IP, succès ou échec et raison), les déconnexions, les inscriptions, les demandes/validations de réinitialisation de mot de passe, tout le cycle de vie des formulaires (création, modification, publication/dépublication, suppression, restauration, suppression définitive, duplication, création/restauration de version), et les actions de gestion des utilisateurs (création, modification avec suivi des changements de rôle, suppression)
+  - Tableau filtrable et paginé (`/api/admin/logs`) — par action/catégorie, statut (succès/échec), plage de dates et recherche libre sur l'utilisateur, l'email, l'adresse IP et la cible
+  - Export de la vue filtrée actuelle vers Excel (`/api/admin/logs/export`, plafonné à 50 000 lignes) — garanti identique à ce que l'admin a sous les yeux, grâce aux mêmes fonctions partagées `buildAuditLogWhere`/`parseLogFilters` que la liste
+  - Durée de conservation configurable (en jours, 365 par défaut) avec un bouton de purge manuelle "Purger les entrées expirées" — même principe de revue avant purge que la carte de rétention RGPD, date de coupure toujours recalculée côté serveur
+  - Alerte email optionnelle vers une adresse dédiée et configurable après un nombre configurable de tentatives de connexion échouées consécutives (désactivée par défaut ; seuil réglé aux côtés des paramètres anti-bruteforce existants dans `/admin/security`) — envoie une seule alerte par cycle d'échecs (le compteur revient à zéro sur connexion réussie ou nouvelle fenêtre de temps), pas un email par tentative au-delà du seuil
+
+### Ajouts
 - **Panneau de conformité RGPD** (`/admin/gdpr`) — nouvelle section d'administration pour la durée de conservation et les droits des personnes :
   - Durée de conservation maximale des réponses configurable (durée légale par défaut : 36 mois) ; un bouton "Purger les réponses expirées" affiche d'abord le nombre concerné (avec répartition par formulaire) avant toute suppression manuelle — pas de purge automatique par tâche planifiée
   - Recherche globale, tous formulaires confondus, des réponses appartenant à une personne (nom, email, ou tout texte présent dans les données soumises), avec une étape de revue — l'admin coche/décoche chaque résultat avant d'agir, de sorte que l'export et la suppression ne portent jamais que sur des identifiants explicitement vérifiés

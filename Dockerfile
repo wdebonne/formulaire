@@ -50,6 +50,9 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
+# pdfkit lit ses fichiers de polices (.afm) au runtime depuis son propre dossier — il doit
+# être copié explicitement (le traçage de fichiers de Next ne le détecte pas correctement)
+COPY --from=builder /app/node_modules/pdfkit ./node_modules/pdfkit
 COPY --from=builder /app/scripts ./scripts
 
 # Copier le script d'entrée

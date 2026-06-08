@@ -14,6 +14,7 @@ import {
   Type,
   Trash2,
   Cloud,
+  Lock,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -82,6 +83,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: Cloud,
       href: '/admin/nextcloud',
       color: 'bg-blue-500',
+    },
+    {
+      title: 'Sécurité',
+      description: 'Listes IP, protection anti-bruteforce et adresses bloquées',
+      icon: Lock,
+      href: '/admin/security',
+      color: 'bg-slate-700',
     },
   ]
 

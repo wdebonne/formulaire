@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword, generateToken } from '@/lib/auth'
+import { getClientIp, checkIpAccess, recordFailedLogin, recordSuccessfulLogin } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,11 +14,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const ip = getClientIp(request)
+    const access = await checkIpAccess(ip)
+
+    if (!access.allowed) {
+      if (access.reason === 'blacklisted') {
+        return NextResponse.json(
+          { error: 'Accès refusé depuis cette adresse IP' },
+          { status: 403 }
+        )
+      }
+      return NextResponse.json(
+        { error: `Trop de tentatives échouées. Réessayez dans ${access.retryAfterMinutes} minute(s).` },
+        { status: 429 }
+      )
+    }
+
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     })
 
     if (!user) {
+      await recordFailedLogin(ip)
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
         { status: 401 }
@@ -27,11 +45,14 @@ export async function POST(request: NextRequest) {
     const isValid = await verifyPassword(password, user.password)
 
     if (!isValid) {
+      await recordFailedLogin(ip)
       return NextResponse.json(
         { error: 'Email ou mot de passe incorrect' },
         { status: 401 }
       )
     }
+
+    await recordSuccessfulLogin(ip)
 
     const token = generateToken({ userId: user.id, email: user.email, role: user.role })
 

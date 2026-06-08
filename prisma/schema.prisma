@@ -129,6 +129,29 @@ model SystemSettings {
   nextcloudUser       String?  // Nom d'utilisateur NextCloud
   nextcloudPass       String?  // Mot de passe d'application NextCloud
   nextcloudBasePath   String?  @default("/") // Dossier racine dans NextCloud
+  securitySettings    String   @default("{}") // Règles anti-bruteforce (JSON stocké en texte)
+}
+
+model IpRule {
+  id        String   @id @default(uuid())
+  ipAddress String
+  listType  String // "whitelist" | "blacklist"
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([ipAddress, listType])
+  @@index([listType])
+}
+
+model IpBlock {
+  id             String    @id @default(uuid())
+  ipAddress      String    @unique
+  failedAttempts Int       @default(0)
+  lastAttemptAt  DateTime  @default(now())
+  blockedUntil   DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@index([blockedUntil])
 }
 
 model EmailTemplate {

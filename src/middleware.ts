@@ -19,12 +19,77 @@ const RESERVED_PATHS = [
   'favicon.ico',
 ]
 
-export function middleware(request: NextRequest) {
+// Cache mémoire des listes IP, rafraîchi périodiquement depuis /api/internal/ip-lists.
+// Le middleware tourne en Edge Runtime et ne peut pas utiliser Prisma/SQLite directement.
+const IP_LIST_CACHE_TTL_MS = 60_000
+let ipListCache: { blacklist: Set<string>; whitelist: Set<string> } = {
+  blacklist: new Set(),
+  whitelist: new Set(),
+}
+let ipListCacheLastAttemptAt = 0
+let ipListCacheRefreshing: Promise<void> | null = null
+
+function refreshIpListCache(origin: string) {
+  if (ipListCacheRefreshing) return ipListCacheRefreshing
+
+  // Marqué immédiatement pour éviter qu'un échec ne déclenche une nouvelle tentative à chaque requête
+  ipListCacheLastAttemptAt = Date.now()
+
+  ipListCacheRefreshing = fetch(`${origin}/api/internal/ip-lists`, {
+    headers: { 'x-internal-secret': process.env.JWT_SECRET || '' },
+    cache: 'no-store',
+  })
+    .then(async (res) => {
+      if (!res.ok) return
+      const data = (await res.json()) as { blacklist: string[]; whitelist: string[] }
+      ipListCache = {
+        blacklist: new Set(data.blacklist),
+        whitelist: new Set(data.whitelist),
+      }
+    })
+    .catch(() => {
+      // En cas d'échec réseau, on conserve le cache existant ("fail open")
+    })
+    .finally(() => {
+      ipListCacheRefreshing = null
+    })
+
+  return ipListCacheRefreshing
+}
+
+function getMiddlewareClientIp(request: NextRequest): string {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    const ip = forwardedFor.split(',')[0]?.trim()
+    if (ip) return ip
+  }
+  const realIp = request.headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+  return 'unknown'
+}
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Ignorer les routes réservées et les fichiers statiques
   const firstSegment = pathname.split('/')[1]
-  
+
+  // Ne pas appliquer le filtrage IP à l'endpoint interne lui-même (évite l'auto-blocage)
+  if (!pathname.startsWith('/api/internal/')) {
+    if (Date.now() - ipListCacheLastAttemptAt > IP_LIST_CACHE_TTL_MS) {
+      await refreshIpListCache(request.nextUrl.origin)
+    }
+
+    const clientIp = getMiddlewareClientIp(request)
+    if (
+      clientIp !== 'unknown' &&
+      ipListCache.blacklist.has(clientIp) &&
+      !ipListCache.whitelist.has(clientIp)
+    ) {
+      return new NextResponse('Accès refusé', { status: 403 })
+    }
+  }
+
   // Rediriger /uploads/* vers /api/uploads/* pour compatibilité avec le mode standalone
   if (firstSegment === 'uploads') {
     const filename = pathname.split('/')[2]

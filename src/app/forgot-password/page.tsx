@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
             </div>
             <CardTitle className="text-2xl font-bold">Email envoyé !</CardTitle>
             <CardDescription>
-              Si un compte existe avec l'adresse <strong>{email}</strong>, vous recevrez un email avec les instructions pour réinitialiser votre mot de passe.
+              Si un compte existe avec l'adresse <strong>{email}</strong>, vous recevrez un email avec les instructions pour réinitialiser votre mot de passe. Pensez à vérifier vos courriers indésirables (spams) si vous ne le recevez pas.
             </CardDescription>
           </CardHeader>
           <CardFooter>

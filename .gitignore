@@ -14,7 +14,7 @@ yarn-error.log*
 Thumbs.db
 
 # Logs
-logs/
+/logs/
 *.log
 
 # Editor

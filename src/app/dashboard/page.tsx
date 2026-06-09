@@ -81,7 +81,7 @@ export default async function DashboardPage() {
     updatedAt: form.updatedAt.toISOString(),
     isShared: 'isShared' in form ? Boolean(form.isShared) : false,
     sharePermission: 'sharePermission' in form ? (form.sharePermission as string | null) : null,
-    owner: form.user,
+    owner: form.user ?? undefined,
   }))
 
   return (

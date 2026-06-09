@@ -12,13 +12,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copier les fichiers de dépendances
 COPY package.json ./
+COPY package-lock.json* ./
 COPY prisma ./prisma/
 
-# Installer les dépendances (avec rebuild pour ARM)
-RUN npm install --build-from-source
+# Installer les dépendances depuis le lock file si disponible, sinon npm install
+RUN if [ -f package-lock.json ]; then npm ci --build-from-source; else npm install --build-from-source; fi
 
-# Générer le client Prisma
-RUN npx prisma generate
+# Générer le client Prisma (version locale du projet, pas npx qui peut télécharger une version incompatible)
+RUN ./node_modules/.bin/prisma generate
 
 # Copier le reste du code source
 COPY . .

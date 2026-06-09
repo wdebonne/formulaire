@@ -59,6 +59,9 @@ COPY --from=builder /app/scripts ./scripts
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
+# Créer le dossier de données SQLite (le volume est monté ici au runtime)
+RUN mkdir -p /app/prisma/data
+
 # Définir les permissions
 RUN chown -R nextjs:nodejs /app
 

@@ -136,6 +136,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
     }
 
+    // Soft-delete tous les formulaires actifs de l'utilisateur avant de supprimer le compte.
+    // La contrainte onDelete: SetNull mettra userId à null sur les formulaires restants
+    // (y compris ceux déjà en corbeille), les rendant visibles dans la corbeille admin.
+    const { count: formsMovedToTrash } = await prisma.form.updateMany({
+      where: { userId: id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    })
+
     await prisma.user.delete({ where: { id } })
 
     await logEvent({
@@ -146,6 +154,7 @@ export async function DELETE(
       targetType: 'user',
       targetId: existingUser.id,
       targetLabel: existingUser.email,
+      metadata: { formsMovedToTrash },
     })
 
     return NextResponse.json({ success: true })

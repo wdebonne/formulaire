@@ -24,6 +24,7 @@ import {
   Calendar,
   MessageSquare,
   Shield,
+  UserX,
 } from 'lucide-react'
 
 interface TrashedForm {
@@ -33,7 +34,7 @@ interface TrashedForm {
   status: string
   deletedAt: string
   createdAt: string
-  user: { id: string; name: string | null; email: string }
+  user: { id: string; name: string | null; email: string } | null
   _count: { responses: number }
 }
 
@@ -77,7 +78,7 @@ export function TrashClient() {
   }, [])
 
   const openRestoreDialog = (form: TrashedForm) => {
-    setSelectedUserId(form.user.id)
+    setSelectedUserId(form.user?.id ?? '')
     setRestoreDialog(form)
   }
 
@@ -176,8 +177,11 @@ export function TrashClient() {
                         <p className="font-medium text-gray-900 truncate">{form.title}</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
                           <span className="flex items-center gap-1">
-                            <User className="w-3.5 h-3.5" />
-                            {form.user.name || form.user.email}
+                            {form.user ? (
+                              <><User className="w-3.5 h-3.5" />{form.user.name || form.user.email}</>
+                            ) : (
+                              <><UserX className="w-3.5 h-3.5 text-amber-500" /><span className="text-amber-600 font-medium">Compte supprimé</span></>
+                            )}
                           </span>
                           <span className="flex items-center gap-1">
                             <MessageSquare className="w-3.5 h-3.5" />
@@ -233,6 +237,12 @@ export function TrashClient() {
                 <p className="text-sm font-medium text-gray-700 mb-1">Formulaire</p>
                 <p className="text-sm text-gray-900 font-semibold">{restoreDialog.title}</p>
               </div>
+              {!restoreDialog.user && (
+                <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-700">
+                  <UserX className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>Ce formulaire appartenait à un compte supprimé. Vous devez choisir un nouveau propriétaire pour le restaurer.</span>
+                </div>
+              )}
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-2">Restaurer pour</p>
                 <select
@@ -240,10 +250,11 @@ export function TrashClient() {
                   onChange={e => setSelectedUserId(e.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
+                  {!restoreDialog.user && <option value="">— Choisir un propriétaire —</option>}
                   {users.map(u => (
                     <option key={u.id} value={u.id}>
                       {u.name ? `${u.name} (${u.email})` : u.email}
-                      {u.id === restoreDialog.user.id ? ' — propriétaire d\'origine' : ''}
+                      {restoreDialog.user && u.id === restoreDialog.user.id ? ' — propriétaire d\'origine' : ''}
                     </option>
                   ))}
                 </select>

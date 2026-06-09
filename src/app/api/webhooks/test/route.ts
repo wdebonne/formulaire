@@ -1,5 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { lookup } from 'dns/promises'
 import { getSession } from '@/lib/auth'
+
+const PRIVATE_IP_RE = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.0\.0\.0)|^::1$|^(fc|fd)[0-9a-f]{2,}:/i
+const BLOCKED_HOSTNAMES = new Set(['localhost', '0.0.0.0', 'metadata.google.internal'])
+
+async function isSafeWebhookUrl(rawUrl: string): Promise<{ safe: boolean; reason?: string }> {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return { safe: false, reason: 'URL invalide' }
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    return { safe: false, reason: 'Protocole non autorisé (http/https uniquement)' }
+  }
+
+  const hostname = parsed.hostname
+
+  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase()) || PRIVATE_IP_RE.test(hostname)) {
+    return { safe: false, reason: 'Adresse privée ou locale non autorisée' }
+  }
+
+  try {
+    const resolved = await lookup(hostname)
+    if (PRIVATE_IP_RE.test(resolved.address)) {
+      return { safe: false, reason: 'Le nom d\'hôte pointe vers une adresse IP privée' }
+    }
+  } catch {
+    return { safe: false, reason: 'Impossible de résoudre le nom d\'hôte' }
+  }
+
+  return { safe: true }
+}
 
 // POST /api/webhooks/test - Tester un webhook
 export async function POST(request: NextRequest) {
@@ -14,6 +48,11 @@ export async function POST(request: NextRequest) {
 
     if (!url) {
       return NextResponse.json({ error: 'URL requise' }, { status: 400 })
+    }
+
+    const urlCheck = await isSafeWebhookUrl(url)
+    if (!urlCheck.safe) {
+      return NextResponse.json({ error: urlCheck.reason ?? 'URL non autorisée' }, { status: 400 })
     }
 
     // Construire les headers

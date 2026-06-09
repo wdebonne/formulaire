@@ -11,6 +11,12 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Suppression de compte — formulaires préservés dans la corbeille** — la suppression d'un compte utilisateur ne détruit plus définitivement ses formulaires ; tous les formulaires actifs sont d'abord placés en corbeille avant la suppression du compte ; `Form.userId` est ensuite mis à `null` par `onDelete: SetNull` ; les formulaires orphelins s'affichent dans la corbeille avec un badge amber "Compte supprimé" et nécessitent une réassignation obligatoire de propriétaire avant de pouvoir être restaurés (la route de restauration renvoie 400 sans `userId`)
+
+### Corrections
+- **Dockerfile — conflit de version Prisma en CI/CD** — `npx prisma generate` à l'étape de build pouvait télécharger silencieusement une version plus récente du CLI Prisma (Prisma v6+ en 2026 utilise un format de configuration `url` différent), provoquant l'échec de `npm run build` ; remplacé par `./node_modules/.bin/prisma generate` pour toujours utiliser le binaire local du projet ; `package-lock.json` est désormais versionné (retiré de `.gitignore`) et le Dockerfile utilise `npm ci` pour des builds reproductibles
+
+### Ajouts
 - **Panneau Journal d'activité** (`/admin/logs`) — nouvelle section d'administration qui enregistre et présente les événements de sécurité et de modification de contenu :
   - Journalise les connexions (qui, adresse IP, succès ou échec et raison), les déconnexions, les inscriptions, les demandes/validations de réinitialisation de mot de passe, tout le cycle de vie des formulaires (création, modification, publication/dépublication, suppression, restauration, suppression définitive, duplication, création/restauration de version), et les actions de gestion des utilisateurs (création, modification avec suivi des changements de rôle, suppression)
   - Tableau filtrable et paginé (`/api/admin/logs`) — par action/catégorie, statut (succès/échec), plage de dates et recherche libre sur l'utilisateur, l'email, l'adresse IP et la cible

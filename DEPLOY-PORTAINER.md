@@ -178,3 +178,8 @@ Assurez-vous que le volume `sqlite-data` est bien persistant et non recréé à 
 
 ### Erreur 500 sur l'export PDF (RGPD)
 Si **Admin → RGPD → Exporter (PDF)** renvoie une erreur 500, l'image en cours d'exécution date d'avant le correctif intégrant `pdfkit` au build `standalone` (le module et ses fichiers de polices `.afm` ne sont alors pas présents dans l'image). Reconstruisez l'image (`docker compose build --no-cache` ou un nouveau déploiement complet du stack dans Portainer) puis redémarrez le conteneur — un simple redémarrage sans reconstruction ne suffit pas.
+
+### Échec du build — `npm run build` se termine avec le code 1
+Deux causes fréquentes :
+- **Version Prisma incompatible** : si `npx prisma generate` télécharge une version plus récente que celle du projet (Prisma v6+ utilise un format de configuration `url` différent), le build échoue silencieusement. Le Dockerfile utilise désormais `./node_modules/.bin/prisma generate` pour éviter ce problème.
+- **Dépendances non reproductibles** : `package-lock.json` est maintenant versionné dans le dépôt et le Dockerfile utilise `npm ci` — si votre image utilise encore `npm install`, reconstruisez depuis la dernière version du code (`docker compose build --no-cache`).

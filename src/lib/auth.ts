@@ -46,10 +46,19 @@ export function verifyToken(token: string): JWTPayload | null {
 export async function getSession(): Promise<JWTPayload | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth-token')?.value
-  
+
   if (!token) return null
-  
-  return verifyToken(token)
+
+  const payload = verifyToken(token)
+  if (!payload) return null
+
+  // Verify the user still exists — invalidates sessions for deleted accounts
+  const exists = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true },
+  })
+
+  return exists ? payload : null
 }
 
 // Version étendue qui récupère aussi les infos utilisateur fraîches de la DB

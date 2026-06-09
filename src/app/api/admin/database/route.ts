@@ -95,7 +95,11 @@ export async function POST(request: NextRequest) {
           forms,
           themes,
           responses,
-          settings,
+          settings: settings.map(s => ({
+            ...s,
+            smtpPass: s.smtpPass ? '[REDACTED]' : null,
+            nextcloudPass: s.nextcloudPass ? '[REDACTED]' : null,
+          })),
           templates,
           formShares,
           formVersions,
@@ -103,7 +107,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return NextResponse.json(backup)
+      const exportDate = new Date().toISOString().split('T')[0]
+      return new NextResponse(JSON.stringify(backup, null, 2), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Disposition': `attachment; filename="formbuilder-backup-${exportDate}.json"`,
+        },
+      })
     }
 
     return NextResponse.json({ error: 'Action non valide' }, { status: 400 })

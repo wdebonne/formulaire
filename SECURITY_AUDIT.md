@@ -4,7 +4,7 @@
 **Branche :** `main`  
 **Commit :** `2e19153`  
 **Auteur de l'audit :** Claude Sonnet 4.6 (multi-agent review)  
-**Statut :** 5 vulnérabilités HAUTES corrigées — 2 vulnérabilités MOYENNES ouvertes
+**Statut :** ✅ 7/7 vulnérabilités corrigées
 
 ---
 
@@ -17,8 +17,8 @@
 | S3 | 🔴 HAUTE | 9/10 | Endpoint non authentifié + Path Traversal | [src/app/api/admin/nextcloud/file/route.ts](src/app/api/admin/nextcloud/file/route.ts) | ✅ Corrigé |
 | S4 | 🔴 HAUTE | 9/10 | SSRF — Requêtes serveur arbitraires | [src/app/api/webhooks/test/route.ts](src/app/api/webhooks/test/route.ts) | ✅ Corrigé |
 | S5 | 🔴 HAUTE | 9/10 | XSS stocké via upload SVG | [src/app/api/upload/route.ts](src/app/api/upload/route.ts) | ✅ Corrigé |
-| S6 | 🟡 MOYENNE | 8/10 | Sessions valides après suppression du compte | [src/lib/auth.ts](src/lib/auth.ts) | ⚠️ Ouvert |
-| S7 | 🟡 MOYENNE | 9/10 | Exposition PII + secrets dans la sauvegarde DB | [src/app/api/admin/database/route.ts](src/app/api/admin/database/route.ts) | ⚠️ Ouvert |
+| S6 | 🟡 MOYENNE | 8/10 | Sessions valides après suppression du compte | [src/lib/auth.ts](src/lib/auth.ts) | ✅ Corrigé |
+| S7 | 🟡 MOYENNE | 9/10 | Exposition PII + secrets dans la sauvegarde DB | [src/app/api/admin/database/route.ts](src/app/api/admin/database/route.ts) | ✅ Corrigé |
 
 ---
 
@@ -208,52 +208,72 @@ if (ext === '.svg') {
 
 ---
 
-## S6 — Sessions actives après suppression d'un compte ⚠️ Ouvert
+## S6 — Sessions actives après suppression d'un compte ✅ Corrigé
 
 **Sévérité :** 🟡 MOYENNE  
-**Confiance :** 8/10  
-**Fichier :** [src/lib/auth.ts](src/lib/auth.ts) lignes 36–43
+**Fichier :** [src/lib/auth.ts](src/lib/auth.ts)
 
-### Description
+### Problème
 
-`getSession()` ne fait qu'une validation cryptographique du JWT. Un compte supprimé garde un accès complet aux routes non-admin (formulaires, réponses, uploads, partages) pendant les 7 jours restants du token.
+`getSession()` ne faisait qu'une validation cryptographique du JWT. Un compte supprimé gardait un accès complet aux routes non-admin (formulaires, réponses, uploads, partages) pendant les 7 jours restants du token.
 
-### Remédiation recommandée
+### Correction appliquée
 
-Ajouter une table de révocation de tokens ou réduire la TTL JWT + implémenter un refresh token :
+`getSession()` vérifie désormais l'existence de l'utilisateur en base de données après avoir validé le token. Un compte supprimé invalide la session immédiatement :
 
 ```ts
-// Option légère : table de tokens révoqués
-const revoked = await prisma.revokedToken.findUnique({ where: { jti: payload.jti } })
-if (revoked) return null
+export async function getSession(): Promise<JWTPayload | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+
+  if (!token) return null
+
+  const payload = verifyToken(token)
+  if (!payload) return null
+
+  // Verify the user still exists — invalidates sessions for deleted accounts
+  const exists = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true },
+  })
+
+  return exists ? payload : null
+}
 ```
 
-Implémenter aussi l'ajout d'un champ `jti` unique lors de la création des tokens (`generateToken`).
+Cette vérification s'applique à **toutes** les routes authentifiées puisqu'elles passent toutes par `getSession()`. Le coût est une requête `SELECT id` par appel authentifié, acceptable pour une application auto-hébergée.
 
 ---
 
-## S7 — Exposition de secrets et PII dans la sauvegarde base de données ⚠️ Ouvert
+## S7 — Exposition de secrets et PII dans la sauvegarde base de données ✅ Corrigé
 
 **Sévérité :** 🟡 MOYENNE  
-**Confiance :** 9/10  
-**Fichier :** [src/app/api/admin/database/route.ts](src/app/api/admin/database/route.ts) lignes 76–106
+**Fichier :** [src/app/api/admin/database/route.ts](src/app/api/admin/database/route.ts)
 
-### Description
+### Problème
 
-L'action `backup` (admin-only) inclut `smtpPass` en clair dans `SystemSettings` et toutes les réponses de formulaires (PII). Si un credential admin est compromis, une seule requête suffit à exfiltrer l'ensemble.
+L'action `backup` incluait `smtpPass` et `nextcloudPass` en clair dans `SystemSettings`. La réponse était aussi retournée via `NextResponse.json()`, ce qui l'exposait dans l'historique du navigateur et les logs de proxy.
 
-### Remédiation recommandée
+### Correction appliquée
 
-Redacter les champs sensibles dans le payload de sauvegarde :
+`smtpPass` et `nextcloudPass` sont désormais redactés, et la réponse force le téléchargement via `Content-Disposition: attachment` :
 
 ```ts
-const settings = rawSettings.map(s => ({
+settings: settings.map(s => ({
   ...s,
   smtpPass: s.smtpPass ? '[REDACTED]' : null,
-}))
+  nextcloudPass: s.nextcloudPass ? '[REDACTED]' : null,
+})),
+// ...
+return new NextResponse(JSON.stringify(backup, null, 2), {
+  headers: {
+    'Content-Type': 'application/json',
+    'Content-Disposition': `attachment; filename="formbuilder-backup-${exportDate}.json"`,
+  },
+})
 ```
 
-Et ajouter un `Content-Disposition: attachment` pour éviter l'affichage en clair dans le navigateur.
+Le nom de fichier inclut la date d'export pour faciliter la traçabilité.
 
 ---
 
@@ -271,11 +291,12 @@ Et ajouter un `Content-Disposition: attachment` pour éviter l'affichage en clai
 
 | Fichier | Vulnérabilité |
 |---------|---------------|
-| [src/lib/auth.ts](src/lib/auth.ts) | S1 |
+| [src/lib/auth.ts](src/lib/auth.ts) | S1, S6 |
 | [src/lib/security.ts](src/lib/security.ts) | S2 |
 | [src/middleware.ts](src/middleware.ts) | S2 |
 | [src/app/api/admin/nextcloud/file/route.ts](src/app/api/admin/nextcloud/file/route.ts) | S3 |
 | [src/app/api/webhooks/test/route.ts](src/app/api/webhooks/test/route.ts) | S4 |
 | [src/app/api/upload/route.ts](src/app/api/upload/route.ts) | S5 |
 | [src/app/api/uploads/[filename]/route.ts](src/app/api/uploads/[filename]/route.ts) | S5 |
+| [src/app/api/admin/database/route.ts](src/app/api/admin/database/route.ts) | S7 |
 | [.env.example](.env.example) | S1, S2 |

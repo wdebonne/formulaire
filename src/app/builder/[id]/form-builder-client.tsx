@@ -97,7 +97,8 @@ export function FormBuilderClient({ initialForm, themes: initialThemes }: FormBu
       settings: initialForm.settings,
       themeId: initialForm.themeId,
     })
-  }, [initialForm, setFormData])
+    markClean()
+  }, [initialForm, setFormData, markClean])
 
   const handleSave = useCallback(async () => {
     setIsSaving(true)

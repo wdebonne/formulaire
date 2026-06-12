@@ -206,6 +206,11 @@ Ensure the `sqlite-data` volume is persistent and not recreated on each deployme
 ### 500 Error on PDF Export (GDPR)
 If **Admin → GDPR → Export (PDF)** returns a 500 error, the running image predates the fix that bundles `pdfkit` correctly into the `standalone` build (the module and its `.afm` font files are missing from the image). Rebuild the image (`docker compose build --no-cache`, or trigger a full stack redeploy in Portainer) and restart the container — a plain restart without a rebuild won't pick up the fix.
 
+### Build Failure — `npm run build` exits with code 1
+Two common causes:
+- **Incompatible Prisma version**: if `npx prisma generate` downloads a newer CLI than the project's pinned version (Prisma v6+ uses a different `url` config format), the build fails silently. The Dockerfile now uses `./node_modules/.bin/prisma generate` to prevent this.
+- **Non-reproducible dependencies**: `package-lock.json` is now committed to the repository and the Dockerfile uses `npm ci` — if your image still uses `npm install`, rebuild from the latest code (`docker compose build --no-cache`).
+
 ### Slow First Start on ARM64
 The ARM64 build takes longer (especially on Raspberry Pi). The healthcheck `start_period` is adjusted accordingly — wait up to 2 minutes on first start.
 

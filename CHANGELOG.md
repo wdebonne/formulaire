@@ -11,6 +11,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **User deletion — forms preserved in admin trash** — deleting a user account no longer permanently destroys their forms; all active forms are soft-deleted (moved to admin trash) before the account is removed; `Form.userId` is then set to `null` by `onDelete: SetNull`; orphaned forms appear in the admin trash with an amber "Deleted account" badge and require mandatory owner reassignment before they can be restored (the restore route returns 400 if no `userId` is provided)
+
+### Fixed
+- **Dockerfile — Prisma version mismatch in CI/CD** — `npx prisma generate` in the build stage could silently download a newer Prisma CLI (v6+ in 2026 uses a different `url` config format), causing `npm run build` to fail; changed to `./node_modules/.bin/prisma generate` to always use the project-local binary; also committed `package-lock.json` (previously in `.gitignore`) and updated the Dockerfile to use `npm ci` so dependency versions are locked and reproducible across builds and deployments
+
+### Added
 - **Activity log / audit trail panel** (`/admin/logs`) — new admin section recording and surfacing security-relevant and content-changing events:
   - Logs logins (who, IP address, success or failure and reason), logouts, registrations, password reset requests/completions, the full form lifecycle (create, update, publish/unpublish, delete, restore, permanent delete, duplicate, version create/restore), and user management actions (create, update with role-change tracking, delete)
   - Filterable, paginated table (`/api/admin/logs`) — by action/category, status (success/failure), date range, and free-text search across user, email, IP address, and target label

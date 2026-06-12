@@ -58,11 +58,23 @@ function refreshIpListCache(origin: string) {
 }
 
 function getMiddlewareClientIp(request: NextRequest): string {
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  if (forwardedFor) {
-    const ip = forwardedFor.split(',')[0]?.trim()
-    if (ip) return ip
+  const trustedProxies = process.env.TRUSTED_PROXY_IPS
+    ?.split(',').map(ip => ip.trim()).filter(Boolean) ?? []
+
+  if (trustedProxies.length > 0) {
+    const connectionIp = request.ip ?? 'unknown'
+    if (connectionIp !== 'unknown' && trustedProxies.includes(connectionIp)) {
+      const forwardedFor = request.headers.get('x-forwarded-for')
+      if (forwardedFor) {
+        const ip = forwardedFor.split(',')[0]?.trim()
+        if (ip) return ip
+      }
+    }
+    return connectionIp
   }
+
+  if (request.ip) return request.ip
+
   const realIp = request.headers.get('x-real-ip')
   if (realIp) return realIp.trim()
   return 'unknown'

@@ -4,8 +4,17 @@ import { cookies } from 'next/headers'
 import { randomBytes } from 'crypto'
 import { prisma } from './prisma'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 const TOKEN_EXPIRY = '7d'
+
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET must be set and at least 32 characters. Generate one with: openssl rand -base64 32'
+    )
+  }
+  return secret
+}
 
 export interface JWTPayload {
   userId: string
@@ -22,12 +31,13 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 }
 
 export function generateToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRY })
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: TOKEN_EXPIRY })
 }
 
 export function verifyToken(token: string): JWTPayload | null {
+  const secret = getJwtSecret() // intentionally outside try/catch — misconfiguration must throw
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload
+    return jwt.verify(token, secret) as JWTPayload
   } catch {
     return null
   }
@@ -36,10 +46,19 @@ export function verifyToken(token: string): JWTPayload | null {
 export async function getSession(): Promise<JWTPayload | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get('auth-token')?.value
-  
+
   if (!token) return null
-  
-  return verifyToken(token)
+
+  const payload = verifyToken(token)
+  if (!payload) return null
+
+  // Verify the user still exists — invalidates sessions for deleted accounts
+  const exists = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { id: true },
+  })
+
+  return exists ? payload : null
 }
 
 // Version étendue qui récupère aussi les infos utilisateur fraîches de la DB

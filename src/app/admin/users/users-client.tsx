@@ -150,7 +150,12 @@ export function UsersManagementClient() {
   }
 
   const handleDelete = async (userId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.')) {
+    const user = users.find(u => u.id === userId)
+    const formCount = user?._count?.forms ?? 0
+    const formsWarning = formCount > 0
+      ? `\n\nSes ${formCount} formulaire${formCount > 1 ? 's' : ''} seront déplacés dans la corbeille admin pour être supprimés définitivement ou réassignés.`
+      : ''
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer cet utilisateur ? Son compte sera supprimé définitivement.${formsWarning}`)) {
       return
     }
 
@@ -167,7 +172,9 @@ export function UsersManagementClient() {
 
       toast({
         title: 'Utilisateur supprimé',
-        description: 'L\'utilisateur a été supprimé avec succès',
+        description: formCount > 0
+          ? `Le compte a été supprimé. ${formCount} formulaire${formCount > 1 ? 's' : ''} ont été déplacé${formCount > 1 ? 's' : ''} dans la corbeille.`
+          : 'L\'utilisateur a été supprimé avec succès',
       })
 
       fetchUsers()

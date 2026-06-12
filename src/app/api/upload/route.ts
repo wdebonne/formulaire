@@ -43,8 +43,17 @@ export async function POST(request: NextRequest) {
     const uploadDir = path.join(process.cwd(), 'public', 'uploads')
     await mkdir(uploadDir, { recursive: true })
 
-    // Générer un nom de fichier unique
-    const ext = path.extname(file.name)
+    // Extension dérivée du type MIME déclaré (pas du nom de fichier fourni par le client)
+    const MIME_TO_EXT: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'image/svg+xml': '.svg',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+      'application/vnd.ms-excel': '.xls',
+    }
+    const ext = MIME_TO_EXT[file.type] ?? path.extname(file.name).toLowerCase()
     const filename = `${uuidv4()}${ext}`
     const filepath = path.join(uploadDir, filename)
 

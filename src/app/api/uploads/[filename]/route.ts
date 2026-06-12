@@ -40,13 +40,18 @@ export async function GET(
     const ext = path.extname(filename).toLowerCase()
     const contentType = MIME_TYPES[ext] || 'application/octet-stream'
 
-    // Retourner le fichier avec les bons headers
-    return new NextResponse(file, {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    })
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'X-Content-Type-Options': 'nosniff',
+    }
+
+    // SVG servi depuis l'origine de l'app : bloquer l'exécution de scripts
+    if (ext === '.svg') {
+      headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'"
+    }
+
+    return new NextResponse(file, { headers })
   } catch (error) {
     console.error('Error serving file:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

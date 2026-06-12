@@ -23,11 +23,24 @@ export const DEFAULT_SECURITY_SETTINGS: SecuritySettings = {
 }
 
 export function getClientIp(request: NextRequest): string {
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  if (forwardedFor) {
-    const ip = forwardedFor.split(',')[0]?.trim()
-    if (ip) return ip
+  const trustedProxies = process.env.TRUSTED_PROXY_IPS
+    ?.split(',').map(ip => ip.trim()).filter(Boolean) ?? []
+
+  if (trustedProxies.length > 0) {
+    // Only trust X-Forwarded-For when the connection originates from a configured trusted proxy
+    const connectionIp = request.ip ?? 'unknown'
+    if (connectionIp !== 'unknown' && trustedProxies.includes(connectionIp)) {
+      const forwardedFor = request.headers.get('x-forwarded-for')
+      if (forwardedFor) {
+        const ip = forwardedFor.split(',')[0]?.trim()
+        if (ip) return ip
+      }
+    }
+    return connectionIp
   }
+
+  // No trusted proxies configured: use direct connection IP, never trust XFF
+  if (request.ip) return request.ip
 
   const realIp = request.headers.get('x-real-ip')
   if (realIp) return realIp.trim()

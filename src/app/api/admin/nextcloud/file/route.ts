@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
+import path from 'path'
 import { prisma } from '@/lib/prisma'
 
-function buildWebDavUrl(baseUrl: string, user: string, path: string): string {
+function buildWebDavUrl(baseUrl: string, user: string, filePath: string): string {
   const clean = baseUrl.replace(/\/$/, '')
-  const cleanPath = path.startsWith('/') ? path : `/${path}`
+  const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`
   return `${clean}/remote.php/dav/files/${encodeURIComponent(user)}${cleanPath}`
+}
+
+function sanitizeFilePath(rawPath: string): string | null {
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(rawPath)
+  } catch {
+    return null
+  }
+  // Reject any path containing '..' in raw or decoded form
+  if (rawPath.includes('..') || decoded.includes('..')) return null
+  // Normalize and ensure absolute
+  const normalized = path.posix.normalize('/' + decoded.replace(/^\/+/, ''))
+  if (normalized.includes('..')) return null
+  return normalized
 }
 
 // Lit les settings NextCloud via SQL brut (compatible ancien client Prisma)
@@ -24,9 +40,14 @@ async function getNextcloudSettings() {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const filePath = searchParams.get('path')
-    if (!filePath) {
+    const rawPath = searchParams.get('path')
+    if (!rawPath) {
       return NextResponse.json({ error: 'Paramètre path manquant' }, { status: 400 })
+    }
+
+    const filePath = sanitizeFilePath(rawPath)
+    if (!filePath) {
+      return NextResponse.json({ error: 'Chemin invalide' }, { status: 400 })
     }
 
     const nc = await getNextcloudSettings()

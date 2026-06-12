@@ -59,6 +59,8 @@ Context for Claude Code when working on this project.
 | `src/lib/response-format.ts` | Shared response-label resolution — `findBlockDeep`, `formatBlockValue`, `formatDateString`, `resolveDataLabels`; extracted from the webhook submit route, reused by the GDPR export so both resolve choice slugs → labels and format dates identically |
 | `src/app/admin/gdpr/gdpr-client.tsx` | GDPR admin UI (`/admin/gdpr`) — retention settings + manual purge of expired responses; global cross-form person search with review-then-act export (Excel/PDF) and right-to-erasure deletion |
 | `src/app/api/admin/gdpr/export/route.ts` | GDPR export API — builds the Excel portability workbook (`xlsx`) and the PDF summary (`pdfkit`) for admin-reviewed response IDs only |
+| `src/app/api/admin/users/[id]/route.ts` | User management API — DELETE soft-deletes all active forms before removing the account; `onDelete: SetNull` then sets `userId = null` on all forms |
+| `src/app/admin/trash/trash-client.tsx` | Admin trash UI — lists trashed forms; orphaned forms (deleted owner) show an amber "Compte supprimé" badge; restoration requires mandatory owner reassignment for orphans |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -105,6 +107,7 @@ When adding a new block type, update **all** of these:
 ## Database Schema Notes
 
 - `Form` has a `deletedAt` field for soft delete (trash feature)
+- `Form.userId` is `String?` (nullable) with `onDelete: SetNull` — when a user account is deleted, Prisma sets `userId = null` on all their forms instead of cascade-deleting them; the DELETE handler in `/api/admin/users/[id]` first soft-deletes all active forms before removing the account, so orphaned forms land in the admin trash
 - `Form` has `webhookStatus` for tracking last webhook delivery status
 - `Form` has `saveCount` (Int) — incremented on every PUT; used to trigger auto-versioning every 10 saves
 - `FormVersion` stores snapshots of `blocks`, `logic`, `settings`, `webhooks`, `themeId`, `title`; `isAuto` distinguishes auto vs manual; `number` is a sequential per-form counter
@@ -182,3 +185,15 @@ The audit-log code is split across two files specifically to respect the server/
 Retention mirrors the GDPR pattern exactly: `SystemSettings.logSettings` (`retentionEnabled`/`retentionDays`, default 365 days) is read via `getLogSettings()`, purging (`/api/admin/logs/retention` DELETE) is **manual only** with the cutoff date always recomputed server-side from `getLogRetentionCutoffDate()`, never trusting a client-supplied date.
 
 The failed-login email alert (config lives in `SystemSettings.securitySettings`: `notifyOnFailedLogin`/`notifyThreshold`/`notifyEmail`, set in `/admin/security` next to `maxFailedAttempts`) fires from `recordFailedLogin()` in `src/lib/security.ts` on **strict equality** — `failedAttempts === settings.notifyThreshold` — not `>=`. Since the counter resets to zero on a successful login or a new time window, this guarantees exactly one alert email per failure cycle rather than one per attempt past the threshold.
+
+### User Deletion & Orphaned Forms
+When an admin deletes a user account (`DELETE /api/admin/users/[id]`):
+1. All the user's **active** forms (`deletedAt = null`) are soft-deleted (`deletedAt = now()`), moving them to the admin trash.
+2. The user record is then deleted; Prisma `onDelete: SetNull` sets `userId = null` on **all** associated forms (including already-trashed ones).
+
+Orphaned forms (`userId = null`) appear in the admin trash with an amber "Compte supprimé" badge. Restoring one via `POST /api/admin/trash/[id]` **requires** a `userId` in the request body — the route returns 400 without one, preventing restoration without a valid owner.
+
+The SQLite migration `prisma/migrations/20260609000000_form_userid_nullable` fully recreates the `Form` table to add the nullable column and `SET NULL` foreign-key constraint (SQLite cannot `ALTER COLUMN`).
+
+### Dockerfile — Local Prisma Binary
+The Dockerfile uses `./node_modules/.bin/prisma generate` instead of `npx prisma generate`. Using `npx` in a Docker build layer can download a newer Prisma version (v6+ in 2026), which uses a different `url` config format and breaks the build. The local binary is pinned to the exact version in `package-lock.json`, which is committed to the repository (removed from `.gitignore`) so that `npm ci` produces identical dependency trees across all environments and CI/CD runs.

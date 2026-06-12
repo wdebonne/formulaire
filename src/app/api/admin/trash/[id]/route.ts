@@ -27,6 +27,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json().catch(() => ({}))
     const newUserId: string | undefined = body.userId
 
+    // Un formulaire orphelin (compte supprimé → userId null) doit obligatoirement
+    // être réassigné à un utilisateur existant lors de la restauration.
+    if (!form.userId && !newUserId) {
+      return NextResponse.json(
+        { error: 'Ce formulaire appartient à un compte supprimé. Choisissez un nouveau propriétaire avant de restaurer.' },
+        { status: 400 }
+      )
+    }
+
     await prisma.form.update({
       where: { id: params.id },
       data: {

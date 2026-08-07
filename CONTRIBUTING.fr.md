@@ -60,11 +60,16 @@ L'application tourne sur [http://localhost:3000](http://localhost:3000).
 | `src/app/[slug]/` | Page du formulaire public |
 | `src/components/builder/` | Tous les composants UI du builder |
 | `src/components/ui/` | Composants UI génériques réutilisables |
+| `src/components/forms/` | Modales Modèle de document et E-mail d'envoi |
 | `src/lib/auth.ts` | Utilitaires JWT d'authentification |
 | `src/lib/prisma.ts` | Singleton du client Prisma |
+| `src/lib/document-fields.ts` | Catalogue des champs/jetons des modèles Word (pur, utilisable côté client) |
+| `src/lib/docx-template.ts` | Moteur docxtemplater (server-only) |
+| `src/lib/document-delivery.ts` | Génère le document d'une réponse et l'envoie par e-mail |
 | `src/stores/form-builder.ts` | Store Zustand pour l'état du builder |
 | `src/types/form.ts` | Définitions TypeScript centrales |
 | `prisma/schema.prisma` | Schéma de base de données |
+| `prisma/migrations/` | Fichiers de migration rejoués en production — voir [Migrations](#migrations-de-base-de-données) |
 
 ### Gestion de l'état
 
@@ -83,6 +88,19 @@ Le nom du site, le logo et le favicon sont stockés dans la table `SystemSetting
 #### Personnalisation de la page de connexion
 
 `SystemSettings.loginPageSettings` stocke un blob JSON (colonne texte, même convention que `Form.settings`) typé `LoginPageSettings` dans `src/types/form.ts` — contrôle la visibilité du lien "mot de passe oublié" et le fond de la page (couleur unie / dégradé / image avec flou). `src/lib/utils.ts` exporte `getLoginBackgroundStyle()`, source unique de vérité pour transformer ces réglages en CSS ; la page `src/app/login/page.tsx` et l'aperçu en direct dans `src/app/admin/customization/customization-client.tsx` l'utilisent tous les deux, garantissant un rendu identique au pixel près. Le bascule "Autoriser les inscriptions" de cette section écrit dans la même colonne `registrationEnabled` que Admin → Paramètres généraux — c'est un raccourci de confort, pas un indicateur séparé.
+
+### Modèles de documents Word
+
+`src/lib/document-fields.ts` est volontairement **pur** — aucun import Prisma, aucun accès disque — pour que les composants `'use client'` puissent l'importer pour le tableau des champs et jetons ; le moteur de rendu vit à part dans `src/lib/docx-template.ts`. C'est la même séparation serveur/client qu'entre `audit-actions.ts` et `audit-log.ts` : importer un module touchant à Prisma dans un composant client casse le build.
+
+Deux invariants à connaître avant de toucher à cette partie :
+
+- **Les jetons sont persistés, pas dérivés.** `Form.documentSettings` conserve une association `jeton → blockId`, et `buildFieldCatalog(blocks, savedMappings)` privilégie toujours un jeton enregistré sur un libellé fraîchement transformé en slug. C'est ce qui garantit qu'un `.docx` déjà rédigé continue de fonctionner après le renommage d'une question. Ne jamais regénérer les jetons uniquement à partir des libellés.
+- **Les jetons sont dédupliqués globalement**, enfants de répéteurs compris, car docxtemplater résout d'abord dans la boucle puis remonte au scope parent — un jeton d'enfant en collision masquerait silencieusement un champ de premier niveau.
+
+Un nouveau type de bloc ne demande rien ici : le catalogue est dérivé des blocs, il apparaît automatiquement.
+
+`docxtemplater/js/inspect-module.js` (l'inspecteur de jetons officiel) fait un `require` de **lodash, qui n'est pas une dépendance de docxtemplater** — l'importer casse le build. La détection des jetons passe donc par `get-tags.js`, exempt de lodash, plus un petit module local qui n'implémente que `set()` pour capturer le `postparsed` de chaque fichier.
 
 ### Ajouter un nouveau type de bloc
 
@@ -146,14 +164,41 @@ Ne jamais commiter de secrets. Le fichier `.env` est dans le `.gitignore`. Utili
 
 ## Migrations de base de données
 
-Ce projet utilise `prisma db push` (schema-first, sans fichiers de migration). Lors d'une modification de `prisma/schema.prisma` :
+Le projet fait tourner **deux mécanismes différents**, et les confondre a déjà provoqué une panne en production — lisez cette section avant de toucher à `prisma/schema.prisma`.
+
+| Environnement | Mécanisme | Point d'entrée |
+|---------------|-----------|----------------|
+| Développement local | `prisma db push` — recrée les tables dans l'ordre du schéma | `npm run db:push` |
+| Docker / production | `prisma migrate deploy` — rejoue `prisma/migrations/` dans l'ordre | `docker-entrypoint.sh` |
 
 ```bash
-npm run db:push     # Appliquer les changements de schéma
+npm run db:push     # Appliquer les changements de schéma en local
 npm run db:generate # Regénérer le client Prisma
 ```
 
-> En production, testez d'abord les changements de schéma en local. `db push` est destructif pour les champs renommés ou supprimés.
+**Tout changement de schéma doit être accompagné d'un fichier de migration** dans `prisma/migrations/`, sans quoi il n'atteindra jamais la production — `db push` ne met à jour que votre propre machine.
+
+### Le piège : l'ordre physique des colonnes diffère entre les deux
+
+`db push` recrée une table dans l'ordre déclaré dans le schéma, alors que `migrate deploy` ajoute en fin de table chaque colonne introduite par un `ALTER TABLE` ultérieur. Le même schéma produit donc **deux ordres physiques différents**.
+
+Cela compte car SQLite n'a pas d'`ALTER COLUMN` : modifier la nullabilité d'une colonne ou une clé étrangère impose de recréer la table et d'y recopier les lignes. Ne jamais copier par position :
+
+```sql
+-- FAUX — associe les colonnes par position, casse sur l'une ou l'autre des lignées
+INSERT INTO "Form_new" SELECT * FROM "Form";
+
+-- JUSTE — correct quel que soit l'ordre physique
+INSERT INTO "Form_new" ("id", "title", …) SELECT "id", "title", … FROM "Form";
+```
+
+C'est cette forme positionnelle qui a fait échouer `20260609000000_form_userid_nullable` en production alors qu'elle passait en local. Rendez aussi ces migrations rejouables : `DROP TABLE IF EXISTS "<table>_new"` en tête et `IF NOT EXISTS` sur la création des index, pour qu'une reprise après échec reste sûre.
+
+### Tester une migration avant de la livrer
+
+Une migration qui fonctionne sur votre base issue de `db push` ne prouve rien. Reconstruisez une base jetable dans l'ordre `migrate deploy` (le `CREATE TABLE` d'origine, puis chaque `ALTER TABLE` dans l'ordre des migrations), appliquez-y la migration, et vérifiez à la fois qu'elle réussit et que les valeurs ne se sont pas décalées d'une colonne à l'autre.
+
+> `db push` est destructif pour les champs renommés ou supprimés. Testez d'abord en local.
 
 ---
 

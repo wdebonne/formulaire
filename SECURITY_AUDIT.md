@@ -300,3 +300,38 @@ Le nom de fichier inclut la date d'export pour faciliter la traçabilité.
 | [src/app/api/uploads/[filename]/route.ts](src/app/api/uploads/[filename]/route.ts) | S5 |
 | [src/app/api/admin/database/route.ts](src/app/api/admin/database/route.ts) | S7 |
 | [.env.example](.env.example) | S1, S2 |
+
+---
+
+## Addendum — 2026-08-07 : stockage des modèles de documents
+
+> Cette section **ne fait pas partie de l'audit du 2026-06-09**. Elle documente les décisions de
+> sécurité prises lors de l'ajout de la génération de documents Word, dans le prolongement direct
+> des constats S3 et S5. Ce code n'a pas fait l'objet d'une revue multi-agent.
+
+### Contexte
+
+La fonctionnalité permet d'importer un modèle `.docx` par formulaire, de le remplir avec les
+réponses et d'envoyer le résultat par e-mail. Deux catégories de fichiers sensibles apparaissent :
+le modèle lui-même (susceptible de porter l'en-tête d'un organisme) et le document rempli
+(contenant les données personnelles d'un répondant).
+
+### Décisions
+
+| Décision | Raison |
+|----------|--------|
+| Modèles stockés dans `storage/templates/`, hors de `public/` | `/api/uploads/[filename]` sert `public/uploads` **sans aucune vérification d'authentification** : y déposer un modèle l'aurait rendu accessible à quiconque connaît l'UUID |
+| Nom de fichier généré côté serveur (`<uuid>.docx`), validé par `/^[0-9a-f-]{36}\.docx$/` avant tout accès disque | Rejette par construction toute tentative de traversée de répertoire, plutôt que de filtrer les séquences une à une — même approche que le correctif S3 |
+| Type MIME **et** signature `PK` du conteneur ZIP vérifiés, taille plafonnée à 10 Mo | Le type déclaré par le navigateur ne prouve rien ; un `.docx` est un ZIP, sa signature est vérifiable |
+| Modèle compilé dès l'import, refus en cas de syntaxe invalide | Un modèle cassé est rejeté au moment de l'import, pas à la première soumission d'un répondant |
+| Documents remplis **jamais écrits sur disque** — régénérés à chaque téléchargement ou envoi | Aucun fichier contenant des données personnelles ne s'accumule sur le volume, ce qui aurait échappé à la purge de rétention RGPD |
+| Import, téléchargement du modèle et du document rempli passent tous par `getAccessibleForm()` | Propriétaire, partage explicite ou administrateur global — mêmes règles que la page des réponses ; l'envoi d'e-mail reste entièrement interne au backend |
+| URL du convertisseur PDF restreinte à `http`/`https`, avec délais d'expiration explicites | Limite la surface SSRF de la fonctionnalité ; l'adresse n'est modifiable que par un administrateur |
+
+### Points d'attention non traités
+
+- L'URL du convertisseur PDF étant fournie par un administrateur, elle peut viser une adresse du
+  réseau interne. Le risque est jugé acceptable — un administrateur dispose déjà de capacités plus
+  larges (webhooks, sauvegarde de base) — mais il n'y a **pas** de filtrage d'adresses privées
+  comparable à celui appliqué en S4 sur les webhooks.
+- `convertDocxToPdf()` n'a pas été exercé contre une instance Gotenberg réelle.

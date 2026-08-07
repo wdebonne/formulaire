@@ -74,9 +74,14 @@ $env:PROCESSOR_ARCHITECTURE
 
 Le docker-compose configure automatiquement :
 - `sqlite-data` : Base de données SQLite (`/app/prisma/data`)
-- `uploads-data` : Fichiers uploadés
+- `uploads-data` : Fichiers uploadés (`/app/public/uploads`)
+- `templates-data` : Modèles Word `.docx` (`/app/storage`)
 
 > La base de données réside dans son propre sous-dossier `/app/prisma/data` (et non directement dans `/app/prisma`) afin que le volume persistant ne recouvre pas `schema.prisma` et les fichiers de migration embarqués dans l'image.
+
+> ⚠️ Le volume `templates-data` a été ajouté après la première version du stack. Si vous mettez à jour un déploiement existant, **recréez le conteneur** (`docker compose up -d --force-recreate`, ou un redéploiement complet du stack dans Portainer) plutôt que de le redémarrer : sans ce volume, les modèles importés disparaîtraient à chaque redéploiement.
+
+> Ce dossier est volontairement **hors de `/app/public`** : les fichiers de `public/uploads` sont servis sans authentification, ce qui conviendrait mal à un modèle contenant l'en-tête d'un organisme. Les modèles ne sont accessibles que via des routes authentifiées.
 
 ## 4. Accéder à l'application
 
@@ -159,6 +164,33 @@ Rendez-vous dans **Admin → Logs** (`/admin/logs`) pour consulter et configurer
 
 ---
 
+## 10. Documents Word et conversion PDF
+
+Un formulaire peut porter un modèle Word dont les jetons sont remplacés par les réponses, le document rempli étant ensuite envoyé en pièce jointe. Tout se règle depuis la page des réponses du formulaire, via deux boutons de la barre supérieure : **Modèle de document** et **E-mail d'envoi**. Le remplissage `.docx` fonctionne sans aucune dépendance externe — seule la **sortie PDF** nécessite un service supplémentaire.
+
+### Activer la sortie PDF (optionnel)
+
+Aucun convertisseur `.docx` → PDF fidèle n'existe en JavaScript pur : conserver l'en-tête, les tableaux et les polices d'un modèle Word suppose LibreOffice. Plutôt que d'alourdir l'image applicative de plusieurs centaines de Mo, la conversion est déléguée à un conteneur dédié.
+
+Ajoutez le service à votre `docker-compose.yml` :
+
+```yaml
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: gotenberg
+    restart: unless-stopped
+```
+
+Puis, dans **Admin → Documents** (`/admin/documents`), renseignez l'adresse `http://gotenberg:3000` et cliquez sur **Tester la connexion**.
+
+- L'option PDF n'apparaît dans les formulaires **qu'après un test réussi**
+- Modifier l'adresse invalide la vérification : il faut la retester
+- Le serveur revérifie la disponibilité à chaque enregistrement, si bien qu'un réglage PDF resté en base ne peut pas s'appliquer après le retrait du convertisseur
+
+> N'exposez pas le port de Gotenberg publiquement : le service ne dispose d'aucune authentification. Les deux conteneurs partageant le réseau Compose, ils communiquent par leur nom de service sans publication de port.
+
+---
+
 ## Notes
 - Le build peut prendre quelques minutes lors du premier déploiement (plus long sur ARM)
 - Pour la production, utilisez un JWT_SECRET sécurisé et unique
@@ -172,6 +204,30 @@ Si l'image ne démarre pas avec une erreur de format, vérifiez que vous utilise
 
 ### Le conteneur redémarre en boucle
 Vérifiez les logs avec : `docker logs formbuilder`
+
+### `Error: P3009` — une migration a échoué et bloque toutes les suivantes
+
+Le script de démarrage lance `prisma migrate deploy` puis s'arrête en erreur, ce qui provoque une boucle de redémarrage. Prisma refuse d'appliquer la moindre migration tant que l'échec précédent n'a pas été tranché.
+
+**Sauvegardez d'abord le volume `sqlite-data`**, puis :
+
+```bash
+# 1. Récupérer la version corrigée et reconstruire l'image
+git pull
+docker compose build
+
+# 2. Signaler que la migration en échec a bien été annulée, afin que Prisma la rejoue.
+#    L'entrypoint échouant, on court-circuite avec --entrypoint pour obtenir un shell.
+docker compose run --rm --entrypoint sh app -c \
+  "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <nom_de_la_migration>"
+
+# 3. Recréer le conteneur
+docker compose up -d --force-recreate
+```
+
+`--rolled-back` convient lorsque la migration a échoué **dans sa transaction** : la base est alors restée dans son état d'origine, il suffit de rejouer. Si à l'inverse la migration s'est appliquée en dehors de Prisma (correction manuelle en base), utilisez `--applied` pour la marquer comme faite sans la rejouer.
+
+> Cas connu : `20260609000000_form_userid_nullable` échouait avec `NOT NULL constraint failed: Form_new.createdAt` sur toute base construite par `migrate deploy`. La cause et le correctif sont détaillés dans le [CHANGELOG](CHANGELOG.fr.md). Après un `git pull` intégrant le correctif, la procédure ci-dessus suffit.
 
 ### Base de données vide après redémarrage
 Assurez-vous que le volume `sqlite-data` est bien persistant et non recréé à chaque déploiement.

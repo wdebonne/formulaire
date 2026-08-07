@@ -272,5 +272,25 @@ writes `Response.documentStatus` (`DocumentSendStatus`), which drives the per-ro
 responses page (green sent / red failed / grey never sent) and its resend action, mirroring the
 existing webhook status button.
 
+### Migrations — Two Lineages, Two Column Orders
+Local dev uses `npm run db:push`; Docker/production replays `prisma/migrations/` via
+`migrate deploy` in `docker-entrypoint.sh`. **Any schema change needs a migration file** or it never
+reaches production.
+
+The two produce **different physical column orders** for the same schema: `db push` recreates a
+table in schema order, while `migrate deploy` appends every `ALTER TABLE ... ADD COLUMN` at the end.
+Since SQLite has no `ALTER COLUMN`, changing nullability or a foreign key means rebuilding the table
+— and `INSERT INTO "X_new" SELECT * FROM "X"` copies **by position**, so it silently targets the
+wrong columns on one lineage or the other. Always list columns explicitly on both sides.
+
+This is exactly how `20260609000000_form_userid_nullable` shipped broken: on a `migrate deploy`
+database, `deletedAt` (NULL for every non-trashed form) landed in the `NOT NULL` `createdAt` column,
+failing with `NOT NULL constraint failed: Form_new.createdAt` and blocking all later migrations with
+`P3009` — while passing locally, where the `db push` order happened to match. Table-rebuild
+migrations should also be replayable: `DROP TABLE IF EXISTS "X_new"` at the top and `IF NOT EXISTS`
+on index creations. Verifying such a migration means rebuilding a scratch DB in `migrate deploy`
+order and checking that values did not shift between columns — passing on a `db push` database
+proves nothing.
+
 ### Dockerfile — Local Prisma Binary
 The Dockerfile uses `./node_modules/.bin/prisma generate` instead of `npx prisma generate`. Using `npx` in a Docker build layer can download a newer Prisma version (v6+ in 2026), which uses a different `url` config format and breaks the build. The local binary is pinned to the exact version in `package-lock.json`, which is committed to the repository (removed from `.gitignore`) so that `npm ci` produces identical dependency trees across all environments and CI/CD runs.

@@ -60,11 +60,16 @@ The app runs at [http://localhost:3000](http://localhost:3000).
 | `src/app/[slug]/` | Public form page |
 | `src/components/builder/` | All builder UI components |
 | `src/components/ui/` | Generic reusable UI (Button, Dialog, Input…) |
+| `src/components/forms/` | Document template and sending-e-mail modals |
 | `src/lib/auth.ts` | JWT authentication helpers |
 | `src/lib/prisma.ts` | Prisma client singleton |
+| `src/lib/document-fields.ts` | Field/token catalog for Word templates (pure, client-safe) |
+| `src/lib/docx-template.ts` | docxtemplater engine (server-only) |
+| `src/lib/document-delivery.ts` | Generates a response's document and mails it |
 | `src/stores/form-builder.ts` | Zustand store for builder state |
 | `src/types/form.ts` | Central TypeScript type definitions |
 | `prisma/schema.prisma` | Database schema |
+| `prisma/migrations/` | Migration files replayed in production — see [Database Migrations](#database-migrations) |
 
 ### State Management
 
@@ -83,6 +88,19 @@ Site name, logo, and favicon are stored in the `SystemSettings` table (single ro
 #### Login Page Customization
 
 `SystemSettings.loginPageSettings` stores a JSON blob (string column, same convention as `Form.settings`) typed as `LoginPageSettings` in `src/types/form.ts` — controls the "forgot password" link visibility and the page background (solid / gradient / image with blur). `src/lib/utils.ts` exports `getLoginBackgroundStyle()`, the single source of truth for turning those settings into CSS; both `src/app/login/page.tsx` and the live preview in `src/app/admin/customization/customization-client.tsx` call it, guaranteeing pixel-identical rendering. The "Allow registrations" toggle in this section writes to the same top-level `registrationEnabled` column as Admin → General — it's a convenience duplicate, not a separate flag.
+
+### Word Document Templates
+
+`src/lib/document-fields.ts` is deliberately **pure** — no Prisma import, no filesystem access — so `'use client'` components can import it for the field/token table; the rendering engine lives separately in `src/lib/docx-template.ts`. This is the same server/client split as `audit-actions.ts` vs `audit-log.ts`; importing a Prisma-touching module into a client component breaks the build.
+
+Two invariants worth knowing before changing anything here:
+
+- **Tokens are persisted, not derived.** `Form.documentSettings` stores a `tag → blockId` mapping, and `buildFieldCatalog(blocks, savedMappings)` always prefers a saved tag over a freshly slugified label. That is what keeps an already-written `.docx` working after a question is renamed. Never regenerate tokens from labels alone.
+- **Tokens are deduplicated globally**, repeater children included, because docxtemplater falls back from the loop scope to the parent scope — a colliding child tag would silently shadow a top-level field.
+
+A new block type needs no work here: the catalog is derived from the blocks, so it appears automatically.
+
+`docxtemplater/js/inspect-module.js` (the official tag inspector) `require`s **lodash, which is not a dependency of docxtemplater** — importing it breaks the build. Tag detection therefore uses the lodash-free `get-tags.js` plus a small local module that only implements `set()` to capture each file's `postparsed`.
 
 ### Adding a New Block Type
 
@@ -146,14 +164,41 @@ Never commit secrets. The `.env` file is gitignored. Use `.env.example` to docum
 
 ## Database Migrations
 
-This project uses `prisma db push` (schema-first, no migration files). When changing `prisma/schema.prisma`:
+The project runs **two different mechanisms**, and confusing them has already caused a production outage — read this section before touching `prisma/schema.prisma`.
+
+| Environment | Mechanism | Entry point |
+|-------------|-----------|-------------|
+| Local development | `prisma db push` — recreates tables in schema order | `npm run db:push` |
+| Docker / production | `prisma migrate deploy` — replays `prisma/migrations/` in order | `docker-entrypoint.sh` |
 
 ```bash
-npm run db:push     # Apply schema changes
+npm run db:push     # Apply schema changes locally
 npm run db:generate # Regenerate Prisma client
 ```
 
-> For production, test schema changes locally first. `db push` is destructive for renamed or removed fields.
+**Any schema change must ship with a migration file** in `prisma/migrations/`, otherwise it will never reach production — `db push` alone only updates your own machine.
+
+### The trap: physical column order differs between the two
+
+`db push` recreates a table in the order declared in the schema, whereas `migrate deploy` appends every column added by a later `ALTER TABLE` at the end of the table. The same schema therefore yields **two different physical column orders**.
+
+This matters because SQLite has no `ALTER COLUMN`: changing a column's nullability or a foreign key means recreating the table and copying the rows. Never copy positionally:
+
+```sql
+-- WRONG — matches columns by position, so it breaks on one lineage or the other
+INSERT INTO "Form_new" SELECT * FROM "Form";
+
+-- RIGHT — correct whatever the physical order
+INSERT INTO "Form_new" ("id", "title", …) SELECT "id", "title", … FROM "Form";
+```
+
+The positional form is what made `20260609000000_form_userid_nullable` fail in production while passing locally. Make table-rebuild migrations replayable too: `DROP TABLE IF EXISTS "<table>_new"` at the top and `IF NOT EXISTS` on index creations, so a retry after a failure stays safe.
+
+### Testing a migration before shipping it
+
+A migration that works on your `db push` database proves nothing. Rebuild a scratch database in `migrate deploy` order (original `CREATE TABLE`, then each `ALTER TABLE` in migration order), apply the migration to it, and check both that it succeeds and that the row values did not shift between columns.
+
+> `db push` is destructive for renamed or removed fields. Test locally first.
 
 ---
 

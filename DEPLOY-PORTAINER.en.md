@@ -82,8 +82,13 @@ Docker Compose automatically configures:
 |--------|---------|
 | `sqlite-data` | SQLite database (`/app/prisma/data`) |
 | `uploads-data` | Uploaded files (`/app/public/uploads`) |
+| `templates-data` | Word `.docx` templates (`/app/storage`) |
 
 > The database lives in its own `/app/prisma/data` subdirectory (not directly in `/app/prisma`) so the persistent volume doesn't overlay the `schema.prisma` and migration files bundled in the image.
+
+> ⚠️ The `templates-data` volume was added after the first version of the stack. When updating an existing deployment, **recreate the container** (`docker compose up -d --force-recreate`, or a full stack redeploy in Portainer) rather than restarting it — without that volume, imported templates would be lost on every redeployment.
+
+> That directory sits deliberately **outside `/app/public`**: files under `public/uploads` are served without authentication, which would be a poor fit for a template carrying an organisation's letterhead. Templates are only reachable through authenticated routes.
 
 > Make sure these volumes are **not recreated** on each redeployment, otherwise your data will be lost.
 
@@ -177,6 +182,33 @@ Go to **Admin → Logs** (`/admin/logs`) to review and configure:
 
 ---
 
+## 11. Word Documents & PDF Conversion
+
+A form can carry a Word template whose tokens are replaced by the answers, the filled document then being sent as an e-mail attachment. Everything is configured from the form's responses page, through two buttons in the top bar: **Document template** and **Sending e-mail**. Filling the `.docx` needs no external dependency — only **PDF output** requires an extra service.
+
+### Enabling PDF output (optional)
+
+No faithful `.docx` → PDF converter exists in pure JavaScript: preserving a Word template's header, tables and corporate fonts requires LibreOffice. Rather than inflating the application image by several hundred megabytes, conversion is delegated to a dedicated container.
+
+Add the service to your `docker-compose.yml`:
+
+```yaml
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: gotenberg
+    restart: unless-stopped
+```
+
+Then, in **Admin → Documents** (`/admin/documents`), enter `http://gotenberg:3000` and click **Test connection**.
+
+- The PDF option only appears in forms **after a successful test**
+- Changing the address invalidates the verification — test it again
+- The server re-checks availability on every save, so a PDF setting left in the database cannot take effect once the converter is removed
+
+> Don't publish Gotenberg's port: the service has no authentication. Both containers share the Compose network, so they reach each other by service name without any port mapping.
+
+---
+
 ## Updating the Application
 
 To update to a newer version in Portainer:
@@ -202,6 +234,30 @@ docker logs formbuilder
 
 ### Empty Database After Restart
 Ensure the `sqlite-data` volume is persistent and not recreated on each deployment.
+
+### `Error: P3009` — a failed migration blocks all the others
+
+The entrypoint runs `prisma migrate deploy`, exits with an error, and the container restarts in a loop. Prisma refuses to apply any migration until the previous failure has been resolved one way or the other.
+
+**Back up the `sqlite-data` volume first**, then:
+
+```bash
+# 1. Get the fixed version and rebuild the image
+git pull
+docker compose build
+
+# 2. Tell Prisma the failed migration was rolled back so it replays it.
+#    The entrypoint is failing, so --entrypoint is used to get a plain shell.
+docker compose run --rm --entrypoint sh app -c \
+  "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <migration_name>"
+
+# 3. Recreate the container
+docker compose up -d --force-recreate
+```
+
+`--rolled-back` is the right choice when the migration failed **inside its transaction**: the database was left untouched, so replaying it is safe. If instead the migration was applied outside Prisma (a manual database fix), use `--applied` to mark it done without replaying it.
+
+> Known case: `20260609000000_form_userid_nullable` failed with `NOT NULL constraint failed: Form_new.createdAt` on any database built by `migrate deploy`. The cause and fix are detailed in the [CHANGELOG](CHANGELOG.md). Once you have pulled the fix, the procedure above is enough.
 
 ### 500 Error on PDF Export (GDPR)
 If **Admin → GDPR → Export (PDF)** returns a 500 error, the running image predates the fix that bundles `pdfkit` correctly into the `standalone` build (the module and its `.afm` font files are missing from the image). Rebuild the image (`docker compose build --no-cache`, or trigger a full stack redeploy in Portainer) and restart the container — a plain restart without a rebuild won't pick up the fix.

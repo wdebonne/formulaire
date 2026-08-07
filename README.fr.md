@@ -16,6 +16,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - **Historique des versions** — snapshot automatique toutes les 10 sauvegardes + versions manuelles avec label optionnel ; restauration ou suppression depuis le builder ou le dashboard ; recherche dans les versions ; l'état courant est toujours préservé avant chaque restauration
 - **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs, couleur de fond des choix ; l'aperçu central de l'éditeur reflète le thème en temps réel (arrondi, style des champs, couleurs)
 - **Webhooks** — envoi des réponses vers des URLs externes, mapping personnalisé, réorganisation par drag & drop, recherche
+- **Génération de documents Word** — associez un modèle `.docx` dont les jetons sont remplacés par les réponses, puis envoyez le document rempli en pièce jointe ; tableau visuel des champs disponibles (jeton copiable, réponses possibles, présence effective du jeton dans le modèle), jetons de boucle pour les blocs répétables et avertissement sur les jetons inconnus du formulaire ; les jetons restent stables même après renommage d'une question
 - **Paramètres** — barre de progression (position, taille), numérotation, animations, branding, affichage du logo (position + alignement)
 
 ### Partage & Publication
@@ -33,6 +34,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - Corbeille / soft delete avec restauration et réassignation — la suppression d'un compte déplace automatiquement tous ses formulaires actifs dans la corbeille ; les formulaires orphelins (propriétaire supprimé) nécessitent une réassignation de propriétaire avant restauration
 - **Personnalisation du site** — nom du site, logo et favicon appliqués globalement (en-tête du dashboard, onglet navigateur, page de connexion)
 - **Personnalisation de la page de connexion** — afficher ou masquer les liens "mot de passe oublié" et "s'inscrire", et définir un fond personnalisé (couleur unie, dégradé ou image floutée)
+- **Documents** (`/admin/documents`) — convertisseur PDF externe optionnel (conteneur Gotenberg) avec test de connexion ; la sortie PDF ne devient sélectionnable dans les formulaires qu'après un test réussi, et modifier l'adresse la referme jusqu'au test suivant
 - Gestion des polices personnalisées
 - Configuration SMTP avec test d'envoi
 - Intégration Nextcloud
@@ -46,6 +48,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - Suivi des réponses complètes et partielles
 - Renvoi de webhook par réponse
 - Indicateur visuel du statut webhook (vert / orange / rouge / gris)
+- Téléchargement et envoi par e-mail du document par réponse, avec indicateur de statut (envoyé / en échec / jamais envoyé) affichant la date et les destinataires, et relance en un clic
 
 ---
 
@@ -92,6 +95,8 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 | Drag & Drop | [@dnd-kit](https://dndkit.com/) |
 | État global | [Zustand](https://zustand-demo.pmnd.rs/) |
 | Email | [Nodemailer](https://nodemailer.com/) |
+| Modèles Word | [docxtemplater](https://docxtemplater.com/) + [PizZip](https://github.com/open-xml-templating/pizzip) (MIT) |
+| Conversion PDF | Conteneur [Gotenberg](https://gotenberg.dev/) externe et optionnel |
 | Animations | [Framer Motion](https://www.framer.com/motion/) |
 | Déploiement | Docker (multi-stage, multi-arch AMD64 + ARM64) |
 
@@ -161,6 +166,7 @@ Pour le déploiement sur Portainer et en production, consultez [DEPLOY-PORTAINER
 | `SMTP_PASS` | Mot de passe SMTP | — |
 | `SMTP_FROM` | Adresse email d'expéditeur | `noreply@formbuilder.local` |
 | `SMTP_FROM_NAME` | Nom de l'expéditeur | `FormBuilder` |
+| `DOCUMENT_STORAGE_DIR` | Dossier privé contenant les modèles `.docx` importés | `<projet>/storage/templates` |
 
 ---
 
@@ -183,11 +189,14 @@ formbuilder-standalone/
 │   │   └── api/             # Points d'accès REST
 │   ├── components/
 │   │   ├── builder/         # Interface du builder (blocs, logique, thème, webhooks…)
+│   │   ├── forms/           # Modales Modèle de document et E-mail d'envoi
 │   │   └── ui/              # Composants UI génériques (Button, Dialog, Input…)
-│   ├── lib/                 # Auth, client Prisma, email, utilitaires
+│   ├── lib/                 # Auth, client Prisma, email, modèles docx, utilitaires
 │   ├── hooks/               # Hooks React personnalisés
 │   ├── stores/              # État global Zustand
 │   └── types/               # Définitions TypeScript
+├── storage/
+│   └── templates/           # Modèles .docx privés — jamais servis en statique
 ├── docker-compose.yml       # Docker Compose universel (détection auto architecture)
 ├── docker-compose.amd64.yml # Spécifique AMD64
 ├── docker-compose.arm64.yml # Spécifique ARM64 (Raspberry Pi, Apple Silicon)
@@ -219,6 +228,7 @@ formbuilder-standalone/
 - Vérification des autorisations sur tous les endpoints protégés
 - Protection anti-bruteforce de la connexion avec seuils configurables et listes blanche/noire d'IP (`/admin/security`)
 - Journal d'activité (audit trail) des connexions, du cycle de vie des formulaires et des actions de gestion des utilisateurs, avec alertes email en cas de tentatives de connexion échouées répétées (`/admin/logs`)
+- Modèles Word stockés hors de `public/` et accessibles uniquement via des routes authentifiées ; les documents remplis sont régénérés à la demande plutôt qu'écrits sur disque, aucun fichier contenant des données personnelles ne s'accumule
 
 ---
 

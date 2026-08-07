@@ -16,6 +16,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - **Version history** — automatic snapshot every 10 saves + manual versions with optional label; restore or delete any version from the builder or dashboard; search across versions; current state always preserved before restore
 - **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles, choice background color; the central editor preview reflects the active theme in real time (border radius, field style, colors)
 - **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
+- **Word document generation** — attach a `.docx` template whose tokens are replaced by the answers, then e-mail the filled document as an attachment; visual table of available fields (copyable token, possible answers, whether the token is actually present in the template), loop tokens for repeaters, and a warning for tokens the form doesn't recognise; tokens stay stable when a question is renamed
 - **Form settings** — progress bar (position, size), question numbers, animations, branding, site logo display (position + alignment)
 
 ### Sharing & Publishing
@@ -33,6 +34,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - Trash / soft delete with restoration and user reassignment — deleting a user account automatically moves all their active forms to the admin trash; orphaned forms (deleted owner) require owner reassignment before restoration
 - **Site customization** — site name, logo, and favicon applied globally (dashboard header, browser tab, login page)
 - **Login page customization** — show/hide the "forgot password" and "sign up" links, and set a custom background (solid color, gradient, or blurred image)
+- **Documents** (`/admin/documents`) — optional external PDF converter (Gotenberg container) with a connection test; PDF output only becomes selectable in forms once a test succeeds, and changing the address closes it again until re-tested
 - Custom fonts management
 - SMTP email configuration with test
 - Nextcloud integration
@@ -46,6 +48,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - Partial and completed response tracking
 - Per-response webhook replay
 - Visual webhook status indicator (green / orange / red / grey)
+- Per-response document download and e-mail delivery, with a status indicator (sent / failed / never sent) showing date and recipients, and one-click resend
 
 ---
 
@@ -92,6 +95,8 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 | Drag & Drop | [@dnd-kit](https://dndkit.com/) |
 | State | [Zustand](https://zustand-demo.pmnd.rs/) |
 | Email | [Nodemailer](https://nodemailer.com/) |
+| Word templating | [docxtemplater](https://docxtemplater.com/) + [PizZip](https://github.com/open-xml-templating/pizzip) (MIT) |
+| PDF conversion | Optional external [Gotenberg](https://gotenberg.dev/) container |
 | Animations | [Framer Motion](https://www.framer.com/motion/) |
 | Deployment | Docker (multi-stage, multi-arch AMD64 + ARM64) |
 
@@ -161,6 +166,7 @@ For Portainer and production deployment, see [DEPLOY-PORTAINER.en.md](DEPLOY-POR
 | `SMTP_PASS` | SMTP password | — |
 | `SMTP_FROM` | Sender email address | `noreply@formbuilder.local` |
 | `SMTP_FROM_NAME` | Sender display name | `FormBuilder` |
+| `DOCUMENT_STORAGE_DIR` | Private directory holding the uploaded `.docx` templates | `<project>/storage/templates` |
 
 ---
 
@@ -183,11 +189,14 @@ formbuilder-standalone/
 │   │   └── api/             # REST API endpoints
 │   ├── components/
 │   │   ├── builder/         # Builder UI (blocks, logic, theme, webhooks…)
+│   │   ├── forms/           # Document template and e-mail modals
 │   │   └── ui/              # Generic UI components (Button, Dialog, Input…)
-│   ├── lib/                 # Auth, Prisma client, email, utilities
+│   ├── lib/                 # Auth, Prisma client, email, docx templating, utilities
 │   ├── hooks/               # Custom React hooks
 │   ├── stores/              # Zustand global state
 │   └── types/               # TypeScript type definitions
+├── storage/
+│   └── templates/           # Private .docx templates — never served statically
 ├── docker-compose.yml       # Universal Docker Compose (auto-detects arch)
 ├── docker-compose.amd64.yml # AMD64-specific
 ├── docker-compose.arm64.yml # ARM64-specific (Raspberry Pi, Apple Silicon)
@@ -219,6 +228,7 @@ formbuilder-standalone/
 - Authorization checks on all protected endpoints
 - Anti-bruteforce login protection with configurable thresholds and IP whitelist/blacklist (`/admin/security`)
 - Activity log / audit trail of logins, form lifecycle, and user management actions, with email alerts on repeated failed logins (`/admin/logs`)
+- Word templates stored outside `public/` and reachable only through authenticated routes; filled documents are regenerated on demand rather than written to disk, so no file containing personal data accumulates
 
 ---
 

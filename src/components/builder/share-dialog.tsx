@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import QRCode from 'qrcode'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +10,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
+import { QrCodePanel } from '@/components/builder/qr-code-panel'
 import {
   Link,
   Code,
@@ -18,7 +19,6 @@ import {
   QrCode,
   Copy,
   Check,
-  Download,
   Users,
   Trash2,
   Loader2,
@@ -61,7 +61,7 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
   const [activeTab, setActiveTab] = useState<ShareTab>('link')
   const [copied, setCopied] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null)
+  const [qrAdvanced, setQrAdvanced] = useState(false)
   const autocompleteRef = useRef<HTMLDivElement>(null)
 
   // User sharing
@@ -276,29 +276,6 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
     }
   }
 
-  // Generate QR Code
-  useEffect(() => {
-    if (activeTab === 'qrcode' && qrCanvasRef.current && formUrl) {
-      QRCode.toCanvas(qrCanvasRef.current, formUrl, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      })
-    }
-  }, [activeTab, formUrl])
-
-  const downloadQRCode = () => {
-    if (qrCanvasRef.current) {
-      const link = document.createElement('a')
-      link.download = `qrcode-${formSlug}.png`
-      link.href = qrCanvasRef.current.toDataURL('image/png')
-      link.click()
-    }
-  }
-
   const tabs = [
     { id: 'link' as ShareTab, label: 'Lien direct', icon: Link },
     { id: 'users' as ShareTab, label: 'Utilisateurs', icon: Users },
@@ -309,7 +286,12 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent
+        className={cn(
+          'max-h-[90vh] overflow-y-auto',
+          activeTab === 'qrcode' && qrAdvanced ? 'sm:max-w-4xl' : 'sm:max-w-2xl'
+        )}
+      >
         <DialogHeader>
           <DialogTitle>Partager le formulaire</DialogTitle>
         </DialogHeader>
@@ -633,17 +615,12 @@ export function ShareDialog({ open, onOpenChange, formSlug, formId }: ShareDialo
                 Modifier le slug du formulaire dans les paramètres modifiera le QR code.
               </div>
 
-              <div className="flex flex-col items-center space-y-4 py-4">
-                <canvas
-                  ref={qrCanvasRef}
-                  className="border rounded-lg shadow-sm"
-                  style={{ width: 200, height: 200 }}
-                />
-                <Button onClick={downloadQRCode}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Télécharger
-                </Button>
-              </div>
+              <QrCodePanel
+                url={formUrl}
+                fileName={`qrcode-${formSlug}`}
+                advanced={qrAdvanced}
+                onAdvancedChange={setQrAdvanced}
+              />
             </div>
           )}
         </div>

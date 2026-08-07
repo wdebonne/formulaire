@@ -35,6 +35,9 @@ Context for Claude Code when working on this project.
 | `src/components/builder/center-block-preview.tsx` | Static block preview in builder center panel (read-only, reactive via Zustand) |
 | `src/components/builder/block-preview.tsx` | Block preview in builder center panel |
 | `src/components/builder/settings-editor.tsx` | Form settings panel (progress bar, logo, branding, slug, animations) |
+| `src/components/builder/share-dialog.tsx` | Share modal — direct link, per-user permissions, shortcode, embed, QR code |
+| `src/components/builder/qr-code-panel.tsx` | QR code designer (advanced options + live preview + PNG export), rendered in the share modal |
+| `src/lib/qr-render.ts` | Custom canvas QR renderer — `QrDesign` type, `DEFAULT_QR_DESIGN`, `drawQrCode()` |
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
@@ -142,6 +145,16 @@ Webhooks serialize block values using human-readable labels (not raw values/slug
 
 ### Form Versioning
 Auto-versions are created inside the PUT `/api/forms/[id]` route when `saveCount % 10 === 0`, using a `$transaction` to update the form and create the version atomically. Manual versions are created via POST `/api/forms/[id]/versions`. Restore always snapshots the current state first (label: "Avant restauration vN") before overwriting, so no data is ever lost silently.
+
+### QR Code Designer (Share Dialog)
+The QR tab of `share-dialog.tsx` renders through `src/lib/qr-render.ts` (`drawQrCode()`), **not** `QRCode.toCanvas()`. The `qrcode` package is used only via `QRCode.create()` to obtain the module matrix; every module is then painted by hand on a canvas so colors, gradients, dot/eye shapes and a center logo can be applied. `QrCodePanel` (`src/components/builder/qr-code-panel.tsx`) owns the design state and redraws on every change — the preview canvas is always rendered at 1024 px and merely displayed at 200 px, so what you see is exactly what the download produces (the export re-runs `drawQrCode` on an offscreen canvas at 512/1024/2048 px). The design is deliberately **not persisted** — it lives in component state and only matters at download time.
+
+Scannability constraints, verified by decoding the generated PNGs with both zbar and OpenCV:
+- **Dot styles are free**: `square`/`rounded`/`dots`/`classy` keep every module center identical to a plain QR code (0 divergent modules), so they never affect decoding.
+- **Eye styles are not**: rounding the finder patterns removes modules from the detection anchors, and those are *not* protected by error correction. A true circular finder (radius `3 × cell`) removes 16 modules per eye and made zbar fail as soon as any other styling was combined with it — that is why `eyeStyle: 'circle'` draws a *very* rounded square (`r = 2.6 × cell`) with a circular pupil rather than a real circle, and `'rounded'` uses `r = 1.4 × cell`. Don't raise those radii. OpenCV's `QRCodeDetector` rejects any non-square finder, so the amber warning shown under the eye-style picker is accurate and should stay.
+- **Logo**: presence of a logo forces `errorCorrectionLevel: 'H'` inside `drawQrCode()` regardless of the UI setting (the select is disabled and shows `H`). The 35% size cap is the tested limit — a 35% logo at 512 px still decodes with both readers.
+
+The logo is read client-side as a data URL (`FileReader`) and never uploaded, so `canvas.toDataURL()` is never tainted; the "Logo du site" shortcut pulls `siteLogo` from `/api/settings/public`, which is same-origin and therefore equally safe.
 
 ### Builder Preview System
 The "Aperçu" button in the builder does **not** use a custom re-implementation of the form renderer. Instead:

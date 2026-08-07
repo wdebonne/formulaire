@@ -286,11 +286,21 @@ wrong columns on one lineage or the other. Always list columns explicitly on bot
 This is exactly how `20260609000000_form_userid_nullable` shipped broken: on a `migrate deploy`
 database, `deletedAt` (NULL for every non-trashed form) landed in the `NOT NULL` `createdAt` column,
 failing with `NOT NULL constraint failed: Form_new.createdAt` and blocking all later migrations with
-`P3009` — while passing locally, where the `db push` order happened to match. Table-rebuild
-migrations should also be replayable: `DROP TABLE IF EXISTS "X_new"` at the top and `IF NOT EXISTS`
-on index creations. Verifying such a migration means rebuilding a scratch DB in `migrate deploy`
-order and checking that values did not shift between columns — passing on a `db push` database
-proves nothing.
+`P3009` — while passing locally, where the `db push` order happened to match. It also only fails on
+a database that **already holds rows**: on an empty one the copy touches nothing and passes, so a
+fresh deployment is no proof either. Verifying such a migration means rebuilding a scratch DB in
+`migrate deploy` order, seeding it, then checking values did not shift between columns.
+
+Table-rebuild migrations must be replayable — `DROP TABLE IF EXISTS "X_new"` at the top, `IF NOT
+EXISTS` on index creations. This is not defensive styling: reproducing the outage showed Prisma does
+**not** roll back the transaction here, so the half-built `X_new` survives a failure and the retry
+would die on "table already exists".
+
+A failed migration also leaves a blocking row in `_prisma_migrations`, which lives in the *database
+volume* — fixing the SQL and rebuilding the image never unblocks an existing instance on its own.
+`docker-entrypoint.sh` therefore detects it (`scripts/failed-migrations.js`), marks it rolled back so
+Prisma replays it, and retries **once** before failing hard; `MIGRATION_AUTO_REPAIR=0` opts out. Keep
+that retry bounded — an unbounded auto-repair loop would mask genuine failures.
 
 ### Dockerfile — Local Prisma Binary
 The Dockerfile uses `./node_modules/.bin/prisma generate` instead of `npx prisma generate`. Using `npx` in a Docker build layer can download a newer Prisma version (v6+ in 2026), which uses a different `url` config format and breaks the build. The local binary is pinned to the exact version in `package-lock.json`, which is committed to the repository (removed from `.gitignore`) so that `npm ci` produces identical dependency trees across all environments and CI/CD runs.

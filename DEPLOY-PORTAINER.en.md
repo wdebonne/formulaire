@@ -237,27 +237,45 @@ Ensure the `sqlite-data` volume is persistent and not recreated on each deployme
 
 ### `Error: P3009` — a failed migration blocks all the others
 
-The entrypoint runs `prisma migrate deploy`, exits with an error, and the container restarts in a loop. Prisma refuses to apply any migration until the previous failure has been resolved one way or the other.
+A failed migration leaves a blocking row in the `_prisma_migrations` table, **inside the database volume**. Fixing the offending SQL and rebuilding the image therefore does not clear it: `prisma migrate deploy` keeps refusing to do any work, the entrypoint exits with an error, and the container restarts in a loop.
 
-**Back up the `sqlite-data` volume first**, then:
+**Since the version that includes automatic recovery, a plain redeploy is enough**:
 
 ```bash
-# 1. Get the fixed version and rebuild the image
 git pull
 docker compose build
-
-# 2. Tell Prisma the failed migration was rolled back so it replays it.
-#    The entrypoint is failing, so --entrypoint is used to get a plain shell.
-docker compose run --rm --entrypoint sh app -c \
-  "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <migration_name>"
-
-# 3. Recreate the container
 docker compose up -d --force-recreate
 ```
 
-`--rolled-back` is the right choice when the migration failed **inside its transaction**: the database was left untouched, so replaying it is safe. If instead the migration was applied outside Prisma (a manual database fix), use `--applied` to mark it done without replaying it.
+On start-up, if `migrate deploy` fails, the entrypoint identifies the blocking migration (`scripts/failed-migrations.js`), marks it as rolled back so Prisma replays it, and retries **once**. The logs then show:
 
-> Known case: `20260609000000_form_userid_nullable` failed with `NOT NULL constraint failed: Form_new.createdAt` on any database built by `migrate deploy`. The cause and fix are detailed in the [CHANGELOG](CHANGELOG.md). Once you have pulled the fix, the procedure above is enough.
+```
+⚠️  Migration failed — looking for a blocking failed migration...
+   • 20260609000000_form_userid_nullable — A migration failed to apply...
+↩️  Marking 20260609000000_form_userid_nullable as rolled back so it can be replayed
+🔄 Retrying migrations...
+✅ Recovered and migrations applied.
+```
+
+If the second attempt fails as well, the container stops with an explicit message rather than retrying forever: the cause lies elsewhere and needs manual investigation. Set `MIGRATION_AUTO_REPAIR=0` to disable this behaviour.
+
+**Back up the `sqlite-data` volume before touching anything.**
+
+#### Manual recovery
+
+If you'd rather do it yourself (or automatic recovery is disabled):
+
+```bash
+# The entrypoint is failing, so --entrypoint is used to get a plain shell
+docker compose run --rm --entrypoint sh app -c \
+  "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <migration_name>"
+
+docker compose up -d --force-recreate
+```
+
+`--rolled-back` tells Prisma to **replay** the migration, which is the right choice once the offending SQL has been fixed. If instead the migration was applied outside Prisma (a manual database fix), use `--applied` to mark it done without replaying it.
+
+> Known case: `20260609000000_form_userid_nullable` failed with `NOT NULL constraint failed: Form_new.createdAt` on any database built by `migrate deploy` **that already contained forms** — on an empty database the copy touched no rows and passed silently. The cause and fix are detailed in the [CHANGELOG](CHANGELOG.md).
 
 ### 500 Error on PDF Export (GDPR)
 If **Admin → GDPR → Export (PDF)** returns a 500 error, the running image predates the fix that bundles `pdfkit` correctly into the `standalone` build (the module and its `.afm` font files are missing from the image). Rebuild the image (`docker compose build --no-cache`, or trigger a full stack redeploy in Portainer) and restart the container — a plain restart without a rebuild won't pick up the fix.

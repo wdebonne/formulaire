@@ -207,27 +207,45 @@ Vérifiez les logs avec : `docker logs formbuilder`
 
 ### `Error: P3009` — une migration a échoué et bloque toutes les suivantes
 
-Le script de démarrage lance `prisma migrate deploy` puis s'arrête en erreur, ce qui provoque une boucle de redémarrage. Prisma refuse d'appliquer la moindre migration tant que l'échec précédent n'a pas été tranché.
+Une migration en échec laisse une ligne bloquante dans la table `_prisma_migrations`, **à l'intérieur du volume de la base**. Corriger le SQL fautif et reconstruire l'image ne la retire donc pas : `prisma migrate deploy` continue de refuser tout travail, le script de démarrage s'arrête en erreur, et le conteneur redémarre en boucle.
 
-**Sauvegardez d'abord le volume `sqlite-data`**, puis :
+**Depuis la version intégrant la reprise automatique, un simple redéploiement suffit** :
 
 ```bash
-# 1. Récupérer la version corrigée et reconstruire l'image
 git pull
 docker compose build
-
-# 2. Signaler que la migration en échec a bien été annulée, afin que Prisma la rejoue.
-#    L'entrypoint échouant, on court-circuite avec --entrypoint pour obtenir un shell.
-docker compose run --rm --entrypoint sh app -c \
-  "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <nom_de_la_migration>"
-
-# 3. Recréer le conteneur
 docker compose up -d --force-recreate
 ```
 
-`--rolled-back` convient lorsque la migration a échoué **dans sa transaction** : la base est alors restée dans son état d'origine, il suffit de rejouer. Si à l'inverse la migration s'est appliquée en dehors de Prisma (correction manuelle en base), utilisez `--applied` pour la marquer comme faite sans la rejouer.
+Au démarrage, si `migrate deploy` échoue, l'entrypoint identifie la migration bloquante (`scripts/failed-migrations.js`), la marque comme annulée pour que Prisma la rejoue, et retente **une seule fois**. Les journaux affichent alors :
 
-> Cas connu : `20260609000000_form_userid_nullable` échouait avec `NOT NULL constraint failed: Form_new.createdAt` sur toute base construite par `migrate deploy`. La cause et le correctif sont détaillés dans le [CHANGELOG](CHANGELOG.fr.md). Après un `git pull` intégrant le correctif, la procédure ci-dessus suffit.
+```
+⚠️  Migration failed — looking for a blocking failed migration...
+   • 20260609000000_form_userid_nullable — A migration failed to apply...
+↩️  Marking 20260609000000_form_userid_nullable as rolled back so it can be replayed
+🔄 Retrying migrations...
+✅ Recovered and migrations applied.
+```
+
+Si la seconde tentative échoue elle aussi, le conteneur s'arrête avec un message explicite plutôt que de réessayer indéfiniment : la cause est ailleurs et demande un examen manuel. Vous pouvez désactiver ce comportement avec la variable d'environnement `MIGRATION_AUTO_REPAIR=0`.
+
+**Sauvegardez le volume `sqlite-data` avant toute manipulation.**
+
+#### Reprise manuelle
+
+Si vous préférez agir vous-même (ou si la reprise automatique est désactivée) :
+
+```bash
+# L'entrypoint échouant, on court-circuite avec --entrypoint pour obtenir un shell
+docker compose run --rm --entrypoint sh app -c \
+  "node ./node_modules/prisma/build/index.js migrate resolve --rolled-back <nom_de_la_migration>"
+
+docker compose up -d --force-recreate
+```
+
+`--rolled-back` demande à Prisma de **rejouer** la migration : c'est le bon choix dès lors que le SQL fautif a été corrigé. Si à l'inverse la migration a été appliquée en dehors de Prisma (correction manuelle en base), utilisez `--applied` pour la marquer comme faite sans la rejouer.
+
+> Cas connu : `20260609000000_form_userid_nullable` échouait avec `NOT NULL constraint failed: Form_new.createdAt` sur toute base construite par `migrate deploy` **et contenant déjà des formulaires** — sur une base vide, la copie ne portait sur aucune ligne et passait sans erreur. La cause et le correctif sont détaillés dans le [CHANGELOG](CHANGELOG.fr.md).
 
 ### Base de données vide après redémarrage
 Assurez-vous que le volume `sqlite-data` est bien persistant et non recréé à chaque déploiement.

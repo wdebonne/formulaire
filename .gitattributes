@@ -1,0 +1,23 @@
+# Fins de ligne normalisées à la LF dans le dépôt.
+* text=auto eol=lf
+
+# Fichiers exécutés dans l'image Linux : une conversion en CRLF sur un poste Windows
+# (core.autocrlf=true) suffirait à produire un « bad interpreter » au démarrage du conteneur.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Le SQL des migrations est comparé par somme de contrôle par Prisma : une conversion
+# de fins de ligne modifierait le checksum d'une migration déjà appliquée.
+*.sql           text eol=lf
+
+# Binaires — aucune conversion.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.ico           binary
+*.docx          binary
+*.xlsx          binary
+*.db            binary

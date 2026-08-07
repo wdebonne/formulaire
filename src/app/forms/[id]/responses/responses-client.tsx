@@ -24,7 +24,13 @@ import {
   Settings2,
   GripVertical,
   Check,
+  FileText,
+  Mail,
+  MailCheck,
 } from 'lucide-react'
+import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
+import { DocumentEmailModal } from '@/components/forms/document-email-modal'
+import type { DocumentSendStatus } from '@/types/form'
 
 interface Webhook {
   id: string
@@ -60,6 +66,7 @@ interface FormResponse {
   data: Record<string, any>
   metadata: string | null
   webhookStatus?: Record<string, { success: boolean; lastSent: string; error?: string }>
+  documentStatus?: DocumentSendStatus
   createdAt: Date
 }
 
@@ -71,6 +78,7 @@ interface ResponsesClientProps {
     blocks: FormBlock[]
     settings: any
     webhooks?: Webhook[]
+    hasDocumentTemplate?: boolean
   }
   responses: FormResponse[]
 }
@@ -83,6 +91,10 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const [sendingWebhook, setSendingWebhook] = useState<string | null>(null)
   const [webhookResults, setWebhookResults] = useState<WebhookResult[] | null>(null)
   const [showColumnSelector, setShowColumnSelector] = useState(false)
+  const [templateModalOpen, setTemplateModalOpen] = useState(false)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [hasTemplate, setHasTemplate] = useState(form.hasDocumentTemplate ?? false)
+  const [sendingDocument, setSendingDocument] = useState<string | null>(null)
   const columnSelectorRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
@@ -550,6 +562,55 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     }
   }
 
+  const handleSendDocument = async (responseId: string) => {
+    setSendingDocument(responseId)
+
+    try {
+      const res = await fetch(`/api/forms/${form.id}/responses/${responseId}/document/send`, {
+        method: 'POST',
+      })
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error || 'Erreur lors de l’envoi')
+
+      setResponses((prev) =>
+        prev.map((r) => (r.id === responseId ? { ...r, documentStatus: data.status } : r))
+      )
+
+      if (data.success) {
+        toast({
+          title: 'Document envoyé',
+          description: `Envoyé à ${(data.status.recipients ?? []).join(', ')}`,
+        })
+      } else {
+        toast({
+          title: 'Échec de l’envoi',
+          description: data.status?.error || 'Erreur inconnue',
+          variant: 'destructive',
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.message || 'Impossible d’envoyer le document',
+        variant: 'destructive',
+      })
+    } finally {
+      setSendingDocument(null)
+    }
+  }
+
+  const documentButtonTitle = (response: FormResponse): string => {
+    const status = response.documentStatus
+    if (!status) return 'Envoyer le document par e-mail'
+    const when = format(new Date(status.lastSent), 'dd/MM/yyyy HH:mm', { locale: fr })
+    if (status.success) {
+      const to = (status.recipients ?? []).join(', ')
+      return `Document envoyé le ${when}${to ? ` à ${to}` : ''} — cliquer pour renvoyer`
+    }
+    return `Échec le ${when}${status.error ? ` : ${status.error}` : ''} — cliquer pour réessayer`
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       {/* Header */}
@@ -576,6 +637,24 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
               <Button variant="outline" size="sm" onClick={handleExportCSV} className="hover:bg-green-50 hover:border-green-300 hover:text-green-700">
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Exporter CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTemplateModalOpen(true)}
+                className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Modèle de document
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEmailModalOpen(true)}
+                className="hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                E-mail d&apos;envoi
               </Button>
               {responses.length > 0 && (
                 <Button variant="outline" size="sm" onClick={handleDeleteAll} className="hover:bg-red-50 hover:border-red-300 hover:text-red-700">
@@ -818,6 +897,38 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                                 )}
                               </button>
                             )}
+                            {hasTemplate && (
+                              <>
+                                <a
+                                  href={`/api/forms/${form.id}/responses/${response.id}/document`}
+                                  download
+                                  className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex"
+                                  title="Télécharger le document rempli"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </a>
+                                <button
+                                  onClick={() => handleSendDocument(response.id)}
+                                  disabled={sendingDocument === response.id}
+                                  className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                                    response.documentStatus?.success
+                                      ? 'text-green-500 hover:text-green-600 hover:bg-green-50'
+                                      : response.documentStatus
+                                        ? 'text-red-500 hover:text-red-600 hover:bg-red-50'
+                                        : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
+                                  }`}
+                                  title={documentButtonTitle(response)}
+                                >
+                                  {sendingDocument === response.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : response.documentStatus?.success ? (
+                                    <MailCheck className="w-4 h-4" />
+                                  ) : (
+                                    <Mail className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </>
+                            )}
                             <button
                               onClick={() => handleDelete(response.id)}
                               className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -939,6 +1050,36 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                   Renvoyer webhook
                 </Button>
               )}
+              {hasTemplate && (
+                <>
+                  <a
+                    href={`/api/forms/${form.id}/responses/${selectedResponse.id}/document`}
+                    download
+                  >
+                    <Button
+                      variant="outline"
+                      className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Document
+                    </Button>
+                  </a>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleSendDocument(selectedResponse.id)}
+                    disabled={sendingDocument === selectedResponse.id}
+                    className="hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                    title={documentButtonTitle(selectedResponse)}
+                  >
+                    {sendingDocument === selectedResponse.id ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Mail className="w-4 h-4 mr-2" />
+                    )}
+                    Envoyer par e-mail
+                  </Button>
+                </>
+              )}
               <Button
                 variant="destructive"
                 onClick={() => {
@@ -1034,6 +1175,21 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
           </div>
         </div>
       )}
+
+      <DocumentTemplateModal
+        formId={form.id}
+        blocks={form.blocks}
+        open={templateModalOpen}
+        onOpenChange={setTemplateModalOpen}
+        onSaved={(settings) => setHasTemplate(Boolean(settings.template.storedName))}
+      />
+
+      <DocumentEmailModal
+        formId={form.id}
+        blocks={form.blocks}
+        open={emailModalOpen}
+        onOpenChange={setEmailModalOpen}
+      />
     </div>
   )
 }

@@ -64,6 +64,15 @@ Context for Claude Code when working on this project.
 | `src/app/api/admin/gdpr/export/route.ts` | GDPR export API — builds the Excel portability workbook (`xlsx`) and the PDF summary (`pdfkit`) for admin-reviewed response IDs only |
 | `src/app/api/admin/users/[id]/route.ts` | User management API — DELETE soft-deletes all active forms before removing the account; `onDelete: SetNull` then sets `userId = null` on all forms |
 | `src/app/admin/trash/trash-client.tsx` | Admin trash UI — lists trashed forms; orphaned forms (deleted owner) show an amber "Compte supprimé" badge; restoration requires mandatory owner reassignment for orphans |
+| `src/lib/document-fields.ts` | Pure/client-safe field catalog for .docx templates — `buildFieldCatalog()`, `slugifyTag()`, `catalogToMappings()`; no Prisma import |
+| `src/lib/docx-template.ts` | Server-only docxtemplater engine — `buildDocumentData()`, `renderDocx()`, `inspectDocxTags()`, `applyTags()`, `parseFormDocumentSettings()` |
+| `src/lib/document-storage.ts` | Private .docx storage outside `public/` — `saveTemplateFile()`, `readTemplateFile()`, `looksLikeDocx()` |
+| `src/lib/document-delivery.ts` | Generates the document for a response and mails it — `generateDocumentForResponse()`, `sendDocumentForResponse()`, `resolveRecipients()` |
+| `src/lib/pdf-convert.ts` | External Gotenberg converter — `testPdfConverter()`, `convertDocxToPdf()`, `isPdfConversionAvailable()` |
+| `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document routes |
+| `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
+| `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — recipients, subject, body |
+| `src/app/admin/documents/documents-client.tsx` | Admin UI for the external PDF converter (URL + connection test + verified state) |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -122,6 +131,9 @@ When adding a new block type, update **all** of these:
 - `SystemSettings.gdprSettings` (JSON stored as string) — typed as `GdprSettings` in `src/types/form.ts`; holds `retentionEnabled`/`retentionMonths` (default legal retention: 36 months), read via `getGdprSettings()` in `src/lib/gdpr.ts`
 - `AuditLog` model — append-only activity log: `action`, `status` (`success`|`failure`), `userId`/`userEmail` (email copied at write time so it survives user deletion), `ipAddress`, `targetType`/`targetId`/`targetLabel` (label copied at write time, e.g. form title), `metadata` (JSON-as-string), `createdAt`; indexed on `action`, `userId`, `createdAt`
 - `SystemSettings.logSettings` (JSON stored as string) — typed as `LogSettings` in `src/lib/audit-log.ts`; holds `retentionEnabled`/`retentionDays` (default: 365 days), read via `getLogSettings()`/`getLogRetentionCutoffDate()`
+- `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
+- `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
+- `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; external PDF converter URL and its verification state
 - `SystemSettings.securitySettings` also carries the failed-login alert config: `notifyOnFailedLogin`/`notifyThreshold`/`notifyEmail` — set in `/admin/security` alongside `maxFailedAttempts`, no separate column needed
 
 ---
@@ -207,6 +219,58 @@ When an admin deletes a user account (`DELETE /api/admin/users/[id]`):
 Orphaned forms (`userId = null`) appear in the admin trash with an amber "Compte supprimé" badge. Restoring one via `POST /api/admin/trash/[id]` **requires** a `userId` in the request body — the route returns 400 without one, preventing restoration without a valid owner.
 
 The SQLite migration `prisma/migrations/20260609000000_form_userid_nullable` fully recreates the `Form` table to add the nullable column and `SET NULL` foreign-key constraint (SQLite cannot `ALTER COLUMN`).
+
+### Word Templates → Filled Document → E-mail
+A form can carry a `.docx` template whose tokens are replaced by the response values, the result
+being mailed as an attachment. Configured from **two separate modals** on the responses page
+toolbar (next to "Exporter CSV" / "Tout supprimer"): *Modèle de document* and *E-mail d'envoi*.
+
+**Why docxtemplater and not Carbone**: Carbone switched from Apache-2.0 to the *Carbone Community
+License* in v3.5.5 (2023-02-15) and every release since. The CCL adds field-of-use restrictions
+(internal use only, "no exposing the feature to third parties, even via a wrapper", no
+Document-Generator-as-a-Service, non-transferable, no sublicensing) that AGPLv3 §7 forbids — this
+project is AGPLv3, so Carbone ≥ 3.5.5 cannot be shipped with it. `docxtemplater` (MIT) and
+`pizzip` (MIT OR GPL-3.0) are used instead. Do not "upgrade" to Carbone.
+
+`inspect-module.js` (docxtemplater's official tag inspector) `require`s **lodash, which is not a
+dependency of docxtemplater** — importing it breaks the build. `inspectDocxTags()` therefore uses
+the lodash-free `docxtemplater/js/get-tags.js` plus a 3-line local module that only implements
+`set()` to capture each file's `postparsed` (module-wrapper.js fills in every other hook). Its
+TypeScript declaration lives in `src/types/docxtemplater-get-tags.d.ts`.
+
+**Token stability is the core guarantee**: `DocumentFieldMapping { tag, blockId }` is persisted in
+`Form.documentSettings`, and `buildFieldCatalog(blocks, savedMappings)` always prefers a saved tag
+over a freshly slugified label. Renaming a question in the builder therefore never breaks a `.docx`
+already written. Mappings are persisted automatically right after a template import, not only on
+"Enregistrer", precisely because the user copies the tokens into Word at that moment. Tags are
+deduplicated **globally** (including repeater children) since docxtemplater falls back from the
+loop scope to the parent scope — a colliding child tag would silently shadow a top-level field.
+
+Repeaters become docxtemplater loops (`{#tag}…{/tag}`), reading the `{repeaterId}_{n}_{innerId}`
+keys; group inner blocks are flattened to top-level tokens because that is how they sit in
+`Response.data`. `buildDocumentData` re-applies `formatBlockValue` even though `Response.data` is
+already label-resolved at submit time — it is idempotent, and it covers responses stored before
+that resolution existed.
+
+**Storage is private by design**: templates live in `storage/templates/` (env
+`DOCUMENT_STORAGE_DIR`), never in `public/uploads`, because `/api/uploads/[filename]` serves that
+folder **without any authentication**. Both the template and the filled document are only reachable
+through authenticated routes gated by `getAccessibleForm()`. Filled documents are never written to
+disk — they are regenerated on each download/send, so no file full of personal data accumulates.
+
+**PDF output is gated on a verified converter**: `SystemSettings.documentSettings` holds
+`pdfConverterUrl` / `pdfConverterVerified`. Only `POST /api/admin/documents/test` can set
+`pdfConverterVerified = true`, and saving a *different* URL resets it to false. The PUT on
+`/api/forms/[id]/document` re-checks `isPdfConversionAvailable()` server-side and forces `docx`
+otherwise, so a stale `outputFormat: 'pdf'` left in the DB can never take effect after the
+converter is removed. `convertDocxToPdf()` targets Gotenberg's
+`/forms/libreoffice/convert` and has **not** been exercised against a live instance.
+
+Sending is fully backend-internal (`sendDocumentForResponse`), never throws — a broken template or
+an unreachable SMTP must not fail the respondent's submission, same contract as `logEvent()`. It
+writes `Response.documentStatus` (`DocumentSendStatus`), which drives the per-row mail icon on the
+responses page (green sent / red failed / grey never sent) and its resend action, mirroring the
+existing webhook status button.
 
 ### Dockerfile — Local Prisma Binary
 The Dockerfile uses `./node_modules/.bin/prisma generate` instead of `npx prisma generate`. Using `npx` in a Docker build layer can download a newer Prisma version (v6+ in 2026), which uses a different `url` config format and breaks the build. The local binary is pinned to the exact version in `package-lock.json`, which is committed to the repository (removed from `.gitignore`) so that `npm ci` produces identical dependency trees across all environments and CI/CD runs.

@@ -28,6 +28,7 @@ services:
     volumes:
       - sqlite-data:/app/prisma/data
       - uploads-data:/app/public/uploads
+      - templates-data:/app/storage
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]
@@ -40,4 +41,6 @@ volumes:
   sqlite-data:
     driver: local
   uploads-data:
+    driver: local
+  templates-data:
     driver: local

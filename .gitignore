@@ -25,6 +25,10 @@ Thumbs.db
 # Prisma
 prisma/dev.db
 prisma/dev.db-journal
+prisma/dev.db.backup-*
+
+# Stockage privé des modèles .docx (monté sur un volume en production)
+/storage/
 
 # Build
 out/

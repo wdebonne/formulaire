@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { hasDocumentTemplate } from '@/lib/document-delivery'
+import type { DocumentSendStatus } from '@/types/form'
 import { ResponsesClient } from './responses-client'
 
 export default async function ResponsesPage({ params }: { params: Promise<{ id: string }> }) {
@@ -58,12 +60,14 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
     blocks: JSON.parse(form.blocks),
     settings: JSON.parse(form.settings),
     webhooks: JSON.parse(form.webhooks || '[]'),
+    hasDocumentTemplate: hasDocumentTemplate(form.documentSettings),
   }
 
   const parsedResponses = responses.map((r) => {
     let webhookStatus = {}
+    let documentStatus: DocumentSendStatus | undefined
     let data = {}
-    
+
     try {
       const rawStatus = (r as any).webhookStatus
       if (rawStatus && typeof rawStatus === 'string' && rawStatus.trim()) {
@@ -72,7 +76,17 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
     } catch (e) {
       console.error('Error parsing webhookStatus:', e)
     }
-    
+
+    try {
+      const rawDocument = (r as any).documentStatus
+      if (rawDocument && typeof rawDocument === 'string' && rawDocument.trim()) {
+        const parsed = JSON.parse(rawDocument)
+        if (parsed && typeof parsed.success === 'boolean') documentStatus = parsed
+      }
+    } catch (e) {
+      console.error('Error parsing documentStatus:', e)
+    }
+
     try {
       if (r.data && typeof r.data === 'string' && r.data.trim()) {
         data = JSON.parse(r.data)
@@ -85,6 +99,7 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
       ...r,
       data,
       webhookStatus,
+      documentStatus,
     }
   })
 

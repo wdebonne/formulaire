@@ -202,6 +202,64 @@ export interface Webhook {
   triggerOn: 'submission' | 'partial' | 'save'
 }
 
+// ── Modèles de document (.docx) ─────────────────────────────────────────────
+// Champs "méta" utilisables comme jetons sans correspondre à un bloc du formulaire.
+export type DocumentMetaField =
+  | 'entry_id'
+  | 'entry_date'
+  | 'today'
+  | 'form_title'
+
+// Association persistante jeton ↔ bloc. Le jeton est figé à la création : renommer
+// le libellé d'une question ne casse donc jamais un .docx déjà rédigé.
+export interface DocumentFieldMapping {
+  tag: string
+  blockId: string | DocumentMetaField
+}
+
+export type DocumentOutputFormat = 'docx' | 'pdf'
+
+export interface DocumentTemplateSettings {
+  fileName?: string // nom d'origine, affiché dans l'interface
+  storedName?: string // uuid.docx dans le stockage privé
+  uploadedAt?: string
+  size?: number
+  mappings: DocumentFieldMapping[]
+  outputFormat?: DocumentOutputFormat // 'pdf' n'est proposé que si un convertisseur est vérifié
+  outputName?: string // gabarit du nom de fichier, ex: "Ordre de mission - {nom_agent}"
+}
+
+export interface DocumentEmailSettings {
+  enabled: boolean
+  sendOnSubmission: boolean
+  recipients: string[] // adresses fixes
+  recipientBlockIds: string[] // blocs de type email dont la valeur sert de destinataire
+  subject: string
+  body: string // HTML ; accepte les mêmes jetons {tag} que le modèle
+}
+
+export interface FormDocumentSettings {
+  template: DocumentTemplateSettings
+  email: DocumentEmailSettings
+}
+
+// Convertisseur PDF externe (SystemSettings.documentSettings)
+export interface SystemDocumentSettings {
+  pdfConverterUrl?: string
+  pdfConverterVerified?: boolean // passe à false dès que l'URL change
+  pdfConverterVerifiedAt?: string
+  pdfConverterVersion?: string
+}
+
+// Statut du dernier envoi, stocké dans Response.documentStatus
+export interface DocumentSendStatus {
+  success: boolean
+  lastSent: string
+  recipients?: string[]
+  fileName?: string
+  error?: string
+}
+
 // Theme types
 export type BackgroundType = 'solid' | 'gradient' | 'image'
 export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' | 'to-bottom-right' | 'to-bottom-left' | 'to-top-right' | 'to-top-left'

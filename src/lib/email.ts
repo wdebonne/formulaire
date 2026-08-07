@@ -390,6 +390,73 @@ export async function sendFailedLoginAlertEmail(to: string, ipAddress: string, a
   }
 }
 
+// Enveloppe minimale autour du corps saisi par l'utilisateur dans la modale « E-mail ».
+function wrapDocumentEmailBody(body: string, siteName: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${siteName}</h1>
+          </div>
+          <div class="content">
+            ${body}
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} ${siteName}. Tous droits réservés.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `
+}
+
+// Envoi du document généré à partir d'une réponse de formulaire, en pièce jointe.
+// Le sujet et le corps proviennent des réglages du formulaire, jetons déjà résolus.
+export async function sendFormDocumentEmail(options: {
+  to: string[]
+  subject: string
+  body: string
+  attachment: { filename: string; content: Buffer; contentType: string }
+}): Promise<{ success: boolean; error?: string }> {
+  if (options.to.length === 0) {
+    return { success: false, error: 'Aucun destinataire' }
+  }
+
+  const config = await getSmtpConfig()
+  if (!config.host) {
+    return { success: false, error: 'Aucun serveur SMTP configuré' }
+  }
+
+  const siteName = await getSiteName()
+  const { transporter, from } = await createTransporter()
+
+  try {
+    await transporter.sendMail({
+      from,
+      to: options.to.join(', '),
+      subject: options.subject,
+      html: wrapDocumentEmailBody(options.body, siteName),
+      attachments: [options.attachment],
+    })
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error sending form document email:', error)
+    return { success: false, error: error?.message || "Échec de l'envoi" }
+  }
+}
+
 // Fonction pour tester la connexion SMTP
 export async function testSmtpConnection(config?: {
   host: string

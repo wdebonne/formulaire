@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { findBlockDeep, formatBlockValue, formatDateString, resolveDataLabels } from '@/lib/response-format'
+import { parseFormDocumentSettings } from '@/lib/docx-template'
+import { sendDocumentForResponse } from '@/lib/document-delivery'
 
 // POST /api/forms/[id]/submit - Soumettre une réponse à un formulaire
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -71,6 +73,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         where: { id: response.id },
         data: { webhookStatus: JSON.stringify(webhookStatus) },
       })
+    }
+
+    // Génération du document et envoi par e-mail. sendDocumentForResponse ne lève jamais et
+    // enregistre son propre statut : un modèle cassé ou un SMTP injoignable ne doit pas faire
+    // échouer la soumission côté répondant.
+    const documentSettings = parseFormDocumentSettings(form.documentSettings)
+    if (
+      documentSettings.email.enabled &&
+      documentSettings.email.sendOnSubmission &&
+      documentSettings.template.storedName
+    ) {
+      await sendDocumentForResponse(form, response)
     }
 
     return NextResponse.json({

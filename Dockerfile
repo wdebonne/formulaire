@@ -63,6 +63,10 @@ RUN chmod +x docker-entrypoint.sh
 # Créer le dossier de données SQLite (le volume est monté ici au runtime)
 RUN mkdir -p /app/prisma/data
 
+# Stockage privé des modèles .docx — délibérément hors de public/, qui est servi sans
+# authentification. Un volume est monté ici au runtime.
+RUN mkdir -p /app/storage/templates
+
 # Définir les permissions
 RUN chown -R nextjs:nodejs /app
 

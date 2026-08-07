@@ -17,6 +17,7 @@ import {
   Lock,
   ShieldCheck,
   ScrollText,
+  FileType2,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -106,6 +107,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: ScrollText,
       href: '/admin/logs',
       color: 'bg-indigo-600',
+    },
+    {
+      title: 'Documents',
+      description: 'Convertisseur PDF externe pour les modèles Word remplis avec les réponses',
+      icon: FileType2,
+      href: '/admin/documents',
+      color: 'bg-blue-600',
     },
   ]
 

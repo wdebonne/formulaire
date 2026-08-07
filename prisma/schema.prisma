@@ -32,6 +32,7 @@ model Form {
   logic       String        @default("[]")
   settings    String        @default("{}")
   webhooks    String        @default("[]")
+  documentSettings String   @default("{}") // Modèle .docx + paramètres d'e-mail (JSON stocké en texte)
   themeId     String?
   userId      String?
   deletedAt   DateTime?
@@ -104,6 +105,7 @@ model Response {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   webhookStatus String?  @default("{}")
+  documentStatus String? @default("{}") // Dernier envoi du document généré (JSON stocké en texte)
   form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
 
   @@index([formId])
@@ -132,6 +134,7 @@ model SystemSettings {
   securitySettings    String   @default("{}") // Règles anti-bruteforce (JSON stocké en texte)
   gdprSettings        String   @default("{}") // Paramètres RGPD : durée de conservation des réponses (JSON stocké en texte)
   logSettings         String   @default("{}") // Rétention du journal d'activité (JSON stocké en texte)
+  documentSettings    String   @default("{}") // Convertisseur PDF externe : URL + état de vérification (JSON stocké en texte)
 }
 
 model AuditLog {

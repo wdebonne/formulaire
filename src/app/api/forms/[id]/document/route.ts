@@ -9,33 +9,38 @@ import type { DocumentFieldMapping, FormDocumentSettings } from '@/types/form'
 
 // GET /api/forms/[id]/document — réglages du modèle et de l'e-mail
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { id } = await params
-  const form = await getAccessibleForm(id, session, 'read')
-  if (!form) return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+    const { id } = await params
+    const form = await getAccessibleForm(id, session, 'read')
+    if (!form) return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
 
-  const settings = parseFormDocumentSettings(form.documentSettings)
+    const settings = parseFormDocumentSettings(form.documentSettings)
 
-  // Jetons réellement présents dans le .docx enregistré : alimente le tableau de contrôle
-  // de la modale (jeton reconnu / jeton inconnu / champ non utilisé).
-  let tags: string[] = []
-  let templateError: string | undefined
-  if (settings.template.storedName) {
-    try {
-      tags = inspectDocxTags(await readTemplateFile(settings.template.storedName))
-    } catch (error: any) {
-      templateError = error?.message || 'Modèle illisible'
+    // Jetons réellement présents dans le .docx enregistré : alimente le tableau de contrôle
+    // de la modale (jeton reconnu / jeton inconnu / champ non utilisé).
+    let tags: string[] = []
+    let templateError: string | undefined
+    if (settings.template.storedName) {
+      try {
+        tags = inspectDocxTags(await readTemplateFile(settings.template.storedName))
+      } catch (error: any) {
+        templateError = error?.message || 'Modèle illisible'
+      }
     }
-  }
 
-  return NextResponse.json({
-    ...settings,
-    tags,
-    templateError,
-    pdfAvailable: await isPdfConversionAvailable(),
-  })
+    return NextResponse.json({
+      ...settings,
+      tags,
+      templateError,
+      pdfAvailable: await isPdfConversionAvailable(),
+    })
+  } catch (error) {
+    console.error('Erreur lors de la lecture des réglages document:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
 }
 
 function sanitizeMappings(input: unknown): DocumentFieldMapping[] {
@@ -62,59 +67,64 @@ function sanitizeAddresses(input: unknown): string[] {
 
 // PUT /api/forms/[id]/document — enregistre les deux modales (modèle + e-mail)
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  try {
+    const session = await getSession()
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
-  const { id } = await params
-  const form = await getAccessibleForm(id, session, 'write')
-  if (!form) return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
+    const { id } = await params
+    const form = await getAccessibleForm(id, session, 'write')
+    if (!form) return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
 
-  const body = await request.json()
-  const current = parseFormDocumentSettings(form.documentSettings)
+    const body = await request.json()
+    const current = parseFormDocumentSettings(form.documentSettings)
 
-  // Le PDF ne peut être sélectionné que si un convertisseur vérifié existe : sans ce garde-fou,
-  // un réglage laissé en base continuerait de s'appliquer après retrait du convertisseur.
-  const pdfAvailable = await isPdfConversionAvailable()
-  const requestedFormat = body?.template?.outputFormat
-  const outputFormat =
-    requestedFormat === 'pdf' && pdfAvailable ? 'pdf' : ('docx' as const)
+    // Le PDF ne peut être sélectionné que si un convertisseur vérifié existe : sans ce garde-fou,
+    // un réglage laissé en base continuerait de s'appliquer après retrait du convertisseur.
+    const pdfAvailable = await isPdfConversionAvailable()
+    const requestedFormat = body?.template?.outputFormat
+    const outputFormat =
+      requestedFormat === 'pdf' && pdfAvailable ? 'pdf' : ('docx' as const)
 
-  const next: FormDocumentSettings = {
-    template: {
-      ...current.template,
-      ...(body?.template?.mappings !== undefined && {
-        mappings: sanitizeMappings(body.template.mappings),
-      }),
-      ...(body?.template?.outputName !== undefined && {
-        outputName: String(body.template.outputName).slice(0, 200),
-      }),
-      outputFormat,
-    },
-    email: {
-      ...current.email,
-      ...(body?.email?.enabled !== undefined && { enabled: Boolean(body.email.enabled) }),
-      ...(body?.email?.sendOnSubmission !== undefined && {
-        sendOnSubmission: Boolean(body.email.sendOnSubmission),
-      }),
-      ...(body?.email?.recipients !== undefined && {
-        recipients: sanitizeAddresses(body.email.recipients),
-      }),
-      ...(body?.email?.recipientBlockIds !== undefined && {
-        recipientBlockIds: Array.isArray(body.email.recipientBlockIds)
-          ? body.email.recipientBlockIds.map(String)
-          : [],
-      }),
-      ...(body?.email?.subject !== undefined && {
-        subject: String(body.email.subject).slice(0, 300),
-      }),
-      ...(body?.email?.body !== undefined && { body: String(body.email.body).slice(0, 20000) }),
-    },
+    const next: FormDocumentSettings = {
+      template: {
+        ...current.template,
+        ...(body?.template?.mappings !== undefined && {
+          mappings: sanitizeMappings(body.template.mappings),
+        }),
+        ...(body?.template?.outputName !== undefined && {
+          outputName: String(body.template.outputName).slice(0, 200),
+        }),
+        outputFormat,
+      },
+      email: {
+        ...current.email,
+        ...(body?.email?.enabled !== undefined && { enabled: Boolean(body.email.enabled) }),
+        ...(body?.email?.sendOnSubmission !== undefined && {
+          sendOnSubmission: Boolean(body.email.sendOnSubmission),
+        }),
+        ...(body?.email?.recipients !== undefined && {
+          recipients: sanitizeAddresses(body.email.recipients),
+        }),
+        ...(body?.email?.recipientBlockIds !== undefined && {
+          recipientBlockIds: Array.isArray(body.email.recipientBlockIds)
+            ? body.email.recipientBlockIds.map(String)
+            : [],
+        }),
+        ...(body?.email?.subject !== undefined && {
+          subject: String(body.email.subject).slice(0, 300),
+        }),
+        ...(body?.email?.body !== undefined && { body: String(body.email.body).slice(0, 20000) }),
+      },
+    }
+
+    await prisma.form.update({
+      where: { id },
+      data: { documentSettings: JSON.stringify(next) },
+    })
+
+    return NextResponse.json({ ...next, pdfAvailable })
+  } catch (error) {
+    console.error('Erreur lors de l’enregistrement des réglages document:', error)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
-
-  await prisma.form.update({
-    where: { id },
-    data: { documentSettings: JSON.stringify(next) },
-  })
-
-  return NextResponse.json({ ...next, pdfAvailable })
 }

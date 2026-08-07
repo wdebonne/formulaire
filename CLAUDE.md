@@ -272,6 +272,23 @@ writes `Response.documentStatus` (`DocumentSendStatus`), which drives the per-ro
 responses page (green sent / red failed / grey never sent) and its resend action, mirroring the
 existing webhook status button.
 
+### Runtime Is Node 18 — Don't Assume the Dev Machine's Node
+The Docker image is `node:18-alpine`, which is often far behind the Node running locally. APIs
+added in Node 20+ compile fine, pass local tests, and then throw at runtime in production.
+
+`File` is the one that already bit: it only became a global in **Node 20**, so
+`file instanceof File` threw `ReferenceError: File is not defined` on every template import while
+passing locally on Node 24. Validate uploads structurally instead (an object exposing
+`arrayBuffer()` and `size`) — `formData().get()` still returns a `File` instance on Node 18, it is
+only the global *binding* that is missing.
+
+Watch for the same trap with `Object.groupBy` (21), `Array.fromAsync` (22), `toSorted`/`findLast`
+(20). Safe on Node 18: `fetch`, `FormData`, `Blob`, `AbortSignal.timeout`, `structuredClone`.
+
+Every route handler must wrap its body in `try/catch` with `console.error` — the codebase does this
+everywhere, and without it a runtime error like the above surfaces as a bodyless 500 with nothing in
+the container logs to diagnose.
+
 ### Migrations — Two Lineages, Two Column Orders
 Local dev uses `npm run db:push`; Docker/production replays `prisma/migrations/` via
 `migrate deploy` in `docker-entrypoint.sh`. **Any schema change needs a migration file** or it never

@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen, Star, Heart, ThumbsUp } from 'lucide-react'
+import { DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
   { type: 'short-text', label: 'Texte court', icon: <Type className="w-4 h-4" /> },
@@ -359,44 +360,172 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
       {/* Slider options */}
       {block.type === 'slider' && (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="min">Min</Label>
-              <Input
-                id="min"
-                type="number"
-                value={block.attributes.min ?? 0}
-                onChange={(e) => updateAttribute('min', Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="max">Max</Label>
-              <Input
-                id="max"
-                type="number"
-                value={block.attributes.max ?? 10}
-                onChange={(e) => updateAttribute('max', Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="step">Pas</Label>
-              <Input
-                id="step"
-                type="number"
-                value={block.attributes.step ?? 1}
-                onChange={(e) => updateAttribute('step', Number(e.target.value))}
-              />
-            </div>
-          </div>
           <div className="space-y-2">
-            <Label htmlFor="defaultValue">Valeur par défaut</Label>
-            <Input
-              id="defaultValue"
-              type="number"
-              value={block.attributes.defaultValue ?? ''}
-              onChange={(e) => updateAttribute('defaultValue', Number(e.target.value))}
-            />
+            <Label>Style d&apos;affichage</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => updateAttribute('sliderStyle', 'slider')}
+                className={`flex items-center justify-center gap-2 p-2 rounded border-2 transition-colors ${
+                  (block.attributes.sliderStyle || 'slider') === 'slider'
+                    ? 'border-pink-500 bg-pink-50 text-pink-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="text-xs">Curseur</span>
+              </button>
+              <button
+                onClick={() => updateAttribute('sliderStyle', 'stars')}
+                className={`flex items-center justify-center gap-2 p-2 rounded border-2 transition-colors ${
+                  block.attributes.sliderStyle === 'stars'
+                    ? 'border-pink-500 bg-pink-50 text-pink-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <Star className="w-4 h-4" />
+                <span className="text-xs">Étoiles</span>
+              </button>
+            </div>
           </div>
+
+          {block.attributes.sliderStyle === 'stars' ? (
+            <div className="p-3 bg-pink-50 rounded-lg border border-pink-200 space-y-3">
+              <h4 className="font-medium text-pink-700 flex items-center gap-2">
+                <Star className="w-4 h-4" />
+                Options de notation
+              </h4>
+
+              <div className="space-y-2">
+                <Label htmlFor="starCount">Nombre d&apos;icônes</Label>
+                <Input
+                  id="starCount"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={block.attributes.max ?? 5}
+                  onChange={(e) =>
+                    updateAttribute('max', Math.min(Math.max(Number(e.target.value) || 1, 1), 20))
+                  }
+                />
+                <p className="text-xs text-gray-500">
+                  La réponse enregistrée est la note choisie (1 à {getStarCount(block.attributes.max)}).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Icône</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'star', label: 'Étoile', icon: <Star className="w-4 h-4" /> },
+                    { value: 'heart', label: 'Cœur', icon: <Heart className="w-4 h-4" /> },
+                    { value: 'thumb', label: 'Pouce', icon: <ThumbsUp className="w-4 h-4" /> },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => updateAttribute('starIcon', option.value)}
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded border-2 transition-colors text-xs ${
+                        (block.attributes.starIcon || 'star') === option.value
+                          ? 'border-pink-500 bg-white text-pink-700'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      {option.icon}
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Taille</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'sm', label: 'Petite' },
+                    { value: 'md', label: 'Moyenne' },
+                    { value: 'lg', label: 'Grande' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => updateAttribute('starSize', option.value)}
+                      className={`p-2 rounded border-2 transition-colors text-xs ${
+                        (block.attributes.starSize || 'md') === option.value
+                          ? 'border-pink-500 bg-white text-pink-700'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="starColor">Couleur</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="starColor"
+                    type="color"
+                    value={block.attributes.starColor || DEFAULT_STAR_COLOR}
+                    onChange={(e) => updateAttribute('starColor', e.target.value)}
+                    className="h-10 w-14 rounded border border-gray-200 cursor-pointer bg-white"
+                  />
+                  <Input
+                    value={block.attributes.starColor || DEFAULT_STAR_COLOR}
+                    onChange={(e) => updateAttribute('starColor', e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => updateAttribute('starColor', undefined)}
+                  >
+                    Défaut
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="min">Min</Label>
+                  <Input
+                    id="min"
+                    type="number"
+                    value={block.attributes.min ?? 0}
+                    onChange={(e) => updateAttribute('min', Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="max">Max</Label>
+                  <Input
+                    id="max"
+                    type="number"
+                    value={block.attributes.max ?? 10}
+                    onChange={(e) => updateAttribute('max', Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="step">Pas</Label>
+                  <Input
+                    id="step"
+                    type="number"
+                    value={block.attributes.step ?? 1}
+                    onChange={(e) => updateAttribute('step', Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="defaultValue">Valeur par défaut</Label>
+                <Input
+                  id="defaultValue"
+                  type="number"
+                  value={block.attributes.defaultValue ?? ''}
+                  onChange={(e) => updateAttribute('defaultValue', Number(e.target.value))}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 

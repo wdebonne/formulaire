@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from '@/types/form'
 import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
+import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 
 // Composant de prévisualisation Excel (chargement dynamique de SheetJS)
 interface ExcelPreviewProps {
@@ -1496,6 +1497,10 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
 
   // Keyboard and wheel navigation
   useEffect(() => {
+    // Sur l'écran de fin (ou pendant l'envoi), un Entrée / un scroll rappellerait goToNext()
+    // sur le dernier bloc, donc handleSubmit() : on détache les écouteurs pour éviter les doublons.
+    if (isSubmitted || isSubmitting) return
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
@@ -1533,7 +1538,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('wheel', handleWheel)
     }
-  }, [goToNext, goToPrev])
+  }, [goToNext, goToPrev, isSubmitted, isSubmitting])
 
   // Réinitialise complètement le formulaire pour une nouvelle soumission
   const handleRestart = () => {
@@ -1546,63 +1551,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     setRepeaterStates({})
   }
 
-  // Thank you screen
-  if (isSubmitted) {
-    const showRestart = thankyouBlock?.attributes.showRestartButton
-    const restartLabel = thankyouBlock?.attributes.restartButtonText || 'Recommencer'
-
-    return (
-      <>
-        <div
-          className="min-h-screen flex items-center justify-center p-8"
-          style={{
-            backgroundColor: themeProps.backgroundColor,
-            fontFamily: themeProps.font || 'Inter',
-          }}
-        >
-          <div className="max-w-xl w-full text-center">
-            <div
-              className="w-16 h-16 rounded-full mx-auto mb-6 flex items-center justify-center"
-              style={{ backgroundColor: themeProps.buttonsBgColor }}
-            >
-              <Check className="w-8 h-8" style={{ color: themeProps.buttonsFontColor }} />
-            </div>
-            <h1
-              className="text-3xl font-bold mb-4"
-              style={{ color: themeProps.questionsColor }}
-            >
-              {thankyouBlock?.attributes.label || 'Merci !'}
-            </h1>
-            {thankyouBlock?.attributes.description && (
-              <p className="text-lg mb-6" style={{ color: themeProps.answersColor }}>
-                {thankyouBlock.attributes.description}
-              </p>
-            )}
-            {showRestart && (
-              <button
-                onClick={handleRestart}
-                className="mt-4 px-8 py-3 rounded-md text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2 mx-auto"
-                style={{
-                  backgroundColor: themeProps.buttonsBgColor,
-                  color: themeProps.buttonsFontColor,
-                }}
-              >
-                {restartLabel}
-              </button>
-            )}
-            {thankyouBlock && (
-              <div className="mt-4">
-                <GdprNoticeLink block={thankyouBlock} themeProps={themeProps} onOpen={() => setGdprNoticeOpen(true)} className="" />
-              </div>
-            )}
-          </div>
-        </div>
-        <GdprNoticeModal block={thankyouBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
-      </>
-    )
-  }
-
-  if (visibleBlocks.length === 0) {
+  if (!isSubmitted && visibleBlocks.length === 0) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -1613,28 +1562,32 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
     )
   }
 
-  // Vérifier si le bloc actuel est un welcome-screen ou thankyou-screen avec un layout split
-  const hasSplitLayout = currentBlock &&
-    ['welcome-screen', 'thankyou-screen'].includes(currentBlock.type) &&
-    currentBlock.attributes.showAttachment &&
-    ['split-left', 'split-right'].includes(currentBlock.attributes.attachmentLayout || '')
+  // Le thankyou-screen est exclu de visibleBlocks : après soumission c'est lui l'écran affiché,
+  // et il doit passer par les mêmes rendus (stack / float / split) que dans le builder.
+  const screenBlock = isSubmitted ? thankyouBlock : currentBlock
 
-  // Vérifier si le bloc actuel a un layout float
-  const hasFloatLayout = currentBlock &&
-    ['welcome-screen', 'thankyou-screen'].includes(currentBlock.type) &&
-    currentBlock.attributes.showAttachment &&
-    ['float-left', 'float-right'].includes(currentBlock.attributes.attachmentLayout || '')
+  // Vérifier si le bloc affiché est un welcome-screen ou thankyou-screen avec un layout split
+  const hasSplitLayout = screenBlock &&
+    ['welcome-screen', 'thankyou-screen'].includes(screenBlock.type) &&
+    screenBlock.attributes.showAttachment &&
+    ['split-left', 'split-right'].includes(screenBlock.attributes.attachmentLayout || '')
+
+  // Vérifier si le bloc affiché a un layout float
+  const hasFloatLayout = screenBlock &&
+    ['welcome-screen', 'thankyou-screen'].includes(screenBlock.type) &&
+    screenBlock.attributes.showAttachment &&
+    ['float-left', 'float-right'].includes(screenBlock.attributes.attachmentLayout || '')
 
   const showLogo = form.settings.showLogo && siteLogo
   const logoPosition: 'top' | 'bottom' = form.settings.logoPosition ?? 'top'
   const logoAlignment: 'left' | 'center' | 'right' = form.settings.logoAlignment ?? 'left'
 
   // Rendu avec layout float pour welcome/thankyou screen
-  if (hasFloatLayout && currentBlock) {
-    const layout = currentBlock.attributes.attachmentLayout
-    const attachmentUrl = currentBlock.attributes.attachmentUrl
-    const attachmentType = currentBlock.attributes.attachmentType || 'image'
-    const focalPoint = currentBlock.attributes.focalPoint || { x: 50, y: 50 }
+  if (hasFloatLayout && screenBlock) {
+    const layout = screenBlock.attributes.attachmentLayout
+    const attachmentUrl = screenBlock.attributes.attachmentUrl
+    const attachmentType = screenBlock.attributes.attachmentType || 'image'
+    const focalPoint = screenBlock.attributes.focalPoint || { x: 50, y: 50 }
     const isImageOnLeft = layout === 'float-left'
 
     const contentSection = (
@@ -1656,21 +1609,21 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
             className="text-3xl md:text-4xl font-semibold leading-tight"
             style={{ color: themeProps.questionsColor }}
           >
-            {currentBlock.attributes.label || 'Bienvenue'}
+            {screenBlock.attributes.label || (screenBlock.type === 'thankyou-screen' ? 'Merci !' : 'Bienvenue')}
           </h1>
 
           {/* Description */}
-          {currentBlock.attributes.description && (
-            <p 
-              className="mt-4 text-lg leading-relaxed opacity-80" 
+          {screenBlock.attributes.description && (
+            <p
+              className="mt-4 text-lg leading-relaxed opacity-80"
               style={{ color: themeProps.answersColor }}
             >
-              {currentBlock.attributes.description}
+              {screenBlock.attributes.description}
             </p>
           )}
 
           {/* Button */}
-          {currentBlock.type === 'welcome-screen' && (
+          {screenBlock.type === 'welcome-screen' && (
             <div className={`mt-8 ${isImageOnLeft ? '' : 'flex justify-end'}`}>
               <button
                 onClick={() => goToNext()}
@@ -1681,33 +1634,28 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
                   borderRadius: buttonBorderRadius,
                 }}
               >
-                {currentBlock.attributes.buttonText || 'Commencer'}
+                {screenBlock.attributes.buttonText || 'Commencer'}
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
           )}
 
-          {currentBlock.type === 'thankyou-screen' && (
-            <div className={`mt-6 ${isImageOnLeft ? '' : 'flex justify-end'}`}>
-              <div 
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm"
-                style={{
-                  backgroundColor: themeProps.buttonsBgColor + '20',
-                  color: themeProps.buttonsBgColor,
-                }}
-              >
-                <Check className="w-4 h-4" />
-                Formulaire terminé
-              </div>
-            </div>
+          {screenBlock.type === 'thankyou-screen' && (
+            <ThankYouActions
+              block={screenBlock}
+              themeProps={themeProps}
+              buttonBorderRadius={buttonBorderRadius}
+              onRestart={handleRestart}
+              className={`mt-6 ${isImageOnLeft ? '' : 'items-end'}`}
+            />
           )}
-          
+
           <div className={isImageOnLeft ? '' : 'flex justify-end'}>
-            <GdprNoticeLink block={currentBlock} themeProps={themeProps} onOpen={() => setGdprNoticeOpen(true)} />
+            <GdprNoticeLink block={screenBlock} themeProps={themeProps} onOpen={() => setGdprNoticeOpen(true)} />
           </div>
 
           {/* Footer */}
-          {form.settings.showBranding !== false && (
+          {form.settings.showBranding !== false && screenBlock.type !== 'thankyou-screen' && (
             <div className="mt-8 text-sm opacity-50" style={{ color: themeProps.answersColor }}>
               appuyer sur <span className="font-semibold">Entrée ↵</span>
             </div>
@@ -1749,7 +1697,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
         <div
           className="min-h-screen flex flex-col transition-colors duration-300"
           style={{
-            backgroundColor: themeProps.backgroundColor,
+            ...getBackgroundStyle(themeProps),
             fontFamily: themeProps.font || 'Inter',
           }}
         >
@@ -1769,17 +1717,17 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
-        <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+        <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
       </>
     )
   }
 
   // Rendu avec layout split pour welcome/thankyou screen
-  if (hasSplitLayout && currentBlock) {
-    const layout = currentBlock.attributes.attachmentLayout
-    const attachmentUrl = currentBlock.attributes.attachmentUrl
-    const attachmentType = currentBlock.attributes.attachmentType || 'image'
-    const focalPoint = currentBlock.attributes.focalPoint || { x: 50, y: 50 }
+  if (hasSplitLayout && screenBlock) {
+    const layout = screenBlock.attributes.attachmentLayout
+    const attachmentUrl = screenBlock.attributes.attachmentUrl
+    const attachmentType = screenBlock.attributes.attachmentType || 'image'
+    const focalPoint = screenBlock.attributes.focalPoint || { x: 50, y: 50 }
     const isImageOnLeft = layout === 'split-left'
 
     const contentSection = (
@@ -1801,9 +1749,10 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
             isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
           }`}>
             <WelcomeScreenContent
-              block={currentBlock}
+              block={screenBlock}
               themeProps={themeProps}
               onNext={goToNext}
+              onRestart={handleRestart}
               buttonBorderRadius={buttonBorderRadius}
               onOpenGdprNotice={() => setGdprNoticeOpen(true)}
             />
@@ -1867,7 +1816,84 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
-        <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+        <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+      </>
+    )
+  }
+
+  // Écran de fin en layout stack (ou sans pièce jointe) — même structure qu'une question normale,
+  // comme dans l'aperçu du builder
+  if (isSubmitted) {
+    return (
+      <>
+        <div
+          className="min-h-screen flex flex-col transition-colors duration-300"
+          style={{
+            ...getBackgroundStyle(themeProps),
+            fontFamily: themeProps.font || 'Inter',
+          }}
+        >
+          {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+
+          <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-8">
+            <div className="max-w-xl w-full">
+              {thankyouBlock?.attributes.showAttachment &&
+                (thankyouBlock.attributes.attachmentLayout || 'stack') === 'stack' &&
+                thankyouBlock.attributes.attachmentUrl && (
+                  <div className="mb-6">
+                    {thankyouBlock.attributes.attachmentType === 'video' ? (
+                      <div className="aspect-video rounded-lg overflow-hidden">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${getYouTubeVideoId(thankyouBlock.attributes.attachmentUrl)}`}
+                          className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : (
+                      <img
+                        src={thankyouBlock.attributes.attachmentUrl}
+                        alt=""
+                        className="w-full rounded-lg object-cover"
+                        style={{
+                          maxHeight: '300px',
+                          objectPosition: `${thankyouBlock.attributes.focalPoint?.x ?? 50}% ${thankyouBlock.attributes.focalPoint?.y ?? 50}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+
+              <h1
+                className="text-3xl md:text-4xl font-semibold leading-tight"
+                style={{ color: themeProps.questionsColor }}
+              >
+                {thankyouBlock?.attributes.label || 'Merci !'}
+              </h1>
+
+              {thankyouBlock?.attributes.description && (
+                <p className="mt-4 text-lg leading-relaxed" style={{ color: themeProps.answersColor }}>
+                  {thankyouBlock.attributes.description}
+                </p>
+              )}
+
+              <ThankYouActions
+                block={thankyouBlock}
+                themeProps={themeProps}
+                buttonBorderRadius={buttonBorderRadius}
+                onRestart={handleRestart}
+                className="mt-6"
+              />
+
+              {thankyouBlock && (
+                <GdprNoticeLink block={thankyouBlock} themeProps={themeProps} onOpen={() => setGdprNoticeOpen(true)} />
+              )}
+            </div>
+          </div>
+
+          {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+        </div>
+        <GdprNoticeModal block={thankyouBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
       </>
     )
   }
@@ -2942,6 +2968,23 @@ function QuestionBlock({
         const min = block.attributes.min || 0
         const max = block.attributes.max || 100
         const step = block.attributes.step || 1
+
+        if (block.attributes.sliderStyle === 'stars') {
+          return (
+            <div className="mt-6">
+              <StarRating
+                count={getStarCount(block.attributes.max)}
+                value={Number(answer) || 0}
+                onChange={(rating) => onAnswer(rating)}
+                icon={block.attributes.starIcon}
+                color={block.attributes.starColor || DEFAULT_STAR_COLOR}
+                emptyColor={themeProps.answersColor}
+                size={block.attributes.starSize || 'md'}
+              />
+            </div>
+          )
+        }
+
         return (
           <div className="mt-6">
             <input
@@ -3714,7 +3757,21 @@ function GroupBlock({
         const max = innerBlock.attributes.max ?? 100
         const step = innerBlock.attributes.step ?? 1
         const sliderValue = value ?? innerBlock.attributes.defaultValue ?? min
-        
+
+        if (innerBlock.attributes.sliderStyle === 'stars') {
+          return (
+            <StarRating
+              count={getStarCount(innerBlock.attributes.max)}
+              value={Number(value) || 0}
+              onChange={(rating) => handleChange(rating)}
+              icon={innerBlock.attributes.starIcon}
+              color={innerBlock.attributes.starColor || DEFAULT_STAR_COLOR}
+              emptyColor={themeProps.answersColor}
+              size={innerBlock.attributes.starSize || 'sm'}
+            />
+          )
+        }
+
         return (
           <div className="space-y-2">
             <input
@@ -4783,6 +4840,23 @@ function InnerBlockInput({
       const min = block.attributes.min || 0
       const max = block.attributes.max || 100
       const step = block.attributes.step || 1
+
+      if (block.attributes.sliderStyle === 'stars') {
+        return (
+          <div className="mt-6">
+            <StarRating
+              count={getStarCount(block.attributes.max)}
+              value={Number(answer) || 0}
+              onChange={(rating) => onAnswer(rating)}
+              icon={block.attributes.starIcon}
+              color={block.attributes.starColor || DEFAULT_STAR_COLOR}
+              emptyColor={themeProps.answersColor}
+              size={block.attributes.starSize || 'md'}
+            />
+          </div>
+        )
+      }
+
       return (
         <div className="mt-6">
           <input
@@ -5432,23 +5506,66 @@ function AdvancedDateCalendar({
   )
 }
 
-// Composant pour le contenu du welcome-screen (utilisé avec les layouts split)
+interface ThankYouActionsProps {
+  block: FormBlock | null | undefined
+  themeProps: ThemeProperties
+  buttonBorderRadius: string
+  onRestart: () => void
+  className?: string
+}
+
+// Badge « Formulaire terminé » + bouton Recommencer — même rendu que l'aperçu du builder,
+// partagé par les trois mises en page de l'écran de fin (stack, float, split)
+function ThankYouActions({ block, themeProps, buttonBorderRadius, onRestart, className }: ThankYouActionsProps) {
+  return (
+    <div className={`flex flex-col items-start gap-3 ${className || ''}`}>
+      <div
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm"
+        style={{
+          backgroundColor: themeProps.buttonsBgColor + '20',
+          color: themeProps.buttonsBgColor,
+        }}
+      >
+        <Check className="w-4 h-4" />
+        Formulaire terminé
+      </div>
+      {block?.attributes.showRestartButton && (
+        <button
+          onClick={onRestart}
+          className="px-6 py-2 text-sm font-medium transition-all hover:opacity-90 flex items-center gap-2"
+          style={{
+            backgroundColor: themeProps.buttonsBgColor,
+            color: themeProps.buttonsFontColor,
+            borderRadius: buttonBorderRadius,
+          }}
+        >
+          {block.attributes.restartButtonText || 'Recommencer'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Composant pour le contenu du welcome-screen / thankyou-screen (utilisé avec les layouts split)
 interface WelcomeScreenContentProps {
   block: FormBlock
   themeProps: ThemeProperties
   onNext: () => void
   buttonBorderRadius: string
   onOpenGdprNotice?: () => void
+  onRestart?: () => void
 }
 
-function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius, onOpenGdprNotice }: WelcomeScreenContentProps) {
+function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius, onOpenGdprNotice, onRestart }: WelcomeScreenContentProps) {
+  const isThankYou = block.type === 'thankyou-screen'
+
   return (
     <div>
       <h1
         className="text-3xl md:text-4xl font-bold leading-tight"
         style={{ color: themeProps.questionsColor }}
       >
-        {block.attributes.label || 'Bienvenue'}
+        {block.attributes.label || (isThankYou ? 'Merci !' : 'Bienvenue')}
       </h1>
 
       {block.attributes.description && (
@@ -5457,20 +5574,30 @@ function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius, o
         </p>
       )}
 
-      <div className="mt-8">
-        <button
-          onClick={() => onNext()}
-          className="px-8 py-3 font-medium transition-opacity hover:opacity-90 flex items-center"
-          style={{
-            backgroundColor: themeProps.buttonsBgColor,
-            color: themeProps.buttonsFontColor,
-            borderRadius: buttonBorderRadius,
-          }}
-        >
-          {block.attributes.buttonText || 'Commencer'}
-          <ChevronDown className="w-5 h-5 ml-2 rotate-[-90deg]" />
-        </button>
-      </div>
+      {isThankYou ? (
+        <ThankYouActions
+          block={block}
+          themeProps={themeProps}
+          buttonBorderRadius={buttonBorderRadius}
+          onRestart={onRestart || (() => {})}
+          className="mt-6"
+        />
+      ) : (
+        <div className="mt-8">
+          <button
+            onClick={() => onNext()}
+            className="px-8 py-3 font-medium transition-opacity hover:opacity-90 flex items-center"
+            style={{
+              backgroundColor: themeProps.buttonsBgColor,
+              color: themeProps.buttonsFontColor,
+              borderRadius: buttonBorderRadius,
+            }}
+          >
+            {block.attributes.buttonText || 'Commencer'}
+            <ChevronDown className="w-5 h-5 ml-2 rotate-[-90deg]" />
+          </button>
+        </div>
+      )}
 
       {onOpenGdprNotice && (
         <GdprNoticeLink block={block} themeProps={themeProps} onOpen={onOpenGdprNotice} />

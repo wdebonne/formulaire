@@ -1,0 +1,170 @@
+- generic:
+  - generic:
+    - banner:
+      - generic:
+        - generic:
+          - generic:
+            - generic: F
+            - heading [level=1]: FormBuilder
+          - generic:
+            - button:
+              - generic: A
+              - generic: Administrateur
+    - main:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Total formulaires
+              - paragraph: "1"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Publiés
+              - paragraph: "1"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Brouillons
+              - paragraph: "0"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Total réponses
+              - paragraph: "1"
+      - generic:
+        - generic:
+          - heading [level=2]: Mes formulaires
+          - paragraph: 1 formulaire(s) affiché(s)
+        - generic:
+          - generic: Importer
+          - button: Nouveau formulaire
+      - generic:
+        - generic:
+          - textbox:
+            - /placeholder: Rechercher un formulaire...
+        - generic:
+          - button: Tous
+          - button: Publiés
+          - button: Brouillons
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=3]: Test Playwright - Sondage satisfaction
+              - generic: Publié
+            - button
+          - generic:
+            - generic:
+              - generic:
+                - generic: "1"
+                - generic: réponse(s)
+              - generic: Modifié le 7 août 2026
+            - generic:
+              - button: Éditer
+              - button: Réponses
+  - list
+  - alert
+  - dialog [ref=e177]:
+    - heading "Partager le formulaire" [level=2] [ref=e179]
+    - generic [ref=e180]:
+      - button "Lien direct" [ref=e181] [cursor=pointer]
+      - button "Utilisateurs" [ref=e186] [cursor=pointer]
+      - button "Shortcode" [ref=e193] [cursor=pointer]
+      - button "Embed" [ref=e198] [cursor=pointer]
+      - button "QR Code" [ref=e204] [cursor=pointer]
+    - generic [ref=e227]:
+      - paragraph [ref=e228]: Scannez ce QR code pour accéder au formulaire. Idéal pour partager en version imprimée.
+      - generic [ref=e229]: Modifier le slug du formulaire dans les paramètres modifiera le QR code.
+      - generic [ref=e230]:
+        - generic [ref=e235]:
+          - combobox [ref=e236]:
+            - option "512 px"
+            - option "1024 px" [selected]
+            - option "2048 px"
+          - button "Télécharger" [ref=e237] [cursor=pointer]
+        - generic [ref=e241]:
+          - generic [ref=e242]:
+            - button "Options avancées" [ref=e243] [cursor=pointer]
+            - button "Réinitialiser" [ref=e250] [cursor=pointer]
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - paragraph [ref=e256]: Couleur
+              - generic [ref=e257]:
+                - text: Type de remplissage
+                - generic [ref=e258]:
+                  - button "Uni" [ref=e259] [cursor=pointer]
+                  - button "Dégradé" [active] [ref=e260] [cursor=pointer]
+              - generic [ref=e308]:
+                - generic [ref=e309]:
+                  - generic [ref=e310]:
+                    - text: Début
+                    - generic [ref=e311]:
+                      - textbox [ref=e312] [cursor=pointer]: "#7c3aed"
+                      - textbox [ref=e313]: "#7c3aed"
+                  - generic [ref=e314]:
+                    - text: Fin
+                    - generic [ref=e315]:
+                      - textbox [ref=e316] [cursor=pointer]: "#2563eb"
+                      - textbox [ref=e317]: "#2563eb"
+                - generic [ref=e318]:
+                  - text: Type de dégradé
+                  - generic [ref=e319]:
+                    - button "Linéaire" [ref=e320] [cursor=pointer]
+                    - button "Radial" [ref=e321] [cursor=pointer]
+                - generic [ref=e322]:
+                  - generic [ref=e323]:
+                    - generic [ref=e324]: Angle
+                    - generic [ref=e325]: 45°
+                  - slider [ref=e326]: "45"
+              - generic [ref=e265]:
+                - generic [ref=e266]:
+                  - text: Arrière-plan
+                  - generic [ref=e267]:
+                    - textbox [ref=e268] [cursor=pointer]: "#ffffff"
+                    - textbox [ref=e269]: "#ffffff"
+                - generic [ref=e270] [cursor=pointer]:
+                  - checkbox "Fond transparent" [ref=e271]
+                  - text: Fond transparent
+            - generic [ref=e272]:
+              - paragraph [ref=e273]: Style
+              - generic [ref=e274]:
+                - text: Points
+                - generic [ref=e275]:
+                  - button "Carré" [ref=e276] [cursor=pointer]
+                  - button "Arrondi" [ref=e277] [cursor=pointer]
+                  - button "Points" [ref=e278] [cursor=pointer]
+                  - button "Classy" [ref=e279] [cursor=pointer]
+              - generic [ref=e280]:
+                - text: Coins de repérage
+                - generic [ref=e281]:
+                  - button "Carré" [ref=e282] [cursor=pointer]
+                  - button "Arrondi" [ref=e283] [cursor=pointer]
+                  - button "Cercle" [ref=e284] [cursor=pointer]
+              - generic [ref=e285]:
+                - generic [ref=e286] [cursor=pointer]:
+                  - checkbox "Couleur de coin dédiée" [ref=e287]
+                  - text: Couleur de coin dédiée
+                - generic [ref=e288]:
+                  - text: Couleur des coins
+                  - generic [ref=e289]:
+                    - textbox [disabled] [ref=e290]: "#7c3aed"
+                    - textbox [disabled] [ref=e291]: "#7c3aed"
+            - generic [ref=e292]:
+              - paragraph [ref=e293]: Logo central
+              - button "Importer une image" [ref=e295] [cursor=pointer]
+            - generic [ref=e299]:
+              - paragraph [ref=e300]: Rendu
+              - generic [ref=e301]:
+                - generic [ref=e302]:
+                  - generic [ref=e303]: Marge (modules)
+                  - generic [ref=e304]: "2"
+                - slider [ref=e305]: "2"
+              - generic [ref=e306]:
+                - text: Correction d'erreur
+                - combobox [ref=e307]:
+                  - option "Faible (7%)"
+                  - option "Moyen (15%)" [selected]
+                  - option "Élevé (25%)"
+                  - option "Maximum (30%)"
+    - button "Close" [ref=e222] [cursor=pointer]

@@ -1,0 +1,61 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e23]:
+    - banner [ref=e24]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]: F
+          - heading "FormBuilder" [level=1] [ref=e30]
+        - button "A Administrateur" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]: A
+          - generic [ref=e35]: Administrateur
+    - main [ref=e36]:
+      - generic [ref=e37]:
+        - generic [ref=e40]:
+          - paragraph [ref=e41]: Total formulaires
+          - paragraph [ref=e42]: "1"
+        - generic [ref=e49]:
+          - paragraph [ref=e50]: Publiés
+          - paragraph [ref=e51]: "1"
+        - generic [ref=e59]:
+          - paragraph [ref=e60]: Brouillons
+          - paragraph [ref=e61]: "0"
+        - generic [ref=e68]:
+          - paragraph [ref=e69]: Total réponses
+          - paragraph [ref=e70]: "1"
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - heading "Mes formulaires" [level=2] [ref=e76]
+          - paragraph [ref=e77]: 1 formulaire(s) affiché(s)
+        - generic [ref=e78]:
+          - generic [ref=e79] [cursor=pointer]: Importer
+          - button "Nouveau formulaire" [ref=e84] [cursor=pointer]
+      - generic [ref=e86]:
+        - textbox "Rechercher un formulaire..." [ref=e91]
+        - generic [ref=e92]:
+          - button "Tous" [ref=e93] [cursor=pointer]
+          - button "Publiés" [ref=e94] [cursor=pointer]
+          - button "Brouillons" [ref=e95] [cursor=pointer]
+      - generic [ref=e97]:
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - heading "Test Playwright - Sondage satisfaction" [level=3] [ref=e101]
+            - generic [ref=e102]: Publié
+          - button [ref=e105] [cursor=pointer]
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - generic [ref=e112]:
+              - generic [ref=e115]: "1"
+              - generic [ref=e116]: réponse(s)
+            - generic [ref=e117]: Modifié le 7 août 2026
+          - generic [ref=e118]:
+            - button "Éditer" [ref=e119] [cursor=pointer]
+            - button "Réponses" [ref=e123] [cursor=pointer]
+  - region "Notifications (F8)":
+    - list [ref=e127]:
+      - listitem [ref=e128]:
+        - generic [ref=e129]:
+          - generic [ref=e130]: Connexion réussie
+          - generic [ref=e131]: Bienvenue sur FormBuilder !
+        - button [ref=e132] [cursor=pointer]
+  - alert [ref=e22]
+  - status [ref=e137]: Notification Connexion réussieBienvenue sur FormBuilder !

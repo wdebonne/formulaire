@@ -1,0 +1,27 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: F
+      - heading "FormBuilder" [level=3] [ref=e8]
+      - paragraph [ref=e9]: Connectez-vous à votre compte
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - text: Email
+          - textbox "Email" [ref=e13]:
+            - /placeholder: votre@email.com
+        - generic [ref=e14]:
+          - text: Mot de passe
+          - textbox "Mot de passe" [ref=e15]:
+            - /placeholder: ••••••••
+        - link "Mot de passe oublié ?" [ref=e17] [cursor=pointer]:
+          - /url: /forgot-password
+      - generic [ref=e18]:
+        - button "Se connecter" [ref=e19] [cursor=pointer]
+        - paragraph [ref=e20]:
+          - text: Pas encore de compte ?
+          - link "S'inscrire" [ref=e21] [cursor=pointer]:
+            - /url: /register
+  - region "Notifications (F8)":
+    - list
+  - alert [ref=e22]

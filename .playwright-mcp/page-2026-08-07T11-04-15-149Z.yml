@@ -1,0 +1,81 @@
+- generic:
+  - generic:
+    - banner:
+      - generic:
+        - generic:
+          - generic:
+            - generic: F
+            - heading [level=1]: FormBuilder
+          - generic:
+            - button:
+              - generic: A
+              - generic: Administrateur
+    - main:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Total formulaires
+              - paragraph: "1"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Publiés
+              - paragraph: "1"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Brouillons
+              - paragraph: "0"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Total réponses
+              - paragraph: "1"
+      - generic:
+        - generic:
+          - heading [level=2]: Mes formulaires
+          - paragraph: 1 formulaire(s) affiché(s)
+        - generic:
+          - generic: Importer
+          - button: Nouveau formulaire
+      - generic:
+        - generic:
+          - textbox:
+            - /placeholder: Rechercher un formulaire...
+        - generic:
+          - button: Tous
+          - button: Publiés
+          - button: Brouillons
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=3]: Test Playwright - Sondage satisfaction
+              - generic: Publié
+            - button
+          - generic:
+            - generic:
+              - generic:
+                - generic: "1"
+                - generic: réponse(s)
+              - generic: Modifié le 7 août 2026
+            - generic:
+              - button: Éditer
+              - button: Réponses
+  - list
+  - alert
+  - dialog [ref=e177]:
+    - heading "Partager le formulaire" [level=2] [ref=e179]
+    - generic [ref=e180]:
+      - button "Lien direct" [active] [ref=e181] [cursor=pointer]
+      - button "Utilisateurs" [ref=e186] [cursor=pointer]
+      - button "Shortcode" [ref=e193] [cursor=pointer]
+      - button "Embed" [ref=e198] [cursor=pointer]
+      - button "QR Code" [ref=e204] [cursor=pointer]
+    - generic [ref=e213]:
+      - paragraph [ref=e214]: Copiez le lien du formulaire et partagez-le avec votre audience.
+      - generic [ref=e215]:
+        - textbox [ref=e216]: http://localhost:3000/test-playwright-sondage-satisfaction
+        - button "Copier" [ref=e217] [cursor=pointer]
+    - button "Close" [ref=e222] [cursor=pointer]

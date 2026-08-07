@@ -2,6 +2,7 @@
 
 import type { FormBlock, Theme } from '@/types/form'
 import { Check, ChevronDown, Image, FileSpreadsheet } from 'lucide-react'
+import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 
 interface BlockPreviewProps {
   block: FormBlock
@@ -277,6 +278,24 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
         const min = block.attributes.min || 0
         const max = block.attributes.max || 10
         const defaultValue = block.attributes.defaultValue || min
+
+        if (block.attributes.sliderStyle === 'stars') {
+          return (
+            <div className="mt-2">
+              <StarRating
+                count={getStarCount(block.attributes.max)}
+                value={0}
+                readOnly
+                showValue={false}
+                icon={block.attributes.starIcon}
+                color={block.attributes.starColor || DEFAULT_STAR_COLOR}
+                emptyColor={themeProps.answersColor}
+                size="sm"
+              />
+            </div>
+          )
+        }
+
         return (
           <div className="mt-2">
             <input

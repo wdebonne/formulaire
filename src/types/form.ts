@@ -120,6 +120,11 @@ export interface BlockAttributes {
   // Attributs pour le bloc Oui/Non
   yesLabel?: string // Label du bouton "Oui"
   noLabel?: string // Label du bouton "Non"
+  // Attributs pour le bloc Curseur
+  sliderStyle?: 'slider' | 'stars' // Affichage: barre de curseur (défaut) ou notation par icônes
+  starIcon?: 'star' | 'heart' | 'thumb' // Icône utilisée en mode notation
+  starColor?: string // Couleur des icônes (vide = jaune par défaut)
+  starSize?: 'sm' | 'md' | 'lg' // Taille des icônes
   // Masquage conditionnel (blocs internes d'un répéteur)
   visibilitySourceBlockId?: string // ID du bloc frère source dont la réponse détermine la visibilité
   visibilityValues?: string[] // Valeurs du bloc source qui affichent ce bloc (vide = toujours visible)

@@ -1,0 +1,78 @@
+- generic:
+  - generic:
+    - banner:
+      - generic:
+        - generic:
+          - generic:
+            - generic: F
+            - heading [level=1]: FormBuilder
+          - generic:
+            - button:
+              - generic: A
+              - generic: Administrateur
+    - main:
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Total formulaires
+              - paragraph: "1"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Publiés
+              - paragraph: "1"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Brouillons
+              - paragraph: "0"
+        - generic:
+          - generic:
+            - generic:
+              - paragraph: Total réponses
+              - paragraph: "1"
+      - generic:
+        - generic:
+          - heading [level=2]: Mes formulaires
+          - paragraph: 1 formulaire(s) affiché(s)
+        - generic:
+          - generic: Importer
+          - button: Nouveau formulaire
+      - generic:
+        - generic:
+          - textbox:
+            - /placeholder: Rechercher un formulaire...
+        - generic:
+          - button: Tous
+          - button: Publiés
+          - button: Brouillons
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - heading [level=3]: Test Playwright - Sondage satisfaction
+              - generic: Publié
+            - button [expanded]
+          - generic:
+            - generic:
+              - generic:
+                - generic: "1"
+                - generic: réponse(s)
+              - generic: Modifié le 7 août 2026
+            - generic:
+              - button: Éditer
+              - button: Réponses
+  - list
+  - alert
+  - menu [active] [ref=e138]:
+    - menuitem "Modifier" [ref=e139]
+    - menuitem "Réponses" [ref=e143]
+    - menuitem "Historique des versions" [ref=e146]
+    - menuitem "Voir le formulaire" [ref=e151]
+    - separator [ref=e156]
+    - menuitem "Gérer les droits" [ref=e157]
+    - menuitem "Dupliquer" [ref=e163]
+    - menuitem "Exporter" [ref=e167]
+    - separator [ref=e171]
+    - menuitem "Supprimer" [ref=e172]

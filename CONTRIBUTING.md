@@ -8,7 +8,7 @@
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 24 — matches `.nvmrc` and the Docker image. Older versions build, but an API missing from the image's Node will pass every local test and fail only in production (see [Runtime version parity](#runtime-version-parity))
 - npm or yarn
 - Git
 
@@ -159,6 +159,27 @@ docs: update CHANGELOG for v1.5.0
 ## Environment Variables
 
 Never commit secrets. The `.env` file is gitignored. Use `.env.example` to document required variables without values.
+
+---
+
+## Runtime Version Parity
+
+The Docker image runs the Node version pinned in `.nvmrc` (currently **24**). Keep your local Node
+on the same major.
+
+When they drift, an API that exists locally compiles, passes every local test, and then throws only
+in production — the build catches nothing. That has already happened: the image was on `node:18-alpine`
+while development ran Node 24, and `file instanceof File` threw `ReferenceError: File is not defined`
+on every template import, because `File` only became a Node global in **Node 20**.
+
+Two habits follow from it:
+
+- Prefer structural checks over `instanceof` for anything coming off the runtime (uploads, streams).
+  The upload validation in `src/app/api/forms/[id]/document/template/route.ts` tests for an object
+  exposing `arrayBuffer()` and `size` — version-independent, and no more code.
+- When bumping the image, check the [Node release schedule](https://raw.githubusercontent.com/nodejs/Release/main/schedule.json)
+  rather than assuming a major is still supported: 18 reached end-of-life in April 2025 and 20 in
+  April 2026.
 
 ---
 

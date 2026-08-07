@@ -1,5 +1,5 @@
 # Étape 1: Build
-FROM node:18-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Installer les dépendances système pour compiler sur ARM
 RUN apk add --no-cache libc6-compat openssl python3 make g++
@@ -28,7 +28,7 @@ COPY . .
 RUN npm run build
 
 # Étape 2: Production
-FROM node:18-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Dépendances runtime
 RUN apk add --no-cache libc6-compat openssl

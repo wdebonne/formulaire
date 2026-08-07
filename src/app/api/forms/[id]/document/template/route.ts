@@ -12,9 +12,10 @@ import {
 } from '@/lib/document-storage'
 import { prisma } from '@/lib/prisma'
 
-// `File` n'est exposé comme global qu'à partir de Node 20 ; l'image de production tourne sur
-// Node 18, où le simple fait de référencer l'identifiant lève une ReferenceError. On valide donc
-// la forme de l'objet renvoyé par formData() plutôt que son type.
+// Validation par la forme de l'objet plutôt que par `instanceof File`, volontairement : `File`
+// n'est exposé comme global qu'à partir de Node 20, et l'image a tourné sur Node 18, où le seul
+// fait de référencer l'identifiant levait une ReferenceError à chaque import. L'image est
+// aujourd'hui sur Node 24, mais ce test ne coûte rien et ne dépend d'aucune version.
 interface UploadedFile {
   name: string
   type: string

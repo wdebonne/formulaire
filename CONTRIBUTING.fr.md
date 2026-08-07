@@ -8,7 +8,7 @@
 
 ### Prérequis
 
-- Node.js 18+
+- Node.js 24 — identique à `.nvmrc` et à l'image Docker. Les versions antérieures compilent, mais une API absente du Node de l'image passera tous les tests locaux et n'échouera qu'en production (voir [Parité des versions](#parité-des-versions-dexécution))
 - npm ou yarn
 - Git
 
@@ -159,6 +159,28 @@ docs: mise à jour du CHANGELOG pour v1.5.0
 ## Variables d'environnement
 
 Ne jamais commiter de secrets. Le fichier `.env` est dans le `.gitignore`. Utiliser `.env.example` pour documenter les variables requises sans leurs valeurs.
+
+---
+
+## Parité des versions d'exécution
+
+L'image Docker utilise la version de Node fixée dans `.nvmrc` (actuellement **24**). Gardez votre
+Node local sur la même version majeure.
+
+Quand les deux divergent, une API présente en local compile, passe tous les tests locaux, et
+n'échoue qu'en production — le build ne détecte rien. C'est déjà arrivé : l'image tournait sur
+`node:18-alpine` tandis que le développement se faisait sous Node 24, et `file instanceof File`
+levait `ReferenceError: File is not defined` à chaque import de modèle, `File` n'étant devenu un
+global Node qu'en **Node 20**.
+
+Deux réflexes en découlent :
+
+- Préférer un test de forme à `instanceof` pour tout ce qui vient du runtime (fichiers envoyés,
+  flux). La validation d'import dans `src/app/api/forms/[id]/document/template/route.ts` vérifie la
+  présence de `arrayBuffer()` et `size` — indépendant de la version, et pas une ligne de plus.
+- Avant de changer la version de l'image, consulter le [calendrier des versions Node](https://raw.githubusercontent.com/nodejs/Release/main/schedule.json)
+  plutôt que de supposer qu'une majeure est encore suivie : la 18 est en fin de vie depuis avril
+  2025 et la 20 depuis avril 2026.
 
 ---
 

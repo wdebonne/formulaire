@@ -105,7 +105,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 ## Quick Start (Local Development)
 
 ### Prerequisites
-- Node.js 18+
+- Node.js 24 — the version the Docker image runs (`.nvmrc`); anything from 18.17 will build, but it no longer matches production
 - npm or yarn
 
 ### Setup

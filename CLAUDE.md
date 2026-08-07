@@ -272,18 +272,22 @@ writes `Response.documentStatus` (`DocumentSendStatus`), which drives the per-ro
 responses page (green sent / red failed / grey never sent) and its resend action, mirroring the
 existing webhook status button.
 
-### Runtime Is Node 18 — Don't Assume the Dev Machine's Node
-The Docker image is `node:18-alpine`, which is often far behind the Node running locally. APIs
-added in Node 20+ compile fine, pass local tests, and then throw at runtime in production.
+### Runtime Version Parity — Keep the Image and the Dev Machine on the Same Node
+The Docker image is `node:24-alpine`, matching `.nvmrc` and the typical dev machine. **Keep them in
+step.** When they drift, APIs available locally compile, pass every local test, and then throw at
+runtime in production — nothing in the build catches it.
 
-`File` is the one that already bit: it only became a global in **Node 20**, so
+That already happened once, on `node:18-alpine`: `File` only became a global in **Node 20**, so
 `file instanceof File` threw `ReferenceError: File is not defined` on every template import while
-passing locally on Node 24. Validate uploads structurally instead (an object exposing
-`arrayBuffer()` and `size`) — `formData().get()` still returns a `File` instance on Node 18, it is
-only the global *binding* that is missing.
+passing locally on Node 24. The upload check is deliberately structural (an object exposing
+`arrayBuffer()` and `size`) rather than `instanceof` — keep it that way, it costs nothing and does
+not depend on the runtime version.
 
-Watch for the same trap with `Object.groupBy` (21), `Array.fromAsync` (22), `toSorted`/`findLast`
-(20). Safe on Node 18: `fetch`, `FormData`, `Blob`, `AbortSignal.timeout`, `structuredClone`.
+If the image is ever pinned below the dev machine again, the APIs to watch are `File` (20),
+`Object.groupBy` (21), `Array.fromAsync` / `toSorted` / `findLast` (20-22). Node's LTS calendar
+matters too: 18 died in April 2025 and **20 in April 2026** — check
+`https://raw.githubusercontent.com/nodejs/Release/main/schedule.json` before recommending a version
+rather than assuming a major is still supported.
 
 Every route handler must wrap its body in `try/catch` with `console.error` — the codebase does this
 everywhere, and without it a runtime error like the above surfaces as a bodyless 500 with nothing in

@@ -105,7 +105,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 ## Démarrage rapide (développement local)
 
 ### Prérequis
-- Node.js 18+
+- Node.js 24 — la version utilisée par l'image Docker (`.nvmrc`) ; tout ce qui est ≥ 18.17 compile, mais ne reflète plus la production
 - npm ou yarn
 
 ### Installation

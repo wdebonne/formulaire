@@ -5,7 +5,13 @@ import { inspectDocxTags, parseFormDocumentSettings } from '@/lib/docx-template'
 import { readTemplateFile } from '@/lib/document-storage'
 import { isPdfConversionAvailable } from '@/lib/pdf-convert'
 import { prisma } from '@/lib/prisma'
-import type { DocumentFieldMapping, FormDocumentSettings } from '@/types/form'
+import { randomUUID } from 'crypto'
+import type {
+  DocumentEmailRoute,
+  DocumentFieldMapping,
+  FormDocumentSettings,
+  LogicCondition,
+} from '@/types/form'
 
 // GET /api/forms/[id]/document — réglages du modèle et de l'e-mail
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -54,9 +60,66 @@ function sanitizeMappings(input: unknown): DocumentFieldMapping[] {
     // dans le XML du document.
     if (!tag || !blockId || !/^[a-z0-9_]+$/i.test(tag) || seen.has(tag)) continue
     seen.add(tag)
-    mappings.push({ tag, blockId: blockId as DocumentFieldMapping['blockId'] })
+    mappings.push({
+      tag,
+      blockId: blockId as DocumentFieldMapping['blockId'],
+      ...(raw?.choiceValue !== undefined && { choiceValue: String(raw.choiceValue) }),
+    })
   }
   return mappings
+}
+
+const CONDITION_OPERATORS = new Set([
+  'equals',
+  'not_equals',
+  'contains',
+  'not_contains',
+  'greater_than',
+  'less_than',
+  'is_empty',
+  'is_not_empty',
+])
+
+function sanitizeConditions(input: unknown): LogicCondition[] {
+  if (!Array.isArray(input)) return []
+  const conditions: LogicCondition[] = []
+  for (const raw of input) {
+    const blockId = String(raw?.blockId ?? '').trim()
+    const operator = String(raw?.operator ?? '')
+    if (!blockId || !CONDITION_OPERATORS.has(operator)) continue
+    conditions.push({
+      blockId,
+      operator: operator as LogicCondition['operator'],
+      value: String(raw?.value ?? '').slice(0, 500),
+    })
+  }
+  return conditions
+}
+
+function sanitizeRoutes(input: unknown, current: DocumentEmailRoute[]): DocumentEmailRoute[] {
+  if (!Array.isArray(input)) return current
+  const routes: DocumentEmailRoute[] = []
+  const seen = new Set<string>()
+  for (const raw of input.slice(0, 50)) {
+    const id = String(raw?.id ?? '').trim() || randomUUID()
+    if (seen.has(id)) continue
+    seen.add(id)
+    routes.push({
+      id,
+      name: String(raw?.name ?? '').trim().slice(0, 120) || 'Circuit',
+      enabled: raw?.enabled !== false,
+      conditions: sanitizeConditions(raw?.conditions),
+      conditionMatch: raw?.conditionMatch === 'any' ? 'any' : 'all',
+      recipients: sanitizeAddresses(raw?.recipients),
+      recipientBlockIds: Array.isArray(raw?.recipientBlockIds)
+        ? raw.recipientBlockIds.map(String).slice(0, 50)
+        : [],
+      subject: String(raw?.subject ?? '').slice(0, 300),
+      body: String(raw?.body ?? '').slice(0, 20000),
+      attachDocument: raw?.attachDocument !== false,
+    })
+  }
+  return routes
 }
 
 function sanitizeAddresses(input: unknown): string[] {
@@ -94,6 +157,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(body?.template?.outputName !== undefined && {
           outputName: String(body.template.outputName).slice(0, 200),
         }),
+        ...(body?.template?.checkboxStyle !== undefined && {
+          checkboxStyle: body.template.checkboxStyle === 'wingdings' ? 'wingdings' : 'unicode',
+        }),
         outputFormat,
       },
       email: {
@@ -102,18 +168,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(body?.email?.sendOnSubmission !== undefined && {
           sendOnSubmission: Boolean(body.email.sendOnSubmission),
         }),
-        ...(body?.email?.recipients !== undefined && {
-          recipients: sanitizeAddresses(body.email.recipients),
+        ...(body?.email?.routes !== undefined && {
+          routes: sanitizeRoutes(body.email.routes, current.email.routes),
         }),
-        ...(body?.email?.recipientBlockIds !== undefined && {
-          recipientBlockIds: Array.isArray(body.email.recipientBlockIds)
-            ? body.email.recipientBlockIds.map(String)
-            : [],
-        }),
-        ...(body?.email?.subject !== undefined && {
-          subject: String(body.email.subject).slice(0, 300),
-        }),
-        ...(body?.email?.body !== undefined && { body: String(body.email.body).slice(0, 20000) }),
       },
     }
 

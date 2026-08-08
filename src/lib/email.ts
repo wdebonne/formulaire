@@ -428,8 +428,8 @@ export async function sendFormDocumentEmail(options: {
   to: string[]
   subject: string
   body: string
-  attachment: { filename: string; content: Buffer; contentType: string }
-}): Promise<{ success: boolean; error?: string }> {
+  attachment?: { filename: string; content: Buffer; contentType: string }
+}): Promise<{ success: boolean; error?: string; accepted?: string[]; rejected?: string[] }> {
   if (options.to.length === 0) {
     return { success: false, error: 'Aucun destinataire' }
   }
@@ -443,14 +443,29 @@ export async function sendFormDocumentEmail(options: {
   const { transporter, from } = await createTransporter()
 
   try {
-    await transporter.sendMail({
+    const info = await transporter.sendMail({
       from,
       to: options.to.join(', '),
       subject: options.subject,
       html: wrapDocumentEmailBody(options.body, siteName),
-      attachments: [options.attachment],
+      ...(options.attachment && { attachments: [options.attachment] }),
     })
-    return { success: true }
+
+    // On rapporte ce que le serveur d'envoi a accepté ou refusé — c'est la seule information
+    // vérifiable ici. Une adresse acceptée peut encore être rejetée plus loin par le serveur du
+    // destinataire ; détecter ce cas supposerait de traiter les retours (bounces).
+    const accepted = (info?.accepted ?? []).map(String)
+    const rejected = (info?.rejected ?? []).map(String)
+
+    if (rejected.length > 0) {
+      return {
+        success: false,
+        accepted,
+        rejected,
+        error: `Adresse(s) refusée(s) par le serveur : ${rejected.join(', ')}`,
+      }
+    }
+    return { success: true, accepted, rejected }
   } catch (error: any) {
     console.error('Error sending form document email:', error)
     return { success: false, error: error?.message || "Échec de l'envoi" }

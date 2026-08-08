@@ -8,6 +8,7 @@
 // Buffer Node. Le catalogue des champs, lui, vit dans document-fields.ts pour rester importable
 // depuis un composant client.
 
+import { randomUUID } from 'crypto'
 import Docxtemplater from 'docxtemplater'
 // inspect-module.js dépend de lodash, absent des dépendances de docxtemplater ; get-tags.js
 // en est exempt et suffit, à condition de récupérer soi-même le postparsed (voir plus bas).
@@ -15,29 +16,48 @@ import { getTags } from 'docxtemplater/js/get-tags.js'
 import PizZip from 'pizzip'
 import { findBlockDeep, formatBlockValue } from './response-format'
 import type {
+  DocumentCheckboxStyle,
+  DocumentEmailRoute,
   DocumentFieldMapping,
   DocumentEmailSettings,
   DocumentTemplateSettings,
   FormDocumentSettings,
 } from '@/types/form'
 
+export const DEFAULT_EMAIL_SUBJECT = 'Nouvelle réponse — {form_title}'
+
+export const DEFAULT_EMAIL_BODY =
+  '<p>Bonjour,</p>\n' +
+  '<p>Veuillez trouver ci-joint le document généré à partir de la réponse au formulaire ' +
+  '« {form_title} » reçue le {entry_date}.</p>\n' +
+  '<p>Cordialement,</p>'
+
 export const DEFAULT_DOCUMENT_EMAIL: DocumentEmailSettings = {
   enabled: false,
   sendOnSubmission: true,
-  recipients: [],
-  recipientBlockIds: [],
-  subject: 'Nouvelle réponse — {form_title}',
-  body:
-    '<p>Bonjour,</p>\n' +
-    '<p>Veuillez trouver ci-joint le document généré à partir de la réponse au formulaire ' +
-    '« {form_title} » reçue le {entry_date}.</p>\n' +
-    '<p>Cordialement,</p>',
+  routes: [],
 }
 
 export const DEFAULT_DOCUMENT_TEMPLATE: DocumentTemplateSettings = {
   mappings: [],
   outputFormat: 'docx',
   outputName: '{form_title} - {entry_date}',
+  checkboxStyle: 'unicode',
+}
+
+export function createEmailRoute(name: string): DocumentEmailRoute {
+  return {
+    id: randomUUID(),
+    name,
+    enabled: true,
+    conditions: [],
+    conditionMatch: 'all',
+    recipients: [],
+    recipientBlockIds: [],
+    subject: DEFAULT_EMAIL_SUBJECT,
+    body: DEFAULT_EMAIL_BODY,
+    attachDocument: true,
+  }
 }
 
 export function parseFormDocumentSettings(raw: string | null | undefined): FormDocumentSettings {
@@ -47,9 +67,41 @@ export function parseFormDocumentSettings(raw: string | null | undefined): FormD
   } catch {
     parsed = {}
   }
+
+  const email: DocumentEmailSettings = { ...DEFAULT_DOCUMENT_EMAIL, ...(parsed.email ?? {}) }
+
+  // Migration depuis la configuration à circuit unique : les anciens réglages deviennent un
+  // circuit sans condition, donc déclenché systématiquement — comportement inchangé.
+  if (!Array.isArray(email.routes) || email.routes.length === 0) {
+    const legacy = parsed.email as (DocumentEmailSettings & Record<string, any>) | undefined
+    const hasLegacy =
+      legacy && ((legacy.recipients?.length ?? 0) > 0 || (legacy.recipientBlockIds?.length ?? 0) > 0)
+    email.routes = hasLegacy
+      ? [
+          {
+            id: 'legacy',
+            name: 'Envoi principal',
+            enabled: true,
+            conditions: [],
+            conditionMatch: 'all',
+            recipients: legacy!.recipients ?? [],
+            recipientBlockIds: legacy!.recipientBlockIds ?? [],
+            subject: legacy!.subject || DEFAULT_EMAIL_SUBJECT,
+            body: legacy!.body || DEFAULT_EMAIL_BODY,
+            attachDocument: true,
+          },
+        ]
+      : []
+  }
+
+  delete email.recipients
+  delete email.recipientBlockIds
+  delete email.subject
+  delete email.body
+
   return {
     template: { ...DEFAULT_DOCUMENT_TEMPLATE, ...(parsed.template ?? {}) },
-    email: { ...DEFAULT_DOCUMENT_EMAIL, ...(parsed.email ?? {}) },
+    email,
   }
 }
 
@@ -75,10 +127,48 @@ function toText(value: unknown): string {
   return String(value)
 }
 
+// La case vide doit rester un vrai caractère de case, pour que le document imprimé vierge
+// se remplisse aussi à la main sans retouche.
+const CHECKBOX_GLYPHS: Record<DocumentCheckboxStyle, { checked: string; unchecked: string }> = {
+  unicode: { checked: '☒', unchecked: '☐' },
+  wingdings: { checked: 'þ', unchecked: '¨' },
+}
+
+/**
+ * Une option précise est-elle retenue dans la réponse ?
+ *
+ * Doit accepter les trois formes rencontrées dans Response.data : le tableau brut de valeurs
+ * (réponses antérieures à la résolution des libellés), la chaîne de libellés jointe par « , »
+ * produite aujourd'hui par resolveDataLabels, et la valeur simple d'un choix unique.
+ */
+export function isChoiceSelected(block: any, rawValue: any, choiceValue: string): boolean {
+  if (rawValue === undefined || rawValue === null || rawValue === '') return false
+
+  if (block?.type === 'legal') return Boolean(rawValue) === (choiceValue === 'true')
+  if (block?.type === 'yes-no') return String(rawValue) === choiceValue
+
+  const option = (block?.attributes?.choices || []).find((c: any) => c.value === choiceValue)
+  const targets = new Set(
+    [choiceValue, option?.label, option?.id]
+      .filter(Boolean)
+      .map((s: any) => String(s).trim().toLowerCase())
+  )
+
+  const parts = Array.isArray(rawValue)
+    ? rawValue.map((v) => String(v))
+    : String(toText(formatBlockValue(block, rawValue))).split(',')
+
+  return parts.some((part) => {
+    const cleaned = part.trim().replace(/^__other__:/, '').toLowerCase()
+    return targets.has(cleaned)
+  })
+}
+
 interface DocumentContext {
   responseId: string
   createdAt: Date
   formTitle: string
+  checkboxStyle?: DocumentCheckboxStyle
 }
 
 /**
@@ -94,11 +184,24 @@ export function buildDocumentData(
   responseData: Record<string, any>,
   context: DocumentContext
 ): Record<string, any> {
-  const tagByBlockId = new Map(mappings.map((m) => [m.blockId, m.tag]))
+  // Seuls les jetons texte servent à retrouver les champs d'une boucle ; les jetons de case
+  // portent le même blockId et ne doivent pas les écraser.
+  const tagByBlockId = new Map(
+    mappings.filter((m) => m.choiceValue === undefined).map((m) => [m.blockId, m.tag])
+  )
+  const glyphs = CHECKBOX_GLYPHS[context.checkboxStyle ?? 'unicode'] ?? CHECKBOX_GLYPHS.unicode
   const data: Record<string, any> = {}
 
   for (const mapping of mappings) {
     const { tag, blockId } = mapping
+
+    // Jeton de case à cocher : ☒ si l'option est retenue, ☐ sinon.
+    if (mapping.choiceValue !== undefined) {
+      const block = findBlockDeep(blocks, blockId)
+      const selected = isChoiceSelected(block, responseData[blockId], mapping.choiceValue)
+      data[tag] = selected ? glyphs.checked : glyphs.unchecked
+      continue
+    }
 
     if (blockId === 'entry_id') {
       data[tag] = context.responseId

@@ -212,10 +212,17 @@ export type DocumentMetaField =
 
 // Association persistante jeton ↔ bloc. Le jeton est figé à la création : renommer
 // le libellé d'une question ne casse donc jamais un .docx déjà rédigé.
+//
+// `choiceValue` transforme le jeton en case à cocher : il rend ☒ si cette option précise est
+// retenue dans la réponse, ☐ sinon. Le document reste donc imprimable et remplissable à la main,
+// la case vide étant un vrai caractère de case.
 export interface DocumentFieldMapping {
   tag: string
   blockId: string | DocumentMetaField
+  choiceValue?: string
 }
+
+export type DocumentCheckboxStyle = 'unicode' | 'wingdings'
 
 export type DocumentOutputFormat = 'docx' | 'pdf'
 
@@ -227,15 +234,39 @@ export interface DocumentTemplateSettings {
   mappings: DocumentFieldMapping[]
   outputFormat?: DocumentOutputFormat // 'pdf' n'est proposé que si un convertisseur est vérifié
   outputName?: string // gabarit du nom de fichier, ex: "Ordre de mission - {nom_agent}"
+  checkboxStyle?: DocumentCheckboxStyle // jeu de caractères des cases : Unicode (défaut) ou Wingdings
+}
+
+/**
+ * Un circuit d'envoi : « si telles conditions sont remplies, alors ces destinataires reçoivent
+ * le document ». Sans condition, le circuit part systématiquement.
+ *
+ * Permet d'adresser chaque service séparément — la cantine seulement si une restauration est
+ * demandée, le service technique seulement si du matériel est nécessaire, etc.
+ */
+export interface DocumentEmailRoute {
+  id: string
+  name: string
+  enabled: boolean
+  conditions: LogicCondition[]
+  conditionMatch: 'all' | 'any'
+  recipients: string[] // adresses fixes
+  recipientBlockIds: string[] // blocs de type email dont la valeur sert de destinataire
+  subject: string
+  body: string // HTML ; accepte les mêmes jetons {tag} que le modèle
+  attachDocument: boolean // un circuit peut notifier sans joindre le document
 }
 
 export interface DocumentEmailSettings {
   enabled: boolean
   sendOnSubmission: boolean
-  recipients: string[] // adresses fixes
-  recipientBlockIds: string[] // blocs de type email dont la valeur sert de destinataire
-  subject: string
-  body: string // HTML ; accepte les mêmes jetons {tag} que le modèle
+  routes: DocumentEmailRoute[]
+  // Champs de l'ancienne configuration à circuit unique, conservés le temps de la migration
+  // effectuée par parseFormDocumentSettings(). Ne plus lire directement.
+  recipients?: string[]
+  recipientBlockIds?: string[]
+  subject?: string
+  body?: string
 }
 
 export interface FormDocumentSettings {
@@ -251,12 +282,28 @@ export interface SystemDocumentSettings {
   pdfConverterVersion?: string
 }
 
+// Résultat d'un circuit pour une réponse donnée.
+// `matched: false` signifie que les conditions n'étaient pas remplies — le circuit a donc été
+// écarté volontairement, ce n'est pas un échec.
+export interface DocumentRouteStatus {
+  routeId: string
+  routeName: string
+  matched: boolean
+  success?: boolean
+  recipients?: string[]
+  accepted?: string[] // adresses acceptées par le serveur SMTP
+  rejected?: string[] // adresses refusées par le serveur SMTP
+  error?: string
+}
+
 // Statut du dernier envoi, stocké dans Response.documentStatus
 export interface DocumentSendStatus {
-  success: boolean
+  success: boolean // vrai si tous les circuits déclenchés ont abouti
   lastSent: string
-  recipients?: string[]
   fileName?: string
+  routes?: DocumentRouteStatus[]
+  // Ancienne forme à circuit unique, encore présente sur les réponses antérieures
+  recipients?: string[]
   error?: string
 }
 

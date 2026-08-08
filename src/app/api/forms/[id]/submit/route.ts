@@ -82,7 +82,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (
       documentSettings.email.enabled &&
       documentSettings.email.sendOnSubmission &&
-      documentSettings.template.storedName
+      documentSettings.template.storedName &&
+      documentSettings.email.routes.some((route) => route.enabled)
     ) {
       await sendDocumentForResponse(form, response)
     }

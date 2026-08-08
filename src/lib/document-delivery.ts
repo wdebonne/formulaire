@@ -16,7 +16,13 @@ import {
   renderDocx,
   safeFileName,
 } from './docx-template'
-import type { DocumentSendStatus, FormDocumentSettings } from '@/types/form'
+import { evaluateRouteConditions } from './condition-eval'
+import type {
+  DocumentEmailRoute,
+  DocumentRouteStatus,
+  DocumentSendStatus,
+  FormDocumentSettings,
+} from '@/types/form'
 
 const PDF_MIME = 'application/pdf'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -71,6 +77,7 @@ export async function generateDocumentForResponse(
     responseId: response.id,
     createdAt: response.createdAt,
     formTitle: form.title,
+    checkboxStyle: template.checkboxStyle,
   })
 
   const templateBuffer = await readTemplateFile(template.storedName)
@@ -92,14 +99,14 @@ export async function generateDocumentForResponse(
   return { buffer, fileName: `${baseName}.${extension}`, contentType, data, settings }
 }
 
-// Destinataires = adresses fixes + valeurs des champs e-mail désignés, dédupliquées.
+// Destinataires d'un circuit = adresses fixes + valeurs des champs e-mail désignés, dédupliquées.
 export function resolveRecipients(
-  settings: FormDocumentSettings,
+  route: DocumentEmailRoute,
   responseData: Record<string, any>
 ): string[] {
-  const collected = [...settings.email.recipients]
+  const collected = [...(route.recipients ?? [])]
 
-  for (const blockId of settings.email.recipientBlockIds) {
+  for (const blockId of route.recipientBlockIds ?? []) {
     const value = responseData[blockId]
     if (typeof value === 'string') collected.push(value)
     else if (Array.isArray(value)) collected.push(...value.map(String))
@@ -128,36 +135,74 @@ export async function sendDocumentForResponse(
   try {
     const generated = await generateDocumentForResponse(form, response)
     const responseData = JSON.parse(response.data || '{}')
-    const recipients = resolveRecipients(generated.settings, responseData)
+    const blocks = JSON.parse(form.blocks || '[]')
+    const routes = (generated.settings.email.routes ?? []).filter((r) => r.enabled)
 
-    if (recipients.length === 0) {
-      status = {
-        success: false,
-        lastSent: new Date().toISOString(),
-        error: 'Aucun destinataire valide',
+    const results: DocumentRouteStatus[] = []
+
+    for (const route of routes) {
+      const matched = evaluateRouteConditions(
+        route.conditions,
+        route.conditionMatch,
+        blocks,
+        responseData
+      )
+
+      // Un circuit écarté n'est pas un échec : ses conditions n'étaient simplement pas remplies.
+      if (!matched) {
+        results.push({ routeId: route.id, routeName: route.name, matched: false })
+        continue
       }
-    } else {
-      const subject = applyTags(generated.settings.email.subject, generated.data)
-      const body = applyTags(generated.settings.email.body, generated.data)
+
+      const recipients = resolveRecipients(route, responseData)
+      if (recipients.length === 0) {
+        results.push({
+          routeId: route.id,
+          routeName: route.name,
+          matched: true,
+          success: false,
+          recipients: [],
+          error: 'Aucun destinataire valide',
+        })
+        continue
+      }
 
       const result = await sendFormDocumentEmail({
         to: recipients,
-        subject,
-        body,
-        attachment: {
-          filename: generated.fileName,
-          content: generated.buffer,
-          contentType: generated.contentType,
-        },
+        subject: applyTags(route.subject, generated.data),
+        body: applyTags(route.body, generated.data),
+        ...(route.attachDocument !== false && {
+          attachment: {
+            filename: generated.fileName,
+            content: generated.buffer,
+            contentType: generated.contentType,
+          },
+        }),
       })
 
-      status = {
+      results.push({
+        routeId: route.id,
+        routeName: route.name,
+        matched: true,
         success: result.success,
-        lastSent: new Date().toISOString(),
         recipients,
-        fileName: generated.fileName,
+        ...(result.accepted && { accepted: result.accepted }),
+        ...(result.rejected?.length && { rejected: result.rejected }),
         ...(result.error && { error: result.error }),
-      }
+      })
+    }
+
+    const triggered = results.filter((r) => r.matched)
+
+    status = {
+      // Aucun circuit déclenché n'est un état neutre, pas une réussite d'envoi.
+      success: triggered.length > 0 && triggered.every((r) => r.success),
+      lastSent: new Date().toISOString(),
+      fileName: generated.fileName,
+      routes: results,
+      ...(routes.length === 0 && { error: 'Aucun circuit d’envoi actif' }),
+      ...(routes.length > 0 &&
+        triggered.length === 0 && { error: 'Aucun circuit ne correspond à cette réponse' }),
     }
   } catch (error: any) {
     status = {

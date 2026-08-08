@@ -22,6 +22,7 @@ import type { FormDocumentSettings } from '@/types/form'
 import {
   AlertTriangle,
   Check,
+  CheckSquare,
   Copy,
   Download,
   FileText,
@@ -158,6 +159,7 @@ export function DocumentTemplateModal({
   const [payload, setPayload] = useState<DocumentPayload | null>(null)
   const [outputName, setOutputName] = useState('')
   const [outputFormat, setOutputFormat] = useState<'docx' | 'pdf'>('docx')
+  const [checkboxStyle, setCheckboxStyle] = useState<'unicode' | 'wingdings'>('unicode')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -168,6 +170,7 @@ export function DocumentTemplateModal({
       setPayload(data)
       setOutputName(data.template.outputName ?? '')
       setOutputFormat(data.template.outputFormat === 'pdf' ? 'pdf' : 'docx')
+      setCheckboxStyle(data.template.checkboxStyle === 'wingdings' ? 'wingdings' : 'unicode')
     } catch (error: any) {
       toast({ title: 'Erreur', description: error.message, variant: 'destructive' })
     } finally {
@@ -185,6 +188,11 @@ export function DocumentTemplateModal({
     () => buildFieldCatalog(blocks, payload?.template.mappings ?? []),
     [blocks, payload?.template.mappings]
   )
+
+  const glyphs =
+    checkboxStyle === 'wingdings'
+      ? { checked: 'þ', unchecked: '¨' }
+      : { checked: '☒', unchecked: '☐' }
 
   const docTags = useMemo(() => new Set(payload?.tags ?? []), [payload?.tags])
   const knownTags = useMemo(
@@ -251,6 +259,7 @@ export function DocumentTemplateModal({
             mappings: catalogToMappings(catalog),
             outputName,
             outputFormat,
+            checkboxStyle,
           },
         }),
       })
@@ -428,16 +437,29 @@ export function DocumentTemplateModal({
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
                     {catalog.map((field) => (
-                      <FieldRows key={field.blockId} field={field} docTags={docTags} />
+                      <FieldRows
+                        key={field.blockId}
+                        field={field}
+                        docTags={docTags}
+                        glyphs={glyphs}
+                      />
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Dans Word, écrivez le jeton tel quel, accolades comprises. Pour un répéteur,
-                encadrez les lignes à répéter (une ligne de tableau, par exemple) avec le jeton
-                d’ouverture et de fermeture.
-              </p>
+              <div className="mt-2 space-y-1 text-xs text-gray-500">
+                <p>
+                  Dans Word, écrivez le jeton tel quel, accolades comprises. Pour un répéteur,
+                  encadrez les lignes à répéter (une ligne de tableau, par exemple) avec le jeton
+                  d’ouverture et de fermeture.
+                </p>
+                <p>
+                  Les <strong>cases à cocher</strong> se collent à la place de la case du modèle :
+                  le jeton rend <span className="font-mono">{glyphs.checked}</span> si l’option est
+                  retenue et <span className="font-mono">{glyphs.unchecked}</span> sinon. Le
+                  document imprimé vierge reste donc remplissable à la main, sans le modifier.
+                </p>
+              </div>
             </div>
 
             {/* Sortie */}
@@ -452,6 +474,29 @@ export function DocumentTemplateModal({
                 />
                 <p className="text-xs text-gray-500">
                   Les jetons du tableau sont acceptés ici aussi.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Style des cases à cocher</Label>
+                <div className="flex gap-4 pt-1.5">
+                  {([
+                    { id: 'unicode', label: 'Unicode ☒ ☐' },
+                    { id: 'wingdings', label: 'Wingdings þ ¨' },
+                  ] as const).map((style) => (
+                    <label key={style.id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="checkboxStyle"
+                        checked={checkboxStyle === style.id}
+                        onChange={() => setCheckboxStyle(style.id)}
+                      />
+                      {style.label}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Choisissez Wingdings si les cases de votre modèle sont déjà dans cette police.
                 </p>
               </div>
 
@@ -496,8 +541,18 @@ export function DocumentTemplateModal({
   )
 }
 
-function FieldRows({ field, docTags }: { field: DocumentCatalogField; docTags: Set<string> }) {
+function FieldRows({
+  field,
+  docTags,
+  glyphs,
+}: {
+  field: DocumentCatalogField
+  docTags: Set<string>
+  glyphs: { checked: string; unchecked: string }
+}) {
   const isLoop = Boolean(field.children?.length)
+  const [showBoxes, setShowBoxes] = useState(false)
+  const boxes = field.checkboxes ?? []
 
   return (
     <>
@@ -516,7 +571,19 @@ function FieldRows({ field, docTags }: { field: DocumentCatalogField; docTags: S
               <CopyTag value={`{/${field.tag}}`} />
             </div>
           ) : (
-            <CopyTag value={`{${field.tag}}`} />
+            <div className="flex flex-col items-start gap-1">
+              <CopyTag value={`{${field.tag}}`} />
+              {boxes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowBoxes(!showBoxes)}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:text-emerald-800"
+                >
+                  <CheckSquare className="h-3 w-3" />
+                  {showBoxes ? 'Masquer' : `${boxes.length} case${boxes.length > 1 ? 's' : ''} à cocher`}
+                </button>
+              )}
+            </div>
           )}
         </td>
         <td className="px-4 py-2.5">
@@ -532,6 +599,29 @@ function FieldRows({ field, docTags }: { field: DocumentCatalogField; docTags: S
           <UsageBadge used={docTags.has(field.tag)} />
         </td>
       </tr>
+
+      {showBoxes &&
+        boxes.map((box) => (
+          <tr key={box.tag} className="bg-emerald-50/30">
+            <td className="px-4 py-2 pl-10">
+              <div className="text-sm text-gray-800">
+                <span className="mr-1.5 font-mono">{glyphs.unchecked}</span>
+                {box.label}
+              </div>
+            </td>
+            <td className="px-4 py-2 text-xs text-gray-500">Case à cocher</td>
+            <td className="px-4 py-2">
+              <CopyTag value={`{${box.tag}}`} />
+            </td>
+            <td className="px-4 py-2 text-xs text-gray-500">
+              rend <span className="font-mono">{glyphs.checked}</span> si retenu, sinon{' '}
+              <span className="font-mono">{glyphs.unchecked}</span>
+            </td>
+            <td className="px-4 py-2">
+              <UsageBadge used={docTags.has(box.tag)} />
+            </td>
+          </tr>
+        ))}
 
       {field.children?.map((child) => (
         <tr key={child.blockId} className="bg-indigo-50/20">

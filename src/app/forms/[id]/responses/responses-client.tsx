@@ -27,6 +27,7 @@ import {
   FileText,
   Mail,
   MailCheck,
+  MinusCircle,
 } from 'lucide-react'
 import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
 import { DocumentEmailModal } from '@/components/forms/document-email-modal'
@@ -577,15 +578,30 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         prev.map((r) => (r.id === responseId ? { ...r, documentStatus: data.status } : r))
       )
 
-      if (data.success) {
+      const routes = data.status?.routes ?? []
+      const triggered = routes.filter((r: any) => r.matched)
+      const sent = triggered.filter((r: any) => r.success)
+
+      if (routes.length > 0 && triggered.length === 0) {
         toast({
-          title: 'Document envoyé',
-          description: `Envoyé à ${(data.status.recipients ?? []).join(', ')}`,
+          title: 'Aucun circuit concerné',
+          description: 'Les conditions d’envoi ne correspondent pas à cette réponse.',
+        })
+      } else if (data.success) {
+        toast({
+          title: `Document envoyé — ${sent.length} circuit${sent.length > 1 ? 's' : ''}`,
+          description: sent
+            .map((r: any) => `${r.routeName} → ${(r.recipients ?? []).join(', ')}`)
+            .join(' · '),
         })
       } else {
+        const failed = triggered.filter((r: any) => !r.success)
         toast({
           title: 'Échec de l’envoi',
-          description: data.status?.error || 'Erreur inconnue',
+          description:
+            failed.map((r: any) => `${r.routeName} : ${r.error || 'erreur'}`).join(' · ') ||
+            data.status?.error ||
+            'Erreur inconnue',
           variant: 'destructive',
         })
       }
@@ -604,11 +620,34 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     const status = response.documentStatus
     if (!status) return 'Envoyer le document par e-mail'
     const when = format(new Date(status.lastSent), 'dd/MM/yyyy HH:mm', { locale: fr })
+
+    const routes = status.routes ?? []
+    if (routes.length > 0) {
+      const lines = routes.map((r) => {
+        if (!r.matched) return `• ${r.routeName} : non concerné`
+        if (r.success) return `• ${r.routeName} : envoyé à ${(r.recipients ?? []).join(', ')}`
+        return `• ${r.routeName} : échec${r.error ? ` — ${r.error}` : ''}`
+      })
+      return `Dernière évaluation le ${when}\n${lines.join('\n')}\n\nCliquer pour relancer`
+    }
+
     if (status.success) {
       const to = (status.recipients ?? []).join(', ')
       return `Document envoyé le ${when}${to ? ` à ${to}` : ''} — cliquer pour renvoyer`
     }
     return `Échec le ${when}${status.error ? ` : ${status.error}` : ''} — cliquer pour réessayer`
+  }
+
+  // Un envoi n'ayant déclenché aucun circuit n'est ni un succès ni un échec : la réponse ne
+  // concernait simplement aucun service.
+  const documentState = (
+    response: FormResponse
+  ): 'sent' | 'failed' | 'none-matched' | 'never' => {
+    const status = response.documentStatus
+    if (!status) return 'never'
+    const triggered = (status.routes ?? []).filter((r) => r.matched)
+    if ((status.routes?.length ?? 0) > 0 && triggered.length === 0) return 'none-matched'
+    return status.success ? 'sent' : 'failed'
   }
 
   return (
@@ -911,17 +950,19 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                                   onClick={() => handleSendDocument(response.id)}
                                   disabled={sendingDocument === response.id}
                                   className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-                                    response.documentStatus?.success
-                                      ? 'text-green-500 hover:text-green-600 hover:bg-green-50'
-                                      : response.documentStatus
-                                        ? 'text-red-500 hover:text-red-600 hover:bg-red-50'
-                                        : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
+                                    {
+                                      sent: 'text-green-500 hover:text-green-600 hover:bg-green-50',
+                                      failed: 'text-red-500 hover:text-red-600 hover:bg-red-50',
+                                      'none-matched':
+                                        'text-gray-300 hover:text-gray-500 hover:bg-gray-50',
+                                      never: 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50',
+                                    }[documentState(response)]
                                   }`}
                                   title={documentButtonTitle(response)}
                                 >
                                   {sendingDocument === response.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : response.documentStatus?.success ? (
+                                  ) : documentState(response) === 'sent' ? (
                                     <MailCheck className="w-4 h-4" />
                                   ) : (
                                     <Mail className="w-4 h-4" />
@@ -1030,6 +1071,68 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
               <div className="space-y-4">
                 {questionBlocks.map((block) => renderBlockResponse(block, selectedResponse.data))}
               </div>
+
+              {(selectedResponse.documentStatus?.routes?.length ?? 0) > 0 && (
+                <div className="mt-6 border-t pt-4">
+                  <p className="text-sm font-medium text-gray-500 mb-3">
+                    Circuits d&apos;envoi —{' '}
+                    {format(new Date(selectedResponse.documentStatus!.lastSent), 'dd/MM/yyyy HH:mm', {
+                      locale: fr,
+                    })}
+                  </p>
+                  <div className="space-y-2">
+                    {selectedResponse.documentStatus!.routes!.map((route) => (
+                      <div
+                        key={route.routeId}
+                        className={`rounded-lg border p-3 ${
+                          !route.matched
+                            ? 'border-gray-200 bg-gray-50'
+                            : route.success
+                              ? 'border-green-200 bg-green-50'
+                              : 'border-red-200 bg-red-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {!route.matched ? (
+                            <MinusCircle className="w-4 h-4 text-gray-400 shrink-0" />
+                          ) : route.success ? (
+                            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-red-600 shrink-0" />
+                          )}
+                          <span className="font-medium text-sm text-gray-900">
+                            {route.routeName}
+                          </span>
+                          <span className="ml-auto text-xs text-gray-500">
+                            {!route.matched
+                              ? 'Non concerné'
+                              : route.success
+                                ? 'Accepté par le serveur'
+                                : 'Échec'}
+                          </span>
+                        </div>
+                        {route.matched && (route.recipients?.length ?? 0) > 0 && (
+                          <p className="text-xs text-gray-600 mt-1.5 ml-6">
+                            {route.recipients!.join(', ')}
+                          </p>
+                        )}
+                        {route.rejected?.length ? (
+                          <p className="text-xs text-red-700 mt-1 ml-6">
+                            Refusé : {route.rejected.join(', ')}
+                          </p>
+                        ) : null}
+                        {route.error && (
+                          <p className="text-xs text-red-600 mt-1 ml-6 font-medium">{route.error}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-400 mt-2">
+                    « Accepté par le serveur » atteste de la remise au serveur d&apos;envoi, pas de
+                    la réception dans la boîte du destinataire.
+                  </p>
+                </div>
+              )}
             </div>
             <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex justify-end space-x-3">
               <Button variant="outline" onClick={() => setSelectedResponse(null)}>

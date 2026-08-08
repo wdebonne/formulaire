@@ -16,7 +16,8 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - **Historique des versions** — snapshot automatique toutes les 10 sauvegardes + versions manuelles avec label optionnel ; restauration ou suppression depuis le builder ou le dashboard ; recherche dans les versions ; l'état courant est toujours préservé avant chaque restauration
 - **Thèmes** — couleurs, polices, fonds (uni, dégradé, image), styles de boutons et champs, couleur de fond des choix ; l'aperçu central de l'éditeur reflète le thème en temps réel (arrondi, style des champs, couleurs)
 - **Webhooks** — envoi des réponses vers des URLs externes, mapping personnalisé, réorganisation par drag & drop, recherche
-- **Génération de documents Word** — associez un modèle `.docx` dont les jetons sont remplacés par les réponses, puis envoyez le document rempli en pièce jointe ; tableau visuel des champs disponibles (jeton copiable, réponses possibles, présence effective du jeton dans le modèle), jetons de boucle pour les blocs répétables et avertissement sur les jetons inconnus du formulaire ; les jetons restent stables même après renommage d'une question
+- **Génération de documents Word** — associez un modèle `.docx` dont les jetons sont remplacés par les réponses, puis envoyez le document rempli en pièce jointe ; tableau visuel des champs disponibles (jeton copiable, réponses possibles, présence effective du jeton dans le modèle), jetons de boucle pour les blocs répétables, jetons de case à cocher `{case_…}` rendant ☒/☐ pour que le modèle imprimé vierge reste remplissable à la main, et avertissement sur les jetons inconnus ; les jetons restent stables après renommage d'une question ou d'une option
+- **Envoi conditionnel par circuits** — un circuit par service, avec ses propres conditions, destinataires, objet et corps, pour que seules les personnes concernées reçoivent le mail ; conditions repliées par défaut, réutilisant les opérateurs de la logique du formulaire
 - **Paramètres** — barre de progression (position, taille), numérotation, animations, branding, affichage du logo (position + alignement)
 
 ### Partage & Publication
@@ -48,7 +49,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - Suivi des réponses complètes et partielles
 - Renvoi de webhook par réponse
 - Indicateur visuel du statut webhook (vert / orange / rouge / gris)
-- Téléchargement et envoi par e-mail du document par réponse, avec indicateur de statut (envoyé / en échec / jamais envoyé) affichant la date et les destinataires, et relance en un clic
+- Téléchargement et envoi par e-mail du document par réponse, avec un statut par circuit d'envoi (accepté par le serveur / en échec / non concerné / jamais envoyé) affichant date et destinataires, et relance en un clic
 
 ---
 

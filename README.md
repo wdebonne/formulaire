@@ -16,7 +16,8 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - **Version history** — automatic snapshot every 10 saves + manual versions with optional label; restore or delete any version from the builder or dashboard; search across versions; current state always preserved before restore
 - **Themes** — custom colors, fonts, backgrounds (solid, gradient, image), button and input styles, choice background color; the central editor preview reflects the active theme in real time (border radius, field style, colors)
 - **Webhooks** — send responses to external URLs with custom field mapping, drag-and-drop reordering, and search
-- **Word document generation** — attach a `.docx` template whose tokens are replaced by the answers, then e-mail the filled document as an attachment; visual table of available fields (copyable token, possible answers, whether the token is actually present in the template), loop tokens for repeaters, and a warning for tokens the form doesn't recognise; tokens stay stable when a question is renamed
+- **Word document generation** — attach a `.docx` template whose tokens are replaced by the answers, then e-mail the filled document as an attachment; visual table of available fields (copyable token, possible answers, whether the token is actually present in the template), loop tokens for repeaters, `{case_…}` checkbox tokens rendering ☒/☐ so the blank template stays fillable by hand, and a warning for tokens the form doesn't recognise; tokens stay stable when a question or an option is renamed
+- **Conditional e-mail routing** — one circuit per service, each with its own conditions, recipients, subject and body, so only the people concerned are notified; conditions are collapsed by default and reuse the form-logic operators
 - **Form settings** — progress bar (position, size), question numbers, animations, branding, site logo display (position + alignment)
 
 ### Sharing & Publishing
@@ -48,7 +49,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - Partial and completed response tracking
 - Per-response webhook replay
 - Visual webhook status indicator (green / orange / red / grey)
-- Per-response document download and e-mail delivery, with a status indicator (sent / failed / never sent) showing date and recipients, and one-click resend
+- Per-response document download and e-mail delivery, with a status per routing circuit (accepted by the server / failed / not concerned / never sent) showing date and recipients, and one-click replay
 
 ---
 

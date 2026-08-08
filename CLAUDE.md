@@ -266,11 +266,37 @@ otherwise, so a stale `outputFormat: 'pdf'` left in the DB can never take effect
 converter is removed. `convertDocxToPdf()` targets Gotenberg's
 `/forms/libreoffice/convert` and has **not** been exercised against a live instance.
 
+**Checkbox tokens**: a mapping carrying `choiceValue` renders `☒` when that specific option is
+selected and `☐` otherwise (or `þ`/`¨` with `checkboxStyle: 'wingdings'`). The empty state is a real
+box glyph on purpose — the same template printed blank stays fillable by hand. Word's *native*
+form-field checkboxes (`FORMCHECKBOX`, `w:checkBox`) and content controls cannot be driven this way:
+they are XML structures, not text, and text substitution leaves `w:checked` untouched (verified).
+Tell users to replace them with a plain glyph. `isChoiceSelected()` must keep accepting all three
+storage shapes: raw slug arrays (pre-`resolveDataLabels` responses), the comma-joined label string
+produced today, and a single value.
+
+**Email routing**: `DocumentEmailSettings.routes` is a list of `DocumentEmailRoute`, each with its
+own conditions, recipients, subject and body — so only the concerned service is notified. A route
+with **no condition always fires**; that is deliberately the opposite of form logic (where an empty
+rule never applies), because a freshly created route, and the single route migrated from the old
+flat config, must send without inventing an always-true condition.
+
+`src/lib/condition-eval.ts` is a **separate** evaluator from the one in `public-form-client.tsx`, and
+must stay separate: the form one compares against answers being typed, which hold raw slugs, while
+this one compares against `Response.data`, where `resolveDataLabels` already replaced slugs with
+labels and joined multi-choice answers into `"A, B"`. `canonicalizeValue()` normalises both sides
+(slug/id/label → label, and `yes`/`Oui`/`true` → `yes` for yes-no blocks), so a condition keeps
+working on responses recorded before that resolution existed. `equals` on a multi-valued answer is
+true when the option is among those selected — that is what "si la réponse est Matériel" means to a
+user, and it differs from the form evaluator's strict `===`.
+
 Sending is fully backend-internal (`sendDocumentForResponse`), never throws — a broken template or
 an unreachable SMTP must not fail the respondent's submission, same contract as `logEvent()`. It
-writes `Response.documentStatus` (`DocumentSendStatus`), which drives the per-row mail icon on the
-responses page (green sent / red failed / grey never sent) and its resend action, mirroring the
-existing webhook status button.
+writes `Response.documentStatus` (`DocumentSendStatus`) with one `DocumentRouteStatus` per route.
+`matched: false` means the conditions were not met — a deliberate skip, **not** a failure, and the
+UI must keep showing it in grey rather than red. The status records nodemailer's `accepted` /
+`rejected` addresses: that attests to hand-off to the sending server only. Never label it
+"delivered" — detecting a downstream rejection would require bounce processing.
 
 ### Runtime Version Parity — Keep the Image and the Dev Machine on the Same Node
 The Docker image is `node:24-alpine`, matching `.nvmrc` and the typical dev machine. **Keep them in

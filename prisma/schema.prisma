@@ -33,6 +33,7 @@ model Form {
   settings    String        @default("{}")
   webhooks    String        @default("[]")
   documentSettings String   @default("{}") // Modèle .docx + paramètres d'e-mail (JSON stocké en texte)
+  reportSettings String    @default("{}") // Rapports périodiques : période, contenu, planification (JSON stocké en texte)
   themeId     String?
   userId      String?
   deletedAt   DateTime?

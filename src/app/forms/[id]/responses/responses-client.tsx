@@ -28,9 +28,11 @@ import {
   Mail,
   MailCheck,
   MinusCircle,
+  BarChart3,
 } from 'lucide-react'
 import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
 import { DocumentEmailModal } from '@/components/forms/document-email-modal'
+import { ReportModal } from '@/components/forms/report-modal'
 import type { DocumentSendStatus } from '@/types/form'
 
 interface Webhook {
@@ -80,6 +82,7 @@ interface ResponsesClientProps {
     settings: any
     webhooks?: Webhook[]
     hasDocumentTemplate?: boolean
+    createdAt?: string | Date
   }
   responses: FormResponse[]
 }
@@ -94,6 +97,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const [showColumnSelector, setShowColumnSelector] = useState(false)
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
   const [hasTemplate, setHasTemplate] = useState(form.hasDocumentTemplate ?? false)
   const [sendingDocument, setSendingDocument] = useState<string | null>(null)
   const columnSelectorRef = useRef<HTMLDivElement>(null)
@@ -676,6 +680,15 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
               <Button variant="outline" size="sm" onClick={handleExportCSV} className="hover:bg-green-50 hover:border-green-300 hover:text-green-700">
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
                 Exporter CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setReportModalOpen(true)}
+                className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Rapports
               </Button>
               <Button
                 variant="outline"
@@ -1292,6 +1305,16 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         blocks={form.blocks}
         open={emailModalOpen}
         onOpenChange={setEmailModalOpen}
+      />
+
+      <ReportModal
+        formId={form.id}
+        formTitle={form.title}
+        blocks={form.blocks}
+        responses={responses}
+        formCreatedAt={form.createdAt}
+        open={reportModalOpen}
+        onOpenChange={setReportModalOpen}
       />
     </div>
   )

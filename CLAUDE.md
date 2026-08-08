@@ -69,7 +69,13 @@ Context for Claude Code when working on this project.
 | `src/lib/document-storage.ts` | Private .docx storage outside `public/` — `saveTemplateFile()`, `readTemplateFile()`, `looksLikeDocx()` |
 | `src/lib/document-delivery.ts` | Generates the document for a response and mails it — `generateDocumentForResponse()`, `sendDocumentForResponse()`, `resolveRecipients()` |
 | `src/lib/pdf-convert.ts` | External Gotenberg converter — `testPdfConverter()`, `convertDocxToPdf()`, `isPdfConversionAvailable()` |
-| `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document routes |
+| `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
+| `src/lib/report-settings.ts` | Pure/client-safe report config — `DEFAULT_REPORT_SETTINGS`, `parseFormReportSettings()`, `nextOccurrence()`/`previousOccurrence()`/`isScheduleDue()`, `applyReportTokens()`; no Prisma import |
+| `src/lib/report-stats.ts` | Pure/client-safe analytics — `resolveReportRange()`, `computeReportStats()`; the modal's live preview and the PDF share it |
+| `src/lib/report-pdf.ts` | Server-only pdfkit renderer — `buildReportPdf()`; charts drawn by hand, no charting dependency |
+| `src/lib/report-delivery.ts` | Server-only — `generateReportForForm()`, `sendReportForForm()`, `recordReportStatus()` |
+| `src/lib/report-scheduler.ts` | Server-only — `runDueReports()`, `startReportScheduler()` (in-process timer) |
+| `src/components/forms/report-modal.tsx` | "Rapports" modal — Période / Contenu / Envoi tabs, live preview bar, PDF download, send-now |
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
 | `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — recipients, subject, body |
 | `src/app/admin/documents/documents-client.tsx` | Admin UI for the external PDF converter (URL + connection test + verified state) |
@@ -134,6 +140,7 @@ When adding a new block type, update **all** of these:
 - `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
 - `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; external PDF converter URL and its verification state
+- `Form.reportSettings` (JSON stored as string) — typed as `FormReportSettings`; report period, closing date, included sections, schedule (`ReportSchedule` with `lastRunAt`), recipients, subject/body, and `lastStatus` (`ReportSendStatus`)
 - `SystemSettings.securitySettings` also carries the failed-login alert config: `notifyOnFailedLogin`/`notifyThreshold`/`notifyEmail` — set in `/admin/security` alongside `maxFailedAttempts`, no separate column needed
 
 ---
@@ -297,6 +304,58 @@ writes `Response.documentStatus` (`DocumentSendStatus`) with one `DocumentRouteS
 UI must keep showing it in grey rather than red. The status records nodemailer's `accepted` /
 `rejected` addresses: that attests to hand-off to the sending server only. Never label it
 "delivered" — detecting a downstream rejection would require bounce processing.
+
+### Periodic PDF Reports
+A form can carry a report configuration (`Form.reportSettings`, typed `FormReportSettings`) that
+turns its responses into a formatted PDF and mails it on a schedule. Configured from the
+**Rapports** modal on the responses toolbar, next to "Exporter CSV".
+
+**One computation, two consumers.** `src/lib/report-stats.ts` is pure — no Prisma, no pdfkit, no
+nodemailer — so the modal imports it directly to render its live preview bar while the server
+feeds the identical `ReportStats` object to `buildReportPdf()`. What the modal announces is
+therefore literally what the PDF will contain; don't fork the maths into the component.
+
+**Response values arrive in two shapes.** Since `resolveDataLabels()` was added to the submit
+route, `Response.data` holds resolved labels comma-joined (`"A, B"`), but responses recorded
+before that still hold raw slugs and arrays. `optionLabels()`/`tokenize()`/`matchOption()`
+normalise all three so one option is never counted twice. `tokenize()` does **not** naively split
+on commas: it re-joins consecutive fragments that reconstitute a known option, longest match
+first — otherwise a single choice labelled `Écran, second` is counted as two options that don't
+exist. The same resolution runs on the response table via `displayValue()`, per the project's
+"Choice Value vs Label" convention (resolve at display time, never rewrite what's stored).
+
+**pdfkit layout traps**, both hit and fixed here, worth knowing before editing `report-pdf.ts`:
+- `doc.text(..., { lineBreak: false })` advances **`x`, not `y`** (pdfkit's `_line()` only bumps
+  `y` when a `LineWrapper` exists). Every subsequent line then overprints the previous one. Use
+  the local `writeLine()` helper, which repositions `doc.y` explicitly.
+- Writing the page footer below the bottom margin makes pdfkit think the text overflows and
+  **append a blank page per footer**. `drawFooters()` zeroes `doc.page.margins.bottom` around
+  each write and restores it. Page numbering needs `bufferPages: true`.
+- Manual drawing (`rect`, `roundedRect`) never moves `doc.y`, so anything hand-drawn must call
+  `ensureSpace()` before and set `doc.y` after.
+
+**Scheduling runs in-process, not by cron.** `startReportScheduler()` arms a `setInterval`
+(5 min default, `REPORT_SCHEDULER_INTERVAL_MINUTES`, off with `REPORT_SCHEDULER=0`) and is called
+from `src/app/layout.tsx` — **not** from `instrumentation.ts`. Next compiles `instrumentation.ts`
+for the Edge runtime too (the middleware forces it), where `fs`, `path` and nodemailer don't
+resolve; the build fails even with the documented `NEXT_RUNTIME === 'nodejs'` guard around a
+dynamic import. The layout only ever runs in Node. Trade-off: the scheduler starts on the first
+page served rather than at container boot. `POST /api/internal/reports/run` (shared secret, same
+pattern as `/api/internal/ip-lists`) triggers the same pass for deployments preferring a system
+cron.
+
+Due-detection compares only the **last** past occurrence to `schedule.lastRunAt`, so a container
+down for a week sends one report on restart, not seven. `lastRunAt` is stamped — without sending —
+when a schedule is enabled or its timing edited, so turning on "Monday 8am" at 9am on a Monday
+doesn't fire retroactively. It is also stamped **on failure**, otherwise an unreachable SMTP would
+resend the same report every five minutes. `sendReportForForm()` never throws (same contract as
+`sendDocumentForResponse()` and `logEvent()`), and `recordReportStatus()` re-reads settings from
+the DB immediately before writing, since the scheduler can run while someone edits the modal.
+
+The closing date (`closingDate`) caps the report period only — it does **not** stop the public
+form from accepting responses. `sendFinalReportOnClosing` fires once, guarded by
+`finalReportSentAt`, which is cleared when the closing date changes so a new date earns a new
+final report.
 
 ### Runtime Version Parity — Keep the Image and the Dev Machine on the Same Node
 The Docker image is `node:24-alpine`, matching `.nvmrc` and the typical dev machine. **Keep them in

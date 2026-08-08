@@ -307,6 +307,78 @@ export interface DocumentSendStatus {
   error?: string
 }
 
+// ── Rapports périodiques (Form.reportSettings) ─────────────────────────────
+//
+// Un rapport agrège les réponses d'une période et les met en forme dans un PDF envoyé
+// par e-mail. Contrairement aux circuits d'envoi de documents (une réponse = un envoi),
+// il s'agit d'une synthèse : nombre de réponses, répartition des choix, verbatims…
+
+export type ReportPeriodMode =
+  | 'all' // depuis la création du formulaire
+  | 'last_days' // N derniers jours
+  | 'current_month'
+  | 'previous_month'
+  | 'since_last_report' // depuis le dernier envoi réussi
+  | 'custom' // plage fixe
+
+export interface ReportPeriod {
+  mode: ReportPeriodMode
+  days?: number // mode last_days
+  from?: string // YYYY-MM-DD, mode custom
+  to?: string // YYYY-MM-DD, mode custom
+}
+
+export type ReportFrequency = 'daily' | 'weekly' | 'monthly'
+
+export interface ReportSchedule {
+  enabled: boolean
+  frequency: ReportFrequency
+  dayOfWeek: number // 0 = dimanche … 6 = samedi (frequency: weekly)
+  dayOfMonth: number // 1 … 28 (frequency: monthly) — 28 pour exister tous les mois
+  hour: number // 0 … 23, heure du serveur
+  minute: number // 0 … 59
+  lastRunAt?: string // ISO — empêche de renvoyer deux fois la même échéance
+}
+
+export interface ReportSections {
+  summary: boolean // indicateurs clés
+  timeline: boolean // évolution du nombre de réponses
+  choiceBreakdown: boolean // répartition des questions à choix, en %
+  numericStats: boolean // min / moyenne / médiane / max
+  textAnswers: boolean // réponses libres : fréquences et extraits
+  completion: boolean // taux de remplissage par question
+  responseTable: boolean // tableau des dernières réponses
+}
+
+export interface ReportSendStatus {
+  success: boolean
+  sentAt: string
+  trigger: 'manual' | 'schedule' | 'closing'
+  recipients?: string[]
+  accepted?: string[] // adresses acceptées par le serveur SMTP
+  rejected?: string[] // adresses refusées par le serveur SMTP
+  responseCount?: number
+  periodLabel?: string
+  error?: string
+}
+
+export interface FormReportSettings {
+  sections: ReportSections
+  period: ReportPeriod
+  closingDate?: string // YYYY-MM-DD — borne haute de toutes les périodes
+  sendFinalReportOnClosing: boolean
+  finalReportSentAt?: string // ISO — le rapport de clôture ne part qu'une fois
+  schedule: ReportSchedule
+  recipients: string[]
+  subject: string
+  body: string // HTML, jetons {form_title} {period} {response_count} {generated_at}
+  fileNamePattern: string
+  includeEmptyChoices: boolean // afficher aussi les options jamais choisies
+  textSampleSize: number // nombre de verbatims repris par question libre
+  tableRowLimit: number // lignes du tableau des dernières réponses
+  lastStatus?: ReportSendStatus
+}
+
 // Theme types
 export type BackgroundType = 'solid' | 'gradient' | 'image'
 export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' | 'to-bottom-right' | 'to-bottom-left' | 'to-top-right' | 'to-top-left'

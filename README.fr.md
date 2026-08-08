@@ -26,6 +26,7 @@ Un créateur de formulaires auto-hébergé avec éditeur visuel par glisser-dép
 - Slug personnalisable dans les paramètres
 - 3 niveaux de permissions : **Lecture**, **Édition**, **Administrateur**
 - Autocomplétion lors de la recherche d'utilisateurs à partager
+- **Options d'accès** (menu de la carte du formulaire → *Options*) — dates de mise en ligne et de clôture, protection par mot de passe, nombre maximum de réponses, une seule réponse par appareil, restriction aux utilisateurs connectés et retrait des moteurs de recherche ; chaque règle est appliquée côté serveur au rendu de la page comme à l'envoi d'une réponse, avec un message personnalisable par situation
 
 ### Panneau d'administration
 - Gestion des utilisateurs (créer, modifier, supprimer)
@@ -230,6 +231,7 @@ formbuilder-standalone/
 - Protection anti-bruteforce de la connexion avec seuils configurables et listes blanche/noire d'IP (`/admin/security`)
 - Journal d'activité (audit trail) des connexions, du cycle de vie des formulaires et des actions de gestion des utilisateurs, avec alertes email en cas de tentatives de connexion échouées répétées (`/admin/logs`)
 - Modèles Word stockés hors de `public/` et accessibles uniquement via des routes authentifiées ; les documents remplis sont régénérés à la demande plutôt qu'écrits sur disque, aucun fichier contenant des données personnelles ne s'accumule
+- Mots de passe d'accès aux formulaires stockés sous forme de condensats bcrypt et jamais renvoyés au navigateur ; le cookie de déverrouillage dérive du condensat, si bien que changer le mot de passe révoque tous les accès déjà accordés ; essais limités par IP et par formulaire
 
 ---
 

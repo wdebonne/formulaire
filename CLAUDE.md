@@ -70,6 +70,12 @@ Context for Claude Code when working on this project.
 | `src/lib/document-delivery.ts` | Generates the document for a response and mails it — `generateDocumentForResponse()`, `sendDocumentForResponse()`, `resolveRecipients()` |
 | `src/lib/pdf-convert.ts` | External Gotenberg converter — `testPdfConverter()`, `convertDocxToPdf()`, `isPdfConversionAvailable()` |
 | `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
+| `src/lib/form-options.ts` | Pure/client-safe access options — `FormAccessSettings` defaults, `parseFormAccessSettings()`, `accessMessage()`, `accessSummary()`, `scheduleState()`; no Prisma import |
+| `src/lib/form-gate.ts` | Server-only enforcement — `resolveFormGate()`, access/submitted cookie names, `signAccessToken()`, `hashFormPassword()` |
+| `src/components/forms/form-options-modal.tsx` | "Options" modal — availability window, password, quota, participation restrictions, noindex |
+| `src/app/[slug]/form-gate-screen.tsx` | Public screen shown in place of a form that is closed, scheduled, full, already answered, or locked |
+| `src/app/api/forms/[id]/options/route.ts` | Access options API (GET/PUT, `getAccessibleForm`) — never returns the password hash |
+| `src/app/api/forms/[id]/access/route.ts` | Public password check — sets the unlock cookie; in-memory attempt throttle |
 | `src/lib/report-settings.ts` | Pure/client-safe report config — `DEFAULT_REPORT_SETTINGS`, `parseFormReportSettings()`, `nextOccurrence()`/`previousOccurrence()`/`isScheduleDue()`, `applyReportTokens()`; no Prisma import |
 | `src/lib/report-stats.ts` | Pure/client-safe analytics — `resolveReportRange()`, `computeReportStats()`; the modal's live preview and the PDF share it |
 | `src/lib/report-pdf.ts` | Server-only pdfkit renderer — `buildReportPdf()`; charts drawn by hand, no charting dependency |
@@ -138,6 +144,7 @@ When adding a new block type, update **all** of these:
 - `AuditLog` model — append-only activity log: `action`, `status` (`success`|`failure`), `userId`/`userEmail` (email copied at write time so it survives user deletion), `ipAddress`, `targetType`/`targetId`/`targetLabel` (label copied at write time, e.g. form title), `metadata` (JSON-as-string), `createdAt`; indexed on `action`, `userId`, `createdAt`
 - `SystemSettings.logSettings` (JSON stored as string) — typed as `LogSettings` in `src/lib/audit-log.ts`; holds `retentionEnabled`/`retentionDays` (default: 365 days), read via `getLogSettings()`/`getLogRetentionCutoffDate()`
 - `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
+- `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
 - `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; external PDF converter URL and its verification state
 - `Form.reportSettings` (JSON stored as string) — typed as `FormReportSettings`; report period, closing date, included sections, schedule (`ReportSchedule` with `lastRunAt`), recipients, subject/body, and `lastStatus` (`ReportSendStatus`)
@@ -356,6 +363,40 @@ The closing date (`closingDate`) caps the report period only — it does **not**
 form from accepting responses. `sendFinalReportOnClosing` fires once, guarded by
 `finalReportSentAt`, which is cleared when the closing date changes so a new date earns a new
 final report.
+
+### Form Access Options (the "Options" Modal)
+`Form.accessSettings` decides when and to whom the public form answers: availability window
+(`opensAt`/`closesAt`), password, response quota, one-response-per-device, sign-in requirement,
+`noIndex`. The split follows the `audit-actions.ts` / `audit-log.ts` precedent — `src/lib/form-options.ts`
+is pure (parsing, defaults, messages, `scheduleState()`) so the `'use client'` modal can import it,
+while `src/lib/form-gate.ts` holds everything needing Prisma, `next/headers` or crypto.
+
+**`resolveFormGate()` is called twice per response**: once in `src/app/[slug]/page.tsx` and once in
+`/api/forms/[id]/submit`. Never drop the second one — the first only decides what to render, and a
+forged POST bypasses it entirely. The page also **parses `form.blocks` only after the gate opens**,
+so a password-protected form does not ship its questions in the gate screen's HTML.
+
+**The unlock cookie is an HMAC of `${formId}:${passwordHash}`, not a random session id.** That is
+what makes a password change revoke every outstanding access for free, with no session table to
+expire. It also means the cookie is worthless if copied to another form. Password verification
+(`/api/forms/[id]/access`) has its own small in-memory throttle rather than calling
+`recordFailedLogin()` — the account anti-bruteforce path blacklists an IP application-wide, which
+would be a wildly disproportionate response to a respondent mistyping a form password.
+
+Dates are stored exactly as the `datetime-local` input produces them (`2026-09-01T08:30`), with no
+timezone, and are therefore interpreted in the **server's** timezone. Anything derived from them
+must be formatted **server-side** and passed down as a string — `FormGateScreen` receives
+`opensAtLabel`, not a date, because formatting it in the client would hydrate differently whenever
+the visitor's timezone differs from the server's.
+
+`onePerDevice` rests on a cookie set by the submit route, so it is dissuasive, not strict; the modal
+says so and points at `requireLogin` for a real guarantee. Don't silently upgrade its wording.
+
+**Known limitation**: both cookies are `SameSite=Lax`, like `auth-token`. A password-protected form
+therefore cannot be unlocked from inside a *cross-site* iframe embed — the browser won't send the
+cookie back. `SameSite=None` is not the fix: it requires `Secure`, which plain-HTTP self-hosted
+deployments don't have, so it would break those instead. Password protection and cross-site
+embedding are mutually exclusive; the direct link works normally.
 
 ### Runtime Version Parity — Keep the Image and the Dev Machine on the Same Node
 The Docker image is `node:24-alpine`, matching `.nvmrc` and the typical dev machine. **Keep them in

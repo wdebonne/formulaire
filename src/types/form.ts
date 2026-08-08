@@ -379,6 +379,53 @@ export interface FormReportSettings {
   lastStatus?: ReportSendStatus
 }
 
+// ── Options d'accès au formulaire (Form.accessSettings) ────────────────────
+//
+// Conditions d'ouverture du formulaire public : fenêtre de publication, mot de passe,
+// quota de réponses, restrictions de participation. Toutes sont appliquées côté serveur
+// (rendu de /[slug] et route de soumission) : un contournement côté client est sans effet.
+
+export type FormGateState =
+  | 'open'
+  | 'not_open'
+  | 'closed'
+  | 'limit_reached'
+  | 'already_submitted'
+  | 'login_required'
+  | 'password_required'
+
+export interface FormAccessSettings {
+  // Fenêtre de publication — chaînes ISO locales (YYYY-MM-DDTHH:mm), heure du serveur
+  opensAt?: string | null
+  closesAt?: string | null
+  notYetOpenMessage?: string
+  closedMessage?: string
+
+  // Mot de passe d'accès. Seul le condensat est stocké ; il n'est jamais transmis au client.
+  passwordEnabled?: boolean
+  passwordHash?: string | null
+  passwordMessage?: string
+
+  // Quota de réponses
+  maxResponsesEnabled?: boolean
+  maxResponses?: number | null
+  limitReachedMessage?: string
+
+  // Restrictions de participation
+  onePerDevice?: boolean
+  alreadySubmittedMessage?: string
+  requireLogin?: boolean
+  loginRequiredMessage?: string
+
+  // Confidentialité
+  noIndex?: boolean
+}
+
+// Version transmise au navigateur : sans condensat de mot de passe.
+export type PublicFormAccessSettings = Omit<FormAccessSettings, 'passwordHash'> & {
+  passwordSet?: boolean
+}
+
 // Theme types
 export type BackgroundType = 'solid' | 'gradient' | 'image'
 export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' | 'to-bottom-right' | 'to-bottom-left' | 'to-top-right' | 'to-top-left'

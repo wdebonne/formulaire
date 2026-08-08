@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { findBlockDeep, formatBlockValue, formatDateString, resolveDataLabels } from '@/lib/response-format'
 import { parseFormDocumentSettings } from '@/lib/docx-template'
 import { sendDocumentForResponse } from '@/lib/document-delivery'
+import { resolveFormGate, submittedCookieName, SUBMITTED_COOKIE_MAX_AGE } from '@/lib/form-gate'
 
 // POST /api/forms/[id]/submit - Soumettre une réponse à un formulaire
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +25,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { error: 'Formulaire non trouvé ou non publié' },
         { status: 404 }
       )
+    }
+
+    // Les options d'accès sont revérifiées ici et pas seulement au rendu de la page : sans ce
+    // contrôle, une requête forgée contournerait la fenêtre de publication, le mot de passe ou
+    // le quota de réponses.
+    const gate = await resolveFormGate(form)
+    if (gate.state !== 'open') {
+      return NextResponse.json({ error: gate.message }, { status: 403 })
     }
 
     // Résoudre les valeurs de choix (slugs → labels) avant stockage
@@ -88,10 +97,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await sendDocumentForResponse(form, response)
     }
 
-    return NextResponse.json({
+    const result = NextResponse.json({
       success: true,
       responseId: response.id,
     })
+
+    if (gate.settings.onePerDevice) {
+      result.cookies.set(submittedCookieName(form.id), '1', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SUBMITTED_COOKIE_MAX_AGE,
+        path: '/',
+      })
+    }
+
+    return result
   } catch (error) {
     console.error('Erreur lors de la soumission:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

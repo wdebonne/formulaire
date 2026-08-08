@@ -26,6 +26,7 @@ A self-hosted, feature-rich form builder with a visual drag-and-drop editor, con
 - Custom slug editable in settings
 - 3 permission levels: **Read**, **Edit**, **Administrator**
 - User autocomplete when sharing
+- **Access options** (form card menu → *Options*) — go-live and closing dates, password protection, maximum number of responses, one response per device, restriction to signed-in users, and search-engine opt-out; every rule is enforced server-side both when the page is rendered and when a response is submitted, with a customisable message per situation
 
 ### Admin Panel
 - User management (create, edit, delete)
@@ -230,6 +231,7 @@ formbuilder-standalone/
 - Anti-bruteforce login protection with configurable thresholds and IP whitelist/blacklist (`/admin/security`)
 - Activity log / audit trail of logins, form lifecycle, and user management actions, with email alerts on repeated failed logins (`/admin/logs`)
 - Word templates stored outside `public/` and reachable only through authenticated routes; filled documents are regenerated on demand rather than written to disk, so no file containing personal data accumulates
+- Form access passwords stored as bcrypt hashes and never returned to the browser; the unlock cookie is derived from the hash, so changing the password revokes every access already granted; attempts throttled per IP and per form
 
 ---
 

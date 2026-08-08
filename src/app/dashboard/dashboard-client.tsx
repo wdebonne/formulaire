@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { ShareDialog } from '@/components/builder/share-dialog'
 import { VersionsModal } from '@/components/builder/versions-modal'
+import { FormOptionsModal } from '@/components/forms/form-options-modal'
 import {
   Plus,
   Search,
@@ -27,6 +28,9 @@ import {
   Users,
   Share2,
   History,
+  Settings2,
+  CalendarClock,
+  Lock,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -45,6 +49,8 @@ interface FormData {
   updatedAt: string
   isShared?: boolean
   sharePermission?: string | null
+  accessSummary?: string[]
+  accessState?: 'open' | 'scheduled' | 'closed'
   owner?: {
     id: string
     name: string | null
@@ -74,6 +80,8 @@ export function DashboardClient({ forms: initialForms, user, siteName = 'FormBui
   const [selectedFormForShare, setSelectedFormForShare] = useState<FormData | null>(null)
   const [versionsModalOpen, setVersionsModalOpen] = useState(false)
   const [selectedFormForVersions, setSelectedFormForVersions] = useState<string | null>(null)
+  const [optionsModalOpen, setOptionsModalOpen] = useState(false)
+  const [selectedFormForOptions, setSelectedFormForOptions] = useState<FormData | null>(null)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -473,6 +481,27 @@ export function DashboardClient({ forms: initialForms, user, siteName = 'FormBui
                           {form.sharePermission === 'admin' ? 'Admin' : form.sharePermission === 'edit' ? 'Édition' : 'Lecture'}
                         </span>
                       )}
+                      {form.status === 'published' && form.accessState === 'scheduled' && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-sky-100 text-sky-700 ring-1 ring-sky-600/20">
+                          <CalendarClock className="w-3 h-3 mr-1" />
+                          Programmé
+                        </span>
+                      )}
+                      {form.status === 'published' && form.accessState === 'closed' && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 ring-1 ring-red-600/20">
+                          <CalendarClock className="w-3 h-3 mr-1" />
+                          Clôturé
+                        </span>
+                      )}
+                      {(form.accessSummary?.length ?? 0) > 0 && (
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 ring-1 ring-slate-600/20"
+                          title={form.accessSummary!.join(' · ')}
+                        >
+                          <Lock className="w-3 h-3 mr-1" />
+                          {form.accessSummary!.length} option{form.accessSummary!.length > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                     {form.owner && form.isShared && (
                       <p className="text-xs text-gray-500 mt-2 flex items-center">
@@ -491,10 +520,16 @@ export function DashboardClient({ forms: initialForms, user, siteName = 'FormBui
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
                       {(!form.isShared || form.sharePermission === 'edit' || form.sharePermission === 'admin') && (
-                        <DropdownMenuItem onClick={() => router.push(`/builder/${form.id}`)}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Modifier
-                        </DropdownMenuItem>
+                        <>
+                          <DropdownMenuItem onClick={() => router.push(`/builder/${form.id}`)}>
+                            <Edit className="w-4 h-4 mr-2" />
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => { setSelectedFormForOptions(form); setOptionsModalOpen(true) }}>
+                            <Settings2 className="w-4 h-4 mr-2" />
+                            Options
+                          </DropdownMenuItem>
+                        </>
                       )}
                       <DropdownMenuItem onClick={() => router.push(`/forms/${form.id}/responses`)}>
                         <BarChart3 className="w-4 h-4 mr-2" />
@@ -585,6 +620,19 @@ export function DashboardClient({ forms: initialForms, user, siteName = 'FormBui
           onOpenChange={setShareDialogOpen}
           formSlug={selectedFormForShare.slug}
           formId={selectedFormForShare.id}
+        />
+      )}
+
+      {/* Options Modal */}
+      {selectedFormForOptions && (
+        <FormOptionsModal
+          formId={selectedFormForOptions.id}
+          formTitle={selectedFormForOptions.title}
+          open={optionsModalOpen}
+          onOpenChange={(open) => {
+            setOptionsModalOpen(open)
+            if (!open) setSelectedFormForOptions(null)
+          }}
         />
       )}
 

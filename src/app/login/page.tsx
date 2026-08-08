@@ -19,6 +19,16 @@ interface PublicSettings {
   loginPageSettings: LoginPageSettings | null
 }
 
+// Destination après connexion. Lue depuis window plutôt qu'avec useSearchParams(), qui imposerait
+// une frontière Suspense sur cette page. Seuls les chemins internes sont acceptés : une valeur
+// commençant par « // » ou par un schéma ouvrirait une redirection vers un site tiers.
+function getRedirectTarget(): string {
+  if (typeof window === 'undefined') return '/dashboard'
+  const target = new URLSearchParams(window.location.search).get('redirect')
+  if (!target || !target.startsWith('/') || target.startsWith('//')) return '/dashboard'
+  return target
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -61,7 +71,7 @@ export default function LoginPage() {
         description: `Bienvenue sur ${settings.siteName} !`,
       })
 
-      router.push('/dashboard')
+      router.push(getRedirectTarget())
       router.refresh()
     } catch (error: any) {
       toast({

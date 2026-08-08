@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DashboardClient } from './dashboard-client'
+import { accessSummary, parseFormAccessSettings, scheduleState } from '@/lib/form-options'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -72,17 +73,22 @@ export default async function DashboardPage() {
     ].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   }
 
-  const formsData = forms.map(form => ({
-    id: form.id,
-    title: form.title,
-    slug: form.slug,
-    status: form.status as 'draft' | 'published',
-    responsesCount: form._count.responses,
-    updatedAt: form.updatedAt.toISOString(),
-    isShared: 'isShared' in form ? Boolean(form.isShared) : false,
-    sharePermission: 'sharePermission' in form ? (form.sharePermission as string | null) : null,
-    owner: form.user ?? undefined,
-  }))
+  const formsData = forms.map(form => {
+    const access = parseFormAccessSettings(form.accessSettings)
+    return {
+      id: form.id,
+      title: form.title,
+      slug: form.slug,
+      status: form.status as 'draft' | 'published',
+      responsesCount: form._count.responses,
+      updatedAt: form.updatedAt.toISOString(),
+      isShared: 'isShared' in form ? Boolean(form.isShared) : false,
+      sharePermission: 'sharePermission' in form ? (form.sharePermission as string | null) : null,
+      owner: form.user ?? undefined,
+      accessSummary: accessSummary(access),
+      accessState: scheduleState(access, form._count.responses),
+    }
+  })
 
   return (
     <DashboardClient

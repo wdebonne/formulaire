@@ -33,6 +33,9 @@ prisma/dev.db.backup-*
 # Build
 out/
 coverage/
+# Cache incrémental de tsc — regénéré à chaque build, propre à la machine
+tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # Test
 *.test.ts.snap

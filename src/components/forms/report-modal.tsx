@@ -75,7 +75,7 @@ const SECTION_OPTIONS: { key: keyof ReportSections; label: string; hint: string 
   { key: 'summary', label: 'Indicateurs clés', hint: 'Total, moyenne par jour, évolution, journée la plus active' },
   { key: 'timeline', label: 'Évolution dans le temps', hint: 'Histogramme par jour, semaine ou mois selon la période' },
   { key: 'choiceBreakdown', label: 'Répartition des choix', hint: 'Barres et pourcentages par option, y compris Oui/Non et quantités' },
-  { key: 'numericStats', label: 'Valeurs numériques', hint: 'Min, moyenne, médiane, max et cumul' },
+  { key: 'numericStats', label: 'Notes et valeurs numériques', hint: 'Moyenne sur l’échelle, répartition des notes, min et max' },
   { key: 'textAnswers', label: 'Réponses libres', hint: 'Valeurs récurrentes puis derniers verbatims' },
   { key: 'completion', label: 'Taux de remplissage', hint: 'Part des réponses ayant renseigné chaque question' },
   { key: 'responseTable', label: 'Tableau des dernières réponses', hint: 'Détail ligne à ligne — allonge nettement le PDF' },

@@ -11,6 +11,7 @@ import PDFDocument from 'pdfkit'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { FormReportSettings } from '@/types/form'
+import { pdfSafeText } from './pdf-text'
 import type { ReportStats } from './report-stats'
 
 export interface ReportPdfContext {
@@ -47,8 +48,12 @@ function ensureSpace(doc: Doc, height: number): void {
 
 // pdfkit n'ellipse pas de lui-même en dessin libre : sans cela un libellé long déborde
 // sur la colonne voisine.
+//
+// C'est aussi le point de passage unique de tout texte dynamique du rapport : le nettoyage
+// WinAnsi (voir pdf-text.ts) s'y applique donc une bonne fois, et les largeurs sont mesurées
+// sur la chaîne réellement écrite.
 function truncate(doc: Doc, text: string, maxWidth: number): string {
-  const clean = String(text ?? '')
+  const clean = pdfSafeText(text)
   if (doc.widthOfString(clean) <= maxWidth) return clean
   let cut = clean
   while (cut.length > 1 && doc.widthOfString(`${cut}…`) > maxWidth) {
@@ -59,6 +64,51 @@ function truncate(doc: Doc, text: string, maxWidth: number): string {
 
 function fieldTitle(item: { label: string; parentLabel?: string }): string {
   return item.parentLabel ? `${item.parentLabel} — ${item.label}` : item.label
+}
+
+const NUMBER_FORMAT = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
+
+function formatNumber(value: number): string {
+  return NUMBER_FORMAT.format(value)
+}
+
+/**
+ * Découpe un texte en lignes tenant dans `maxWidth`, la dernière étant ellipsée si le texte
+ * dépasse `maxLines`.
+ *
+ * La police et le corps doivent être posés sur le document avant l'appel : les largeurs sont
+ * mesurées avec les réglages courants. On n'utilise pas le retour à la ligne de pdfkit, qui
+ * déplacerait `doc.y` de son côté et se combine mal avec le dessin libre de ce fichier.
+ */
+function wrapText(doc: Doc, text: string, maxWidth: number, maxLines = 3): string[] {
+  const clean = pdfSafeText(text)
+  if (doc.widthOfString(clean) <= maxWidth) return [clean]
+
+  const words = clean.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let current = ''
+
+  for (let i = 0; i < words.length; i++) {
+    const candidate = current ? `${current} ${words[i]}` : words[i]
+    if (doc.widthOfString(candidate) <= maxWidth) {
+      current = candidate
+      continue
+    }
+    if (lines.length === maxLines - 1) {
+      const rest = [current, ...words.slice(i)].filter(Boolean).join(' ')
+      return [...lines, truncate(doc, rest, maxWidth)]
+    }
+    if (current) {
+      lines.push(current)
+      current = words[i]
+    } else {
+      // Mot isolé plus large que la colonne : il n'y a pas de coupure possible sans césure.
+      lines.push(truncate(doc, words[i], maxWidth))
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines
 }
 
 /**
@@ -127,7 +177,7 @@ function drawHeader(doc: Doc, stats: ReportStats, ctx: ReportPdfContext): void {
   doc
     .fontSize(8.5)
     .text(
-      `${ctx.siteName} — généré le ${format(generatedAt, 'dd/MM/yyyy à HH:mm', { locale: fr })}`,
+      `${pdfSafeText(ctx.siteName)} — généré le ${format(generatedAt, 'dd/MM/yyyy à HH:mm', { locale: fr })}`,
       textLeft,
       doc.y + 1
     )
@@ -168,12 +218,12 @@ function drawKpis(doc: Doc, stats: ReportStats): void {
     },
     {
       label: 'Moyenne par jour',
-      value: totals.perDay.toLocaleString('fr-FR'),
+      value: formatNumber(totals.perDay),
       hint: `${totals.activeDays} jour(s) avec au moins une réponse`,
     },
     {
       label: 'Taux de remplissage moyen',
-      value: `${totals.averageFillRate} %`,
+      value: `${formatNumber(totals.averageFillRate)} %`,
       hint: `${totals.questionCount} question(s) analysée(s)`,
     },
   ]
@@ -181,7 +231,7 @@ function drawKpis(doc: Doc, stats: ReportStats): void {
   if (totals.deltaPercent !== null) {
     cards.push({
       label: 'Évolution',
-      value: `${totals.deltaPercent > 0 ? '+' : ''}${totals.deltaPercent} %`,
+      value: `${totals.deltaPercent > 0 ? '+' : ''}${formatNumber(totals.deltaPercent)} %`,
       hint: `contre ${totals.previousPeriod} sur la période précédente`,
       tone: totals.deltaPercent >= 0 ? 'positive' : 'negative',
     })
@@ -308,40 +358,85 @@ function drawTimeline(doc: Doc, stats: ReportStats): void {
   doc.fillColor(COLORS.text)
 }
 
+const BAR_LABEL_WIDTH = 190
+const BAR_VALUE_WIDTH = 78
+
+/**
+ * Décide de la présentation d'un groupe de barres.
+ *
+ * Le choix est pris pour le groupe entier et non barre par barre : un libellé long tronqué
+ * est illisible, mais une liste où certaines barres commencent au tiers de la page et d'autres
+ * en marge gauche l'est tout autant. Dès qu'un seul libellé déborde, tout le groupe passe en
+ * empilé — libellé entier sur sa propre ligne, barre en dessous.
+ */
+function needsStackedLayout(doc: Doc, labels: string[]): boolean {
+  doc.font('Helvetica').fontSize(8.5)
+  return labels.some((label) => doc.widthOfString(pdfSafeText(label)) > BAR_LABEL_WIDTH)
+}
+
 function drawBarRow(
   doc: Doc,
   label: string,
   count: number,
   percent: number,
   maxCount: number,
-  options: { suffix?: string } = {}
+  options: { suffix?: string; stacked?: boolean } = {}
 ): void {
+  const value = `${formatNumber(count)}${options.suffix ?? ''}  ·  ${formatNumber(percent)} %`
+  const fillTrack = (left: number, top: number, width: number) => {
+    doc.roundedRect(left, top, width, 9, 4.5).fill(COLORS.barSoft)
+    const filled = maxCount > 0 ? Math.max(0, (count / maxCount) * width) : 0
+    if (filled > 0) doc.roundedRect(left, top, Math.max(filled, 3), 9, 4.5).fill(COLORS.bar)
+  }
+
+  if (options.stacked) {
+    doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.text)
+    const lines = wrapText(doc, label, CONTENT_WIDTH)
+    ensureSpace(doc, lines.length * 12 + 17)
+    for (const line of lines) writeLine(doc, line, { size: 8.5 })
+
+    const top = doc.y + 1
+    const trackWidth = CONTENT_WIDTH - BAR_VALUE_WIDTH - 8
+    fillTrack(MARGIN, top, trackWidth)
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(8.5)
+      .fillColor(COLORS.text)
+      .text(value, MARGIN + trackWidth + 8, top, {
+        width: BAR_VALUE_WIDTH,
+        align: 'right',
+        lineBreak: false,
+      })
+
+    doc.y = top + 15
+    doc.x = MARGIN
+    return
+  }
+
   const rowHeight = 15
   ensureSpace(doc, rowHeight + 2)
 
   const top = doc.y
-  const labelWidth = 190
-  const valueWidth = 78
-  const trackLeft = MARGIN + labelWidth + 8
-  const trackWidth = CONTENT_WIDTH - labelWidth - valueWidth - 16
+  const trackLeft = MARGIN + BAR_LABEL_WIDTH + 8
+  const trackWidth = CONTENT_WIDTH - BAR_LABEL_WIDTH - BAR_VALUE_WIDTH - 16
 
   doc.font('Helvetica').fontSize(8.5).fillColor(COLORS.text)
-  doc.text(truncate(doc, label, labelWidth), MARGIN, top + 2, { width: labelWidth, lineBreak: false })
+  doc.text(truncate(doc, label, BAR_LABEL_WIDTH), MARGIN, top + 2, {
+    width: BAR_LABEL_WIDTH,
+    lineBreak: false,
+  })
 
-  doc.roundedRect(trackLeft, top + 2, trackWidth, 9, 4.5).fill(COLORS.barSoft)
-  const filled = maxCount > 0 ? Math.max(0, (count / maxCount) * trackWidth) : 0
-  if (filled > 0) doc.roundedRect(trackLeft, top + 2, Math.max(filled, 3), 9, 4.5).fill(COLORS.bar)
+  fillTrack(trackLeft, top + 2, trackWidth)
 
   doc
     .font('Helvetica-Bold')
     .fontSize(8.5)
     .fillColor(COLORS.text)
-    .text(
-      `${count}${options.suffix ?? ''}  ·  ${percent} %`,
-      trackLeft + trackWidth + 8,
-      top + 2,
-      { width: valueWidth, align: 'right', lineBreak: false }
-    )
+    .text(value, trackLeft + trackWidth + 8, top + 2, {
+      width: BAR_VALUE_WIDTH,
+      align: 'right',
+      lineBreak: false,
+    })
 
   doc.y = top + rowHeight
   doc.x = MARGIN
@@ -360,37 +455,124 @@ function drawChoices(doc: Doc, stats: ReportStats): void {
     writeLine(doc, note, { size: 7.5, color: COLORS.muted, gap: 3 })
 
     const maxCount = Math.max(...stat.options.map((o) => o.count), 1)
+    const stacked = needsStackedLayout(doc, stat.options.map((o) => o.label))
     for (const option of stat.options) {
-      drawBarRow(doc, option.label, option.count, option.percent, maxCount)
+      drawBarRow(doc, option.label, option.count, option.percent, maxCount, { stacked })
     }
     doc.moveDown(0.5)
   }
 }
 
-function drawNumerics(doc: Doc, stats: ReportStats): void {
-  const columns = [
-    { key: 'label', title: 'Question', width: 175, align: 'left' as const },
-    { key: 'count', title: 'Nb', width: 34, align: 'right' as const },
-    { key: 'min', title: 'Min', width: 52, align: 'right' as const },
-    { key: 'average', title: 'Moyenne', width: 60, align: 'right' as const },
-    { key: 'median', title: 'Médiane', width: 60, align: 'right' as const },
-    { key: 'max', title: 'Max', width: 52, align: 'right' as const },
-    { key: 'sum', title: 'Total', width: 60, align: 'right' as const },
-  ]
+// Une ligne de répartition d'échelle : la note à gauche, sa barre, son décompte à droite.
+// Volontairement plus compacte que drawBarRow — le libellé est un simple nombre.
+function drawScaleRow(doc: Doc, value: number, count: number, percent: number, maxCount: number): void {
+  const rowHeight = 13
+  ensureSpace(doc, rowHeight)
 
-  drawTable(
-    doc,
-    columns.map((c) => ({ title: c.title, width: c.width, align: c.align })),
-    stats.numerics.map((n) => [
-      fieldTitle(n),
-      String(n.count),
-      String(n.min),
-      String(n.average),
-      String(n.median),
-      String(n.max),
-      String(n.sum),
-    ])
-  )
+  const top = doc.y
+  const labelWidth = 26
+  const valueWidth = 70
+  const trackLeft = MARGIN + labelWidth + 8
+  const trackWidth = CONTENT_WIDTH - labelWidth - valueWidth - 16
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(COLORS.text)
+  doc.text(truncate(doc, formatNumber(value), labelWidth), MARGIN, top + 1, {
+    width: labelWidth,
+    align: 'right',
+    lineBreak: false,
+  })
+
+  doc.roundedRect(trackLeft, top + 1, trackWidth, 8, 4).fill(COLORS.barSoft)
+  const filled = maxCount > 0 ? (count / maxCount) * trackWidth : 0
+  if (filled > 0) doc.roundedRect(trackLeft, top + 1, Math.max(filled, 3), 8, 4).fill(COLORS.bar)
+
+  doc
+    .font('Helvetica')
+    .fontSize(7.5)
+    .fillColor(count > 0 ? COLORS.text : COLORS.muted)
+    .text(`${formatNumber(count)}  ·  ${formatNumber(percent)} %`, trackLeft + trackWidth + 8, top + 1.5, {
+      width: valueWidth,
+      align: 'right',
+      lineBreak: false,
+    })
+
+  doc.y = top + rowHeight
+  doc.x = MARGIN
+}
+
+/**
+ * Une question numérique, présentée comme une note plutôt que comme une ligne de tableau.
+ *
+ * Un tableau à sept colonnes oblige à comparer des chiffres nus ; ici la moyenne est donnée
+ * rapportée à l'échelle de la question (« 4,2 / 5 »), positionnée sur une jauge, et complétée
+ * par la répartition des notes lorsque l'échelle est courte. Le cumul n'est affiché que pour
+ * une valeur libre — additionner des notes de satisfaction n'a aucun sens.
+ */
+function drawNumericCard(doc: Doc, stat: ReportStats['numerics'][number]): void {
+  const hasScale =
+    stat.scaleMin !== undefined && stat.scaleMax !== undefined && stat.scaleMax > stat.scaleMin
+
+  doc.font('Helvetica-Bold').fontSize(9.5)
+  const titleLines = wrapText(doc, fieldTitle(stat), CONTENT_WIDTH)
+  ensureSpace(doc, titleLines.length * 12 + 32)
+  for (const line of titleLines) writeLine(doc, line, { font: 'Helvetica-Bold', size: 9.5 })
+
+  if (hasScale) {
+    const top = doc.y + 1
+    const labelWidth = 78
+    const trackLeft = MARGIN + labelWidth + 8
+    const trackWidth = CONTENT_WIDTH - labelWidth - 8
+    const ratio = Math.min(
+      1,
+      Math.max(0, (stat.average - stat.scaleMin!) / (stat.scaleMax! - stat.scaleMin!))
+    )
+
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(COLORS.accent)
+    doc.text(
+      truncate(doc, `${formatNumber(stat.average)} / ${formatNumber(stat.scaleMax!)}`, labelWidth),
+      MARGIN,
+      top,
+      { width: labelWidth, lineBreak: false }
+    )
+
+    doc.roundedRect(trackLeft, top + 3, trackWidth, 10, 5).fill(COLORS.barSoft)
+    if (ratio > 0) {
+      doc.roundedRect(trackLeft, top + 3, Math.max(ratio * trackWidth, 4), 10, 5).fill(COLORS.bar)
+    }
+
+    doc.y = top + 18
+    doc.x = MARGIN
+  } else {
+    writeLine(doc, `Moyenne ${formatNumber(stat.average)}`, {
+      font: 'Helvetica-Bold',
+      size: 12,
+      color: COLORS.accent,
+    })
+  }
+
+  const details = [
+    `${stat.count} réponse(s)`,
+    `minimum ${formatNumber(stat.min)}`,
+    `maximum ${formatNumber(stat.max)}`,
+    `médiane ${formatNumber(stat.median)}`,
+    ...(hasScale ? [] : [`cumul ${formatNumber(stat.sum)}`]),
+  ]
+  writeLine(doc, details.join('  ·  '), { size: 7.5, color: COLORS.muted, gap: 3 })
+
+  if (stat.distribution && stat.distribution.length > 0) {
+    const maxCount = Math.max(...stat.distribution.map((d) => d.count), 1)
+    // De la meilleure note à la moins bonne : c'est le sens de lecture d'une satisfaction.
+    for (const entry of stat.distribution.slice().reverse()) {
+      drawScaleRow(doc, entry.value, entry.count, entry.percent, maxCount)
+    }
+  }
+
+  doc.fillColor(COLORS.text)
+  doc.moveDown(0.6)
+}
+
+function drawNumerics(doc: Doc, stats: ReportStats): void {
+  for (const stat of stats.numerics) drawNumericCard(doc, stat)
 }
 
 function drawFreeform(doc: Doc, stats: ReportStats, settings: FormReportSettings): void {
@@ -404,14 +586,17 @@ function drawFreeform(doc: Doc, stats: ReportStats, settings: FormReportSettings
     })
 
     if (stat.top.length > 0) {
-      const maxCount = Math.max(...stat.top.map((t) => t.count), 1)
-      for (const entry of stat.top.slice(0, 8)) {
+      const entries = stat.top.slice(0, 8)
+      const maxCount = Math.max(...entries.map((t) => t.count), 1)
+      const stacked = needsStackedLayout(doc, entries.map((t) => t.value))
+      for (const entry of entries) {
         drawBarRow(
           doc,
           entry.value,
           entry.count,
           stat.answered > 0 ? Math.round((entry.count / stat.answered) * 1000) / 10 : 0,
-          maxCount
+          maxCount,
+          { stacked }
         )
       }
     }
@@ -431,15 +616,14 @@ function drawFreeform(doc: Doc, stats: ReportStats, settings: FormReportSettings
 
 function drawCompletion(doc: Doc, stats: ReportStats): void {
   const maxCount = Math.max(...stats.completion.map((c) => c.answered), 1)
-  for (const stat of stats.completion) {
-    drawBarRow(
-      doc,
-      `${fieldTitle(stat)}${stat.required ? ' *' : ''}`,
-      stat.answered,
-      stat.rate,
-      maxCount
-    )
-  }
+  const labels = stats.completion.map(
+    (stat) => `${fieldTitle(stat)}${stat.required ? ' *' : ''}`
+  )
+  const stacked = needsStackedLayout(doc, labels)
+
+  stats.completion.forEach((stat, index) => {
+    drawBarRow(doc, labels[index], stat.answered, stat.rate, maxCount, { stacked })
+  })
   doc.moveDown(0.2)
   doc
     .font('Helvetica')
@@ -608,7 +792,11 @@ export function buildReportPdf(
       }
 
       if (settings.sections.numericStats && stats.numerics.length > 0) {
-        sectionTitle(doc, 'Valeurs numériques', 'Minimum, moyenne, médiane, maximum et cumul')
+        sectionTitle(
+          doc,
+          'Notes et valeurs numériques',
+          'Moyenne rapportée à l’échelle de la question, puis répartition des notes'
+        )
         drawNumerics(doc, stats)
       }
 

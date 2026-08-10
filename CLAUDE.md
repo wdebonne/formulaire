@@ -79,6 +79,7 @@ Context for Claude Code when working on this project.
 | `src/lib/report-settings.ts` | Pure/client-safe report config — `DEFAULT_REPORT_SETTINGS`, `parseFormReportSettings()`, `nextOccurrence()`/`previousOccurrence()`/`isScheduleDue()`, `applyReportTokens()`; no Prisma import |
 | `src/lib/report-stats.ts` | Pure/client-safe analytics — `resolveReportRange()`, `computeReportStats()`; the modal's live preview and the PDF share it |
 | `src/lib/report-pdf.ts` | Server-only pdfkit renderer — `buildReportPdf()`; charts drawn by hand, no charting dependency |
+| `src/lib/pdf-text.ts` | `pdfSafeText()` — WinAnsi sanitizer shared by every pdfkit renderer; strips emoji, transposes symbols with a readable equivalent |
 | `src/lib/report-delivery.ts` | Server-only — `generateReportForForm()`, `sendReportForForm()`, `recordReportStatus()` |
 | `src/lib/report-scheduler.ts` | Server-only — `runDueReports()`, `startReportScheduler()` (in-process timer) |
 | `src/components/forms/report-modal.tsx` | "Rapports" modal — Période / Contenu / Envoi tabs, live preview bar, PDF download, send-now |
@@ -330,6 +331,34 @@ on commas: it re-joins consecutive fragments that reconstitute a known option, l
 first — otherwise a single choice labelled `Écran, second` is counted as two options that don't
 exist. The same resolution runs on the response table via `displayValue()`, per the project's
 "Choice Value vs Label" convention (resolve at display time, never rewrite what's stored).
+
+**Numeric questions render as ratings, not table rows.** `resolveScale()` (`report-stats.ts`)
+decides how: bounds *declared* on the block (`attributes.min`/`max` — a 1-to-5 slider) are what
+make "4,2 / 5" meaningful, so they are kept distinct from bounds merely observed in the answers,
+otherwise a free-amount question would announce "1 250 / 1 800" against whatever the largest
+answer happened to be. A per-value distribution is only computed when every answer is an integer
+and the span is ≤ `MAX_SCALE_SPAN` (10); values nobody picked are kept, since "no 1s at all" is
+information. The cumulative total is shown only when there is no declared scale — summing
+satisfaction ratings means nothing.
+
+**Bar rows stack per group, not per row.** `needsStackedLayout()` measures every label of a group
+up front; if one overflows the 190 pt label column the whole group switches to "full label on its
+own line, bar underneath". Deciding row by row would leave one list mixing bars that start a third
+of the way across the page with bars at the left margin. `wrapText()` breaks lines by hand rather
+than through pdfkit's `LineWrapper`, which moves `doc.y` on its own and fights the free drawing
+used everywhere else in this file.
+
+**pdfkit renders WinAnsi, not Unicode.** The standard PDF fonts (Helvetica & co.) only cover
+extended Latin-1, and pdfkit does not fail on a character outside that table — it writes the low
+byte of each UTF-16 unit, so an emoji (a surrogate pair) comes out as two junk characters
+(`🏘` = U+1F3D8 = `D83C DFD8` → `Ø<`). No standard font carries emoji, and pdfkit cannot switch
+fonts per character inside one `text()` call, so `pdfSafeText()` (`src/lib/pdf-text.ts`) strips
+them and transposes the symbols that have a readable equivalent. **Every dynamic string handed to
+pdfkit must go through it.** In `report-pdf.ts` that is enforced in one place: `truncate()` is the
+single funnel for dynamic text, so it sanitizes *and* measures widths on the string actually
+written. Anything that bypasses `truncate()` (the header's site name, the GDPR summary) calls
+`pdfSafeText()` explicitly. The same sanitizer runs on the report's attachment filename, otherwise
+an emoji in the form title surfaces percent-escaped in `Content-Disposition`.
 
 **pdfkit layout traps**, both hit and fixed here, worth knowing before editing `report-pdf.ts`:
 - `doc.text(..., { lineBreak: false })` advances **`x`, not `y`** (pdfkit's `_line()` only bumps

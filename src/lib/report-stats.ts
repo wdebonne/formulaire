@@ -60,6 +60,14 @@ export interface ReportNumericStat {
   average: number
   median: number
   sum: number
+  // Bornes déclarées sur la question (curseur, nombre borné) : ce sont elles qui donnent son
+  // sens à la moyenne — « 4,2 / 5 » se lit d'un coup d'œil, « 4,2 » non.
+  scaleMin?: number
+  scaleMax?: number
+  // Répartition par valeur, uniquement pour une échelle courte de valeurs entières (note de
+  // 1 à 5, de 0 à 10…) ; au-delà la liste serait plus longue que lisible. Les valeurs sans
+  // réponse sont conservées : sur une note, « personne n'a mis 1 » est une information.
+  distribution?: { value: number; count: number; percent: number }[]
 }
 
 export interface ReportFreeformStat {
@@ -397,6 +405,63 @@ function round(value: number, digits = 1): number {
   return Math.round(value * factor) / factor
 }
 
+// Au-delà d'une douzaine de valeurs, une répartition ligne à ligne n'apporte plus rien : une
+// note va de 1 à 5 ou de 0 à 10, un montant libre n'a pas d'échelle du tout.
+const MAX_SCALE_SPAN = 10
+
+/**
+ * Détermine si une question numérique se lit comme une note sur une échelle.
+ *
+ * `declared` distingue les bornes posées sur la question (curseur de 1 à 5) des bornes
+ * simplement observées dans les réponses : seules les premières justifient d'afficher
+ * « 4,2 / 5 », sans quoi une question de montant afficherait « 1 250 / 1 800 » selon le plus
+ * gros montant reçu, ce qui ne veut rien dire.
+ */
+function resolveScale(
+  block: ReportBlockInput,
+  sorted: number[]
+): {
+  declared: boolean
+  low: number
+  high: number
+  distribution?: { value: number; count: number; percent: number }[]
+} {
+  const attrMin = Number(block.attributes?.min)
+  const attrMax = Number(block.attributes?.max)
+  const declared = Number.isFinite(attrMin) && Number.isFinite(attrMax) && attrMax > attrMin
+
+  const observedMin = sorted[0]
+  const observedMax = sorted[sorted.length - 1]
+  // Une réponse enregistrée avant un resserrement des bornes peut sortir de l'échelle : elle
+  // élargit la répartition plutôt que d'en disparaître, sinon les pourcentages ne feraient
+  // plus 100 %.
+  const low = declared ? Math.min(attrMin, observedMin) : observedMin
+  const high = declared ? Math.max(attrMax, observedMax) : observedMax
+
+  const span = high - low
+  const chartable =
+    Number.isInteger(low) &&
+    Number.isInteger(high) &&
+    span >= 1 &&
+    span <= MAX_SCALE_SPAN &&
+    sorted.every((n) => Number.isInteger(n))
+
+  if (!chartable) return { declared, low, high }
+
+  const counts = new Map<number, number>()
+  for (let value = low; value <= high; value++) counts.set(value, 0)
+  for (const n of sorted) counts.set(n, (counts.get(n) ?? 0) + 1)
+
+  return {
+    declared,
+    low,
+    high,
+    distribution: Array.from(counts.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([value, count]) => ({ value, count, percent: round((count / sorted.length) * 100) })),
+  }
+}
+
 function inRange(date: Date, range: ReportRange): boolean {
   if (range.from && date.getTime() < range.from.getTime()) return false
   return date.getTime() <= range.to.getTime()
@@ -564,6 +629,7 @@ export function computeReportStats(
 
       if (numbers.length > 0) {
         const sum = numbers.reduce((acc, n) => acc + n, 0)
+        const scale = resolveScale(field.block, numbers)
         numerics.push({
           blockId: field.blockId,
           label: field.label,
@@ -574,6 +640,8 @@ export function computeReportStats(
           average: round(sum / numbers.length, 2),
           median: round(median(numbers), 2),
           sum: round(sum, 2),
+          ...(scale.declared && { scaleMin: scale.low, scaleMax: scale.high }),
+          ...(scale.distribution && { distribution: scale.distribution }),
         })
       }
       continue

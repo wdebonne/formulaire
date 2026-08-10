@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import { resolveDataLabels } from '@/lib/response-format'
+import { pdfSafeText } from '@/lib/pdf-text'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import * as XLSX from 'xlsx'
@@ -109,9 +110,14 @@ function buildSummaryPdf(responses: ExportResponse[], subjectName: string): Prom
     doc.on('error', reject)
 
     doc.fontSize(16).text('Récapitulatif des réponses détenues', { align: 'center' })
+    // pdfSafeText : les polices standard de pdfkit sont encodées en WinAnsi et rendent tout
+    // emoji sous forme d'octets parasites (voir src/lib/pdf-text.ts).
     if (subjectName) {
       doc.moveDown(0.3)
-      doc.fontSize(12).fillColor('#444').text(`Concernant : ${subjectName}`, { align: 'center' })
+      doc
+        .fontSize(12)
+        .fillColor('#444')
+        .text(`Concernant : ${pdfSafeText(subjectName)}`, { align: 'center' })
     }
     doc.moveDown(0.5)
     doc.fontSize(10).fillColor('#666').text(
@@ -124,7 +130,7 @@ function buildSummaryPdf(responses: ExportResponse[], subjectName: string): Prom
     responses.forEach((r, index) => {
       const date = format(new Date(r.createdAt), 'dd/MM/yyyy à HH:mm', { locale: fr })
       doc.fontSize(11).text(`${index + 1}. `, { continued: true })
-      doc.font('Helvetica-Bold').text(r.form.title, { continued: true })
+      doc.font('Helvetica-Bold').text(pdfSafeText(r.form.title), { continued: true })
       doc.font('Helvetica').text(`  —  soumise le ${date}`)
       doc.moveDown(0.3)
     })

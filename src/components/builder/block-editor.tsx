@@ -188,6 +188,27 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
         </div>
       )}
 
+      {/* Portée de l'autocomplétion (address only) */}
+      {block.type === 'address' && (
+        <div className="space-y-2">
+          <Label htmlFor="addressScope">Type de saisie</Label>
+          <select
+            id="addressScope"
+            value={block.attributes.addressScope || 'full'}
+            onChange={(e) => updateAttribute('addressScope', e.target.value as 'full' | 'city')}
+            className="w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="full">Adresse complète — ex : 12 Rue de Rivoli 75004 Paris</option>
+            <option value="city">Ville uniquement — ex : Paris</option>
+          </select>
+          <p className="text-xs text-gray-500">
+            {block.attributes.addressScope === 'city'
+              ? "L'autocomplétion ne propose que des communes françaises. Le département et la région sont affichés sous chaque suggestion pour distinguer les homonymes, mais seul le nom de la ville est enregistré."
+              : "L'autocomplétion propose des adresses complètes (numéro, rue, code postal, ville)."}
+          </p>
+        </div>
+      )}
+
       {/* Text transform (short-text only) */}
       {block.type === 'short-text' && (
         <div className="space-y-2">

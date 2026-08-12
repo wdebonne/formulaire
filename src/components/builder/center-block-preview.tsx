@@ -294,6 +294,22 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
           />
         )
 
+      case 'address':
+        return (
+          <input
+            type="text"
+            readOnly
+            placeholder={
+              innerBlock.attributes.placeholder ||
+              (innerBlock.attributes.addressScope === 'city'
+                ? 'Commencez à saisir une ville...'
+                : 'Commencez à saisir une adresse...')
+            }
+            className="w-full max-w-md py-2 text-lg outline-none transition-colors"
+            style={inputStyleCss}
+          />
+        )
+
       case 'long-text':
         return (
           <textarea
@@ -627,6 +643,22 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             type="text"
             readOnly
             placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
+            className="mt-6 w-full max-w-md py-3 text-xl outline-none transition-colors"
+            style={inputStyleCss}
+          />
+        )
+
+      case 'address':
+        return (
+          <input
+            type="text"
+            readOnly
+            placeholder={
+              block.attributes.placeholder ||
+              (block.attributes.addressScope === 'city'
+                ? 'Commencez à saisir une ville...'
+                : 'Commencez à saisir une adresse...')
+            }
             className="mt-6 w-full max-w-md py-3 text-xl outline-none transition-colors"
             style={inputStyleCss}
           />
@@ -1658,7 +1690,7 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             {renderInput()}
 
             {/* OK button for text inputs */}
-            {['short-text', 'long-text', 'email', 'number', 'phone', 'date', 'advanced-date'].includes(block.type) && (
+            {['short-text', 'long-text', 'email', 'number', 'phone', 'address', 'date', 'advanced-date'].includes(block.type) && (
               <div className="mt-6">
                 <button
                   className="px-6 py-2 font-medium transition-all hover:opacity-90 flex items-center gap-2"

@@ -47,11 +47,29 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
           </div>
         )
 
+      case 'address':
+        return (
+          <input
+            type="text"
+            readOnly
+            placeholder={
+              block.attributes.placeholder ||
+              (block.attributes.addressScope === 'city'
+                ? 'Commencez à saisir une ville...'
+                : 'Commencez à saisir une adresse...')
+            }
+            className="mt-2 w-full bg-transparent border-b py-1 text-sm outline-none"
+            style={{
+              color: themeProps.answersColor,
+              borderColor: themeProps.buttonsBgColor + '60',
+            }}
+          />
+        )
+
       case 'short-text':
       case 'email':
       case 'number':
       case 'phone':
-      case 'address':
         return (
           <input
             type="text"

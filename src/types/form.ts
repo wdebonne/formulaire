@@ -113,6 +113,8 @@ export interface BlockAttributes {
   gdprNoticeText?: string // Contenu affiché dans la fenêtre (durée de conservation, droits, contact…)
   // Attributs pour le bloc Texte Court
   textTransform?: 'none' | 'uppercase' | 'capitalize' // Formatage automatique de la réponse
+  // Attributs pour le bloc Adresse
+  addressScope?: 'full' | 'city' // 'city' restreint l'autocomplétion aux communes (API BAN type=municipality)
   // Attributs pour le bloc Quantité
   quantitySourceBlockId?: string // ID du bloc source (dropdown, multiple-choice, image-selection)
   quantityItems?: { choiceId: string; choiceLabel: string; choiceValue: string; min?: number; max?: number }[] // Configuration par choix

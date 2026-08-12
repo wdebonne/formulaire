@@ -518,6 +518,7 @@ interface AddressFeature {
     label: string
     postcode: string
     city: string
+    context?: string
   }
 }
 
@@ -530,6 +531,7 @@ interface AddressAutocompleteProps {
   inputBorderRadius: string
   inputStyle: React.CSSProperties
   error?: boolean
+  scope?: 'full' | 'city'
 }
 
 function AddressAutocomplete({
@@ -541,7 +543,9 @@ function AddressAutocomplete({
   inputBorderRadius,
   inputStyle,
   error,
+  scope = 'full',
 }: AddressAutocompleteProps) {
+  const cityOnly = scope === 'city'
   const [suggestions, setSuggestions] = useState<AddressFeature[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -558,7 +562,8 @@ function AddressAutocomplete({
     setIsLoading(true)
     try {
       const res = await fetch(
-        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=6`
+        `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=6` +
+          (cityOnly ? '&type=municipality' : '')
       )
       const data = await res.json()
       setSuggestions(data.features || [])
@@ -568,7 +573,7 @@ function AddressAutocomplete({
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [cityOnly])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
@@ -678,6 +683,9 @@ function AddressAutocomplete({
               }}
             >
               {feature.properties.label}
+              {cityOnly && feature.properties.context && (
+                <span className="block text-xs opacity-60">{feature.properties.context}</span>
+              )}
             </button>
           ))}
         </div>
@@ -2297,11 +2305,17 @@ function QuestionBlock({
             value={answer || ''}
             onChange={onAnswer}
             onSelect={() => onNext()}
-            placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
+            placeholder={
+              block.attributes.placeholder ||
+              (block.attributes.addressScope === 'city'
+                ? 'Commencez à saisir une ville...'
+                : 'Commencez à saisir une adresse...')
+            }
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius}
             inputStyle={inputStyle}
             error={!!error}
+            scope={block.attributes.addressScope}
           />
         )
 
@@ -3437,10 +3451,16 @@ function GroupBlock({
           <AddressAutocomplete
             value={value || ''}
             onChange={handleChange}
-            placeholder={innerBlock.attributes.placeholder || 'Commencez à saisir une adresse...'}
+            placeholder={
+              innerBlock.attributes.placeholder ||
+              (innerBlock.attributes.addressScope === 'city'
+                ? 'Commencez à saisir une ville...'
+                : 'Commencez à saisir une adresse...')
+            }
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius || '8px'}
             inputStyle={inputStyle}
+            scope={innerBlock.attributes.addressScope}
           />
         )
 
@@ -4519,11 +4539,17 @@ function InnerBlockInput({
           value={answer || ''}
           onChange={onAnswer}
           onSelect={() => onNext()}
-          placeholder={block.attributes.placeholder || 'Commencez à saisir une adresse...'}
+          placeholder={
+            block.attributes.placeholder ||
+            (block.attributes.addressScope === 'city'
+              ? 'Commencez à saisir une ville...'
+              : 'Commencez à saisir une adresse...')
+          }
           themeProps={themeProps}
           inputBorderRadius={buttonBorderRadius}
           inputStyle={inputStyle}
           error={!!error}
+          scope={block.attributes.addressScope}
         />
       )
 

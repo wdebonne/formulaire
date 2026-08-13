@@ -352,6 +352,11 @@ export interface ReportSections {
   responseTable: boolean // tableau des dernières réponses
 }
 
+// Densité de mise en page du PDF. N'agit que sur les blancs, jamais sur le corps du texte :
+// les décalages du rendu (cartes d'indicateurs, tableaux) sont calculés autour de tailles de
+// police fixes.
+export type ReportDensity = 'compact' | 'normal' | 'airy'
+
 export interface ReportSendStatus {
   success: boolean
   sentAt: string
@@ -377,7 +382,10 @@ export interface FormReportSettings {
   fileNamePattern: string
   includeEmptyChoices: boolean // afficher aussi les options jamais choisies
   textSampleSize: number // nombre de verbatims repris par question libre
+  showAllTextAnswers: boolean // reprendre toutes les réponses libres au lieu d'un échantillon
   tableRowLimit: number // lignes du tableau des dernières réponses
+  density: ReportDensity // espacement du PDF
+  sectionPageBreak: boolean // chaque section commence sur une nouvelle page
   lastStatus?: ReportSendStatus
 }
 

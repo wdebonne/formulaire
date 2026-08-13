@@ -29,6 +29,7 @@ import {
 } from '@/lib/report-stats'
 import type {
   FormReportSettings,
+  ReportDensity,
   ReportFrequency,
   ReportPeriodMode,
   ReportSections,
@@ -79,6 +80,12 @@ const SECTION_OPTIONS: { key: keyof ReportSections; label: string; hint: string 
   { key: 'textAnswers', label: 'Réponses libres', hint: 'Valeurs récurrentes puis derniers verbatims' },
   { key: 'completion', label: 'Taux de remplissage', hint: 'Part des réponses ayant renseigné chaque question' },
   { key: 'responseTable', label: 'Tableau des dernières réponses', hint: 'Détail ligne à ligne — allonge nettement le PDF' },
+]
+
+const DENSITY_OPTIONS: { value: ReportDensity; label: string; hint: string }[] = [
+  { value: 'compact', label: 'Compact', hint: 'Le plus court à imprimer' },
+  { value: 'normal', label: 'Normal', hint: 'Mise en page d’origine' },
+  { value: 'airy', label: 'Aéré', hint: 'Plus de blanc, plus de pages' },
 ]
 
 const FREQUENCIES: { value: ReportFrequency; label: string }[] = [
@@ -593,6 +600,8 @@ function ContentTab({
   patch: (changes: Partial<FormReportSettings>) => void
   preview: { stats: ReturnType<typeof computeReportStats> }
 }) {
+  const verbatimCount = preview.stats.freeform.reduce((sum, stat) => sum + stat.samples.length, 0)
+
   const counts: Partial<Record<keyof ReportSections, string>> = {
     choiceBreakdown: `${preview.stats.choices.length} question(s) à choix`,
     numericStats: `${preview.stats.numerics.length} question(s) numérique(s)`,
@@ -638,6 +647,44 @@ function ContentTab({
         </div>
       </div>
 
+      <div className="space-y-3 rounded-xl border border-gray-200 p-4">
+        <Label>Mise en page du PDF</Label>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {DENSITY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => patch({ density: option.value })}
+              className={`rounded-lg border p-3 text-left transition-colors ${
+                settings.density === option.value
+                  ? 'border-indigo-400 bg-indigo-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="text-sm font-medium text-gray-900">{option.label}</div>
+              <div className="mt-0.5 text-xs text-gray-500">{option.hint}</div>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-500">
+          Seuls les blancs changent : la taille du texte reste la même d’une densité à l’autre.
+        </p>
+        <label className="flex items-start gap-3 pt-1">
+          <input
+            type="checkbox"
+            checked={settings.sectionPageBreak}
+            onChange={(e) => patch({ sectionPageBreak: e.target.checked })}
+            className="mt-0.5 rounded"
+          />
+          <span className="text-sm text-gray-700">
+            Commencer chaque section sur une nouvelle page
+            <span className="block text-xs text-gray-500">
+              Une section par feuille : plus lisible à l’impression, mais un PDF plus long.
+            </span>
+          </span>
+        </label>
+      </div>
+
       <div className="grid gap-4 rounded-xl border border-gray-200 p-4 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label>Verbatims par question</Label>
@@ -647,8 +694,29 @@ function ContentTab({
             max={50}
             value={settings.textSampleSize}
             onChange={(e) => patch({ textSampleSize: Number(e.target.value) || 0 })}
+            disabled={settings.showAllTextAnswers}
           />
-          <p className="text-xs text-gray-500">0 pour n’afficher que les valeurs récurrentes.</p>
+          <label className="flex items-start gap-2 pt-0.5">
+            <input
+              type="checkbox"
+              checked={settings.showAllTextAnswers}
+              onChange={(e) => patch({ showAllTextAnswers: e.target.checked })}
+              className="mt-0.5 rounded"
+            />
+            <span className="text-xs text-gray-700">
+              Reprendre toutes les réponses libres
+              {settings.showAllTextAnswers && (
+                <span className="block text-[11px] text-indigo-600">
+                  {verbatimCount} verbatim(s) sur la période
+                </span>
+              )}
+            </span>
+          </label>
+          <p className="text-xs text-gray-500">
+            {settings.showAllTextAnswers
+              ? 'Chaque réponse est reprise en entier, doublons compris (1 000 maximum par question).'
+              : '0 pour n’afficher que les valeurs récurrentes.'}
+          </p>
         </div>
         <div className="space-y-1.5">
           <Label>Lignes du tableau</Label>

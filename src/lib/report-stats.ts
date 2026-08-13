@@ -75,6 +75,7 @@ export interface ReportFreeformStat {
   label: string
   parentLabel?: string
   answered: number
+  total: number // valeurs saisies, répétitions de répéteur comprises — peut dépasser `answered`
   top: { value: string; count: number }[] // uniquement les valeurs qui se répètent
   samples: string[]
 }
@@ -128,6 +129,11 @@ const FREEFORM_TYPES = [
   'time',
 ]
 const NON_QUESTION_TYPES = ['welcome-screen', 'thankyou-screen', 'statement']
+
+// Garde-fou du mode « toutes les réponses libres » : au-delà, le PDF pèserait des centaines de
+// pages pour une seule question. Le rapport indique alors combien de valeurs sont affichées sur
+// le total, plutôt que de laisser croire qu'il est exhaustif.
+const MAX_ALL_SAMPLES = 1000
 
 // ── Période ────────────────────────────────────────────────────────────────
 
@@ -660,9 +666,16 @@ export function computeReportStats(
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
 
-      const samples =
-        settings.textSampleSize > 0
-          ? Array.from(new Set(texts.slice().reverse())).slice(0, settings.textSampleSize)
+      // De la plus récente à la plus ancienne : sur un verbatim, c'est le dernier reçu qui
+      // intéresse en premier.
+      const ordered = texts.slice().reverse()
+      // En mode « toutes les réponses », les doublons sont conservés : deux répondants ayant
+      // écrit la même chose sont deux réponses, alors qu'un échantillon cherche à montrer des
+      // formulations différentes.
+      const samples = settings.showAllTextAnswers
+        ? ordered.slice(0, MAX_ALL_SAMPLES)
+        : settings.textSampleSize > 0
+          ? Array.from(new Set(ordered)).slice(0, settings.textSampleSize)
           : []
 
       if (texts.length > 0) {
@@ -671,6 +684,7 @@ export function computeReportStats(
           label: field.label,
           ...(field.parentLabel && { parentLabel: field.parentLabel }),
           answered: answeredResponses,
+          total: texts.length,
           top,
           samples,
         })

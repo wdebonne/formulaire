@@ -356,6 +356,23 @@ first — otherwise a single choice labelled `Écran, second` is counted as two 
 exist. The same resolution runs on the response table via `displayValue()`, per the project's
 "Choice Value vs Label" convention (resolve at display time, never rewrite what's stored).
 
+**Density changes blanks, never type size.** `settings.density` (`compact`/`normal`/`airy`)
+selects a `ReportLayout` in `report-pdf.ts` — row heights, card and chart heights, a multiplier on
+the `moveDown` between blocks. Font sizes stay fixed on purpose: every offset in that file is
+hand-computed around them (card lines, table cells, the value right of each bar), so scaling type
+would shift alignments for nothing. `normal` reproduces the pre-setting layout byte for byte, so an
+existing report only changes when someone picks another density. Rows keep their content vertically
+centred via `top + (rowHeight - 11) / 2`, which collapses to the historical `top + 2` at the normal
+row height. `sectionPageBreak` starts each section on a fresh page — except the first, which would
+otherwise open the report on a near-empty page.
+
+**"All free answers" is a different intent from a sample.** `showAllTextAnswers` lists every
+verbatim, duplicates included (two respondents writing the same thing are two answers), newest
+first, capped at `MAX_ALL_SAMPLES` (1 000 per question) with the PDF stating "n affichées sur N"
+when it bites. The sampled mode keeps deduplicating — there, the point is to show *different*
+formulations. Verbatims wrap over several lines rather than being ellipsed like a label: a truncated
+verbatim is cut exactly where it was going to be read.
+
 **Numeric questions render as ratings, not table rows.** `resolveScale()` (`report-stats.ts`)
 decides how: bounds *declared* on the block (`attributes.min`/`max` — a 1-to-5 slider) are what
 make "4,2 / 5" meaningful, so they are kept distinct from bounds merely observed in the answers,

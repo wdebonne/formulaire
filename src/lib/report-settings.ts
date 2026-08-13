@@ -6,6 +6,7 @@
 
 import type {
   FormReportSettings,
+  ReportDensity,
   ReportFrequency,
   ReportPeriod,
   ReportPeriodMode,
@@ -53,7 +54,10 @@ export const DEFAULT_REPORT_SETTINGS: FormReportSettings = {
   fileNamePattern: 'Rapport - {form_title}',
   includeEmptyChoices: true,
   textSampleSize: 5,
+  showAllTextAnswers: false,
   tableRowLimit: 20,
+  density: 'normal',
+  sectionPageBreak: false,
 }
 
 const PERIOD_MODES: ReportPeriodMode[] = [
@@ -66,6 +70,8 @@ const PERIOD_MODES: ReportPeriodMode[] = [
 ]
 
 const FREQUENCIES: ReportFrequency[] = ['daily', 'weekly', 'monthly']
+
+const DENSITIES: ReportDensity[] = ['compact', 'normal', 'airy']
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -173,7 +179,11 @@ export function parseFormReportSettings(raw: string | null | undefined): FormRep
     fileNamePattern: String(parsed.fileNamePattern ?? DEFAULT_REPORT_SETTINGS.fileNamePattern).slice(0, 200),
     includeEmptyChoices: bool(parsed.includeEmptyChoices, true),
     textSampleSize: clampInt(parsed.textSampleSize, 0, 50, 5),
+    showAllTextAnswers: bool(parsed.showAllTextAnswers, false),
     tableRowLimit: clampInt(parsed.tableRowLimit, 1, 200, 20),
+    // « normal » reproduit à l'identique la mise en page des rapports antérieurs à ce réglage.
+    density: DENSITIES.includes(parsed.density) ? parsed.density : 'normal',
+    sectionPageBreak: bool(parsed.sectionPageBreak, false),
     ...(parseStatus(parsed.lastStatus) && { lastStatus: parseStatus(parsed.lastStatus) }),
   }
 }

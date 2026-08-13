@@ -20,6 +20,7 @@ export type AuditAction =
   | 'form.version_restore'
   | 'form.report_send'
   | 'form.options_update'
+  | 'response.update'
   | 'user.create'
   | 'user.update'
   | 'user.delete'
@@ -43,6 +44,7 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   'form.version_restore': 'Restauration de version',
   'form.report_send': 'Envoi d\'un rapport',
   'form.options_update': 'Modification des options d\'accès',
+  'response.update': 'Modification d\'une réponse',
   'user.create': 'Création d\'utilisateur',
   'user.update': 'Modification d\'utilisateur',
   'user.delete': 'Suppression d\'utilisateur',
@@ -76,6 +78,10 @@ export const ACTION_CATEGORIES: { label: string; actions: AuditAction[] }[] = [
       'form.report_send',
       'form.options_update',
     ],
+  },
+  {
+    label: 'Réponses',
+    actions: ['response.update'],
   },
   {
     label: 'Utilisateurs',

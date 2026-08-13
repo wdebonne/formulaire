@@ -41,6 +41,7 @@ Context for Claude Code when working on this project.
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
+| `src/components/forms/response-edit-fields.tsx` | Champs éditables du modal « Détail de la réponse » (bouton *Modifier*) — un contrôle par type de bloc, groupes et répéteurs inclus |
 | `src/app/api/forms/[id]/versions/route.ts` | Versions API — GET list, POST create manual version |
 | `src/app/api/forms/[id]/versions/[versionId]/route.ts` | Versions API — DELETE a specific version |
 | `src/app/api/forms/[id]/versions/[versionId]/restore/route.ts` | Versions API — POST restore (snapshots current state first) |
@@ -166,6 +167,29 @@ Repeater state (current iteration, answers per iteration) is managed locally in 
 
 ### Choice Value vs Label
 Blocks with choices (`dropdown`, `multiple-choice`, `image-selection`) store `choice.value` (slug, e.g. `service-informatique`) in `FormResponse.data`, not the human-readable `choice.label`. The responses page resolves slugs to labels at display time using `formatValueWithChoices(value, block.attributes.choices)` defined in `responses-client.tsx`. This applies to the table, the detail modal, and the CSV export. Do not change the stored value — always resolve at display time.
+
+### Correction d'une réponse enregistrée
+`PATCH /api/forms/[id]/responses/[responseId]` corrige les valeurs d'une réponse déjà reçue (bouton
+« Modifier » du modal de détail). Trois garde-fous, tous délibérés :
+
+1. **Seules les clés connues** sont acceptées — un bloc du formulaire (`findBlockDeep`), une clé de
+   répéteur `{repeaterId}_{n}_{innerId}`, ou une clé déjà présente dans `Response.data`. Le client
+   renvoie tout le brouillon, pas un diff, donc le tri se fait côté serveur.
+2. **Seules les clés réellement différentes** repassent par `resolveDataLabels()` — la même
+   normalisation qu'à la soumission (slug de choix → libellé, date au format du bloc), pour qu'une
+   valeur corrigée soit stockée exactement comme une valeur saisie par le répondant. Les champs non
+   touchés sont recopiés tels quels : une correction ne doit pas réécrire au passage les réponses
+   antérieures à `resolveDataLabels` (qui contiennent encore des slugs).
+3. Le composant d'édition fait la conversion inverse à l'affichage (`« A, B »` → cases cochées,
+   `« 12/08/2026 »` → `<input type="date">`). Quand une valeur ne se relit pas (plage de dates,
+   format inattendu), il retombe sur un champ texte libre plutôt que d'afficher un champ vide qui
+   effacerait la donnée au premier enregistrement.
+
+`file`, `signature` et `quantity` sont volontairement en lecture seule : ce sont des structures
+(fichier, data-URL, objet quantité) qu'un champ texte ne peut pas corriger sans les corrompre.
+
+L'action est journalisée (`response.update`) avec la **liste des champs** modifiés, jamais leurs
+valeurs — le journal d'activité ne doit pas devenir une seconde copie des données personnelles.
 
 ### Webhooks Payload
 Webhooks serialize block values using human-readable labels (not raw values/slugs). Dates are locale-formatted. Use `findBlockDeep()` for nested field resolution.

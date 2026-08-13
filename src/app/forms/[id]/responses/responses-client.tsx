@@ -29,7 +29,10 @@ import {
   MailCheck,
   MinusCircle,
   BarChart3,
+  Pencil,
+  Save,
 } from 'lucide-react'
+import { ResponseEditFields } from '@/components/forms/response-edit-fields'
 import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
 import { DocumentEmailModal } from '@/components/forms/document-email-modal'
 import { ReportModal } from '@/components/forms/report-modal'
@@ -100,6 +103,9 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [hasTemplate, setHasTemplate] = useState(form.hasDocumentTemplate ?? false)
   const [sendingDocument, setSendingDocument] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState(false)
+  const [editDraft, setEditDraft] = useState<Record<string, any>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
   const columnSelectorRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
@@ -209,6 +215,59 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         description: 'Impossible de supprimer la réponse',
         variant: 'destructive',
       })
+    }
+  }
+
+  const closeDetail = () => {
+    setSelectedResponse(null)
+    setEditMode(false)
+    setEditDraft({})
+  }
+
+  const startEdit = () => {
+    if (!selectedResponse) return
+    setEditDraft({ ...selectedResponse.data })
+    setEditMode(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!selectedResponse) return
+    setSavingEdit(true)
+
+    try {
+      const res = await fetch(`/api/forms/${form.id}/responses/${selectedResponse.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: editDraft }),
+      })
+
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Erreur')
+
+      const updatedData = payload.response.data as Record<string, any>
+      setResponses((prev) =>
+        prev.map((r) => (r.id === selectedResponse.id ? { ...r, data: updatedData } : r))
+      )
+      setSelectedResponse({ ...selectedResponse, data: updatedData })
+      setEditMode(false)
+      setEditDraft({})
+
+      const count = payload.editedFields?.length ?? 0
+      toast({
+        title: 'Réponse mise à jour',
+        description:
+          count > 0
+            ? `${count} champ${count > 1 ? 's' : ''} modifié${count > 1 ? 's' : ''}`
+            : 'Aucun changement détecté',
+      })
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error?.message || 'Impossible de modifier la réponse',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -903,7 +962,11 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                         <td className="px-5 py-4 whitespace-nowrap text-right text-sm">
                           <div className="flex items-center justify-end space-x-1">
                             <button
-                              onClick={() => setSelectedResponse(response)}
+                              onClick={() => {
+                                setEditMode(false)
+                                setEditDraft({})
+                                setSelectedResponse(response)
+                              }}
                               className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Voir les détails"
                             >
@@ -1066,7 +1129,9 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
               <div>
-                <h2 className="font-semibold text-lg text-gray-900">Détail de la réponse</h2>
+                <h2 className="font-semibold text-lg text-gray-900">
+                  {editMode ? 'Modifier la réponse' : 'Détail de la réponse'}
+                </h2>
                 <p className="text-sm text-gray-600 mt-0.5">
                   {format(new Date(selectedResponse.createdAt), "EEEE dd MMMM yyyy 'à' HH:mm", {
                     locale: fr,
@@ -1074,18 +1139,34 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 </p>
               </div>
               <button
-                onClick={() => setSelectedResponse(null)}
+                onClick={closeDetail}
                 className="p-2 hover:bg-white/80 rounded-xl transition-colors"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             <div className="p-5 overflow-y-auto max-h-[calc(85vh-180px)]">
-              <div className="space-y-4">
-                {questionBlocks.map((block) => renderBlockResponse(block, selectedResponse.data))}
-              </div>
+              {editMode ? (
+                <>
+                  <p className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                    Les corrections remplacent définitivement les valeurs enregistrées. Les
+                    documents et rapports générés ensuite utiliseront les nouvelles valeurs.
+                  </p>
+                  <ResponseEditFields
+                    blocks={questionBlocks}
+                    data={editDraft}
+                    onChange={(key, value) =>
+                      setEditDraft((prev) => ({ ...prev, [key]: value }))
+                    }
+                  />
+                </>
+              ) : (
+                <div className="space-y-4">
+                  {questionBlocks.map((block) => renderBlockResponse(block, selectedResponse.data))}
+                </div>
+              )}
 
-              {(selectedResponse.documentStatus?.routes?.length ?? 0) > 0 && (
+              {!editMode && (selectedResponse.documentStatus?.routes?.length ?? 0) > 0 && (
                 <div className="mt-6 border-t pt-4">
                   <p className="text-sm font-medium text-gray-500 mb-3">
                     Circuits d&apos;envoi —{' '}
@@ -1147,66 +1228,103 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 </div>
               )}
             </div>
-            <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => setSelectedResponse(null)}>
-                Fermer
-              </Button>
-              {hasActiveWebhooks && (
-                <Button
-                  variant="outline"
-                  onClick={() => handleSendWebhook(selectedResponse.id)}
-                  disabled={sendingWebhook === selectedResponse.id}
-                  className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
-                >
-                  {sendingWebhook === selectedResponse.id ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4 mr-2" />
-                  )}
-                  Renvoyer webhook
-                </Button>
-              )}
-              {hasTemplate && (
+            <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex flex-wrap justify-end gap-3">
+              {editMode ? (
                 <>
-                  <a
-                    href={`/api/forms/${form.id}/responses/${selectedResponse.id}/document`}
-                    download
-                  >
-                    <Button
-                      variant="outline"
-                      className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Document
-                    </Button>
-                  </a>
                   <Button
                     variant="outline"
-                    onClick={() => handleSendDocument(selectedResponse.id)}
-                    disabled={sendingDocument === selectedResponse.id}
-                    className="hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                    title={documentButtonTitle(selectedResponse)}
+                    onClick={() => {
+                      setEditMode(false)
+                      setEditDraft({})
+                    }}
+                    disabled={savingEdit}
                   >
-                    {sendingDocument === selectedResponse.id ? (
+                    Annuler
+                  </Button>
+                  <Button
+                    onClick={handleSaveEdit}
+                    disabled={savingEdit}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    {savingEdit ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
-                      <Mail className="w-4 h-4 mr-2" />
+                      <Save className="w-4 h-4 mr-2" />
                     )}
-                    Envoyer par e-mail
+                    Enregistrer
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={closeDetail}>
+                    Fermer
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={startEdit}
+                    className="hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Modifier
+                  </Button>
+                  {hasActiveWebhooks && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSendWebhook(selectedResponse.id)}
+                      disabled={sendingWebhook === selectedResponse.id}
+                      className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700"
+                    >
+                      {sendingWebhook === selectedResponse.id ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4 mr-2" />
+                      )}
+                      Renvoyer webhook
+                    </Button>
+                  )}
+                  {hasTemplate && (
+                    <>
+                      <a
+                        href={`/api/forms/${form.id}/responses/${selectedResponse.id}/document`}
+                        download
+                      >
+                        <Button
+                          variant="outline"
+                          className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Document
+                        </Button>
+                      </a>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleSendDocument(selectedResponse.id)}
+                        disabled={sendingDocument === selectedResponse.id}
+                        className="hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                        title={documentButtonTitle(selectedResponse)}
+                      >
+                        {sendingDocument === selectedResponse.id ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4 mr-2" />
+                        )}
+                        Envoyer par e-mail
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      handleDelete(selectedResponse.id)
+                      closeDetail()
+                    }}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Supprimer
                   </Button>
                 </>
               )}
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  handleDelete(selectedResponse.id)
-                  setSelectedResponse(null)
-                }}
-                className="bg-red-600 hover:bg-red-700"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Supprimer
-              </Button>
             </div>
           </div>
         </div>

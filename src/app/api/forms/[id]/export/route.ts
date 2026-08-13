@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const form = await prisma.form.findFirst({
-      where: { id: params.id, userId: session.userId },
+      where: { id: params.id, userId: session.userId, deletedAt: null },
       include: { theme: true }
     })
 

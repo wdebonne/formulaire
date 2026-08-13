@@ -17,6 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       where: {
         id,
         status: 'published',
+        deletedAt: null,
       },
     })
 

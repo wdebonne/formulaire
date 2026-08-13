@@ -115,6 +115,7 @@ export async function DELETE(
       where: {
         id,
         userId: session.userId,
+        deletedAt: null,
       },
     })
 

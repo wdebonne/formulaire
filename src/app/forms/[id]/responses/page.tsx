@@ -21,9 +21,10 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
 
   // Construire la condition de requête selon le rôle
   const whereCondition = user?.role === 'admin'
-    ? { id } // Les admins globaux ont accès à tous les formulaires
+    ? { id, deletedAt: null } // Les admins globaux ont accès à tous les formulaires
     : {
         id,
+        deletedAt: null,
         OR: [
           { userId: session.userId }, // Propriétaire
           {

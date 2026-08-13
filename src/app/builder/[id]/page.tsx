@@ -23,9 +23,10 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
 
   // Construire la condition de requête selon le rôle
   const whereCondition = user?.role === 'admin'
-    ? { id } // Les admins globaux ont accès à tous les formulaires
+    ? { id, deletedAt: null } // Les admins globaux ont accès à tous les formulaires
     : {
         id,
+        deletedAt: null,
         OR: [
           { userId: session.userId }, // Propriétaire
           {

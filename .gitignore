@@ -30,6 +30,13 @@ prisma/dev.db.backup-*
 # Stockage privé des modèles .docx (monté sur un volume en production)
 /storage/
 
+# Fichiers téléversés par les utilisateurs (logos, images des formulaires).
+# Le dossier est recréé au besoin par /api/upload (mkdir recursive).
+/public/uploads/
+
+# Instantanés de pages produits par Playwright MCP pendant le débogage
+.playwright-mcp/
+
 # Build
 out/
 coverage/

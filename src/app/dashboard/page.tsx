@@ -32,6 +32,7 @@ export default async function DashboardPage() {
 
   if (user.role === 'admin') {
     forms = await prisma.form.findMany({
+      where: { deletedAt: null },
       orderBy: { updatedAt: 'desc' },
       include: {
         _count: { select: { responses: true } },
@@ -41,7 +42,7 @@ export default async function DashboardPage() {
   } else {
     const [ownForms, sharedForms] = await Promise.all([
       prisma.form.findMany({
-        where: { userId: session.userId },
+        where: { userId: session.userId, deletedAt: null },
         orderBy: { updatedAt: 'desc' },
         include: {
           _count: { select: { responses: true } },
@@ -49,7 +50,7 @@ export default async function DashboardPage() {
         }
       }),
       prisma.formShare.findMany({
-        where: { userId: session.userId },
+        where: { userId: session.userId, form: { deletedAt: null } },
         include: {
           form: {
             include: {

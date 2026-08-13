@@ -31,7 +31,7 @@ export async function generateMetadata({
   if (RESERVED_SLUGS.includes(slug)) return {}
 
   const form = await prisma.form.findFirst({
-    where: { OR: [{ id: slug }, { slug }], status: 'published' },
+    where: { OR: [{ id: slug }, { slug }], status: 'published', deletedAt: null },
     select: { title: true, accessSettings: true },
   })
 
@@ -59,6 +59,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ slu
       where: {
         OR: [{ id: slug }, { slug }],
         status: 'published',
+        deletedAt: null,
       },
       include: {
         theme: true,

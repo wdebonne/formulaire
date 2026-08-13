@@ -5,8 +5,8 @@ import { getSession } from '@/lib/auth'
 // Fonction utilitaire pour vérifier les permissions d'accès au formulaire
 async function checkFormAccess(formId: string, userId: string, requiredPermissions: string[] = ['view', 'edit', 'admin']) {
   // Vérifier si le formulaire existe
-  const form = await prisma.form.findUnique({
-    where: { id: formId }
+  const form = await prisma.form.findFirst({
+    where: { id: formId, deletedAt: null }
   })
 
   if (!form) {

@@ -17,8 +17,8 @@ export async function GET(
     const { id } = await params
 
     // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
-    const form = await prisma.form.findUnique({
-      where: { id },
+    const form = await prisma.form.findFirst({
+      where: { id, deletedAt: null },
       include: { user: { select: { id: true, role: true } } }
     })
 
@@ -78,8 +78,8 @@ export async function POST(
     }
 
     // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
-    const form = await prisma.form.findUnique({
-      where: { id },
+    const form = await prisma.form.findFirst({
+      where: { id, deletedAt: null },
       include: { user: { select: { id: true, name: true, role: true } } }
     })
 
@@ -184,7 +184,7 @@ export async function DELETE(
     }
 
     // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
-    const form = await prisma.form.findUnique({ where: { id } })
+    const form = await prisma.form.findFirst({ where: { id, deletedAt: null } })
 
     if (!form) {
       return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
@@ -235,7 +235,7 @@ export async function PATCH(
     }
 
     // Vérifier que l'utilisateur est le propriétaire du formulaire, admin système, ou admin du formulaire
-    const form = await prisma.form.findUnique({ where: { id } })
+    const form = await prisma.form.findFirst({ where: { id, deletedAt: null } })
 
     if (!form) {
       return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })

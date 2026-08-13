@@ -44,6 +44,7 @@ export async function POST(
       where: {
         id,
         userId: session.userId,
+        deletedAt: null,
       },
     })
 

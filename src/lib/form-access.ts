@@ -3,6 +3,9 @@
 // Reprend exactement la logique de src/app/forms/[id]/responses/page.tsx : propriétaire,
 // partage explicite (FormShare) ou administrateur global. Le rôle est relu en base plutôt
 // que pris dans le JWT, pour rester juste après un changement de rôle.
+//
+// Un formulaire à la corbeille (deletedAt non nul) est invisible ici, y compris pour un
+// administrateur : seules les routes /api/admin/trash le manipulent encore.
 
 import { prisma } from './prisma'
 import type { JWTPayload } from './auth'
@@ -23,7 +26,7 @@ export async function getAccessibleForm(
   })
 
   if (user?.role === 'admin') {
-    return prisma.form.findFirst({ where: { id: formId } })
+    return prisma.form.findFirst({ where: { id: formId, deletedAt: null } })
   }
 
   const permissions = level === 'write' ? WRITE_PERMISSIONS : READ_PERMISSIONS
@@ -31,6 +34,7 @@ export async function getAccessibleForm(
   return prisma.form.findFirst({
     where: {
       id: formId,
+      deletedAt: null,
       OR: [
         { userId: session.userId },
         { shares: { some: { userId: session.userId, permission: { in: permissions } } } },

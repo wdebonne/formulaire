@@ -12,8 +12,8 @@ interface RouteParams {
 // Fonction utilitaire pour vérifier les permissions d'accès au formulaire
 async function checkFormAccess(formId: string, userId: string, requiredPermissions: string[] = ['view', 'edit', 'admin']) {
   // Vérifier si l'utilisateur est le propriétaire
-  const form = await prisma.form.findUnique({
-    where: { id: formId },
+  const form = await prisma.form.findFirst({
+    where: { id: formId, deletedAt: null },
     include: { theme: true }
   })
 

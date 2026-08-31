@@ -620,6 +620,14 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
       {/* Choices editor */}
       {['dropdown', 'multiple-choice'].includes(block.type) && (
         <div className="space-y-3">
+          {block.type === 'multiple-choice' && (
+            <CatalogSourceEditor
+              block={block}
+              updateAttribute={updateAttribute}
+              isInnerBlock={isInnerBlock}
+              parentGroupId={parentGroupId}
+            />
+          )}
           <div className="flex items-center justify-between">
             <Label>Options</Label>
             <div className="flex items-center gap-2">
@@ -2763,6 +2771,19 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
   const availableBlocks = getAvailableChoiceBlocks()
   const sourceBlockId = block.attributes.quantitySourceBlockId || ''
   const sourceBlock = availableBlocks.find((b) => b.id === sourceBlockId)
+  // La source lit-elle le catalogue ? Ses options n'existent alors qu'au remplissage : les plafonds
+  // viennent de là, il n'y a pas d'article à régler un par un à la conception.
+  const trouverBloc = (liste: FormBlock[]): FormBlock | undefined => {
+    for (const b of liste) {
+      if (b.id === sourceBlockId) return b
+      const interieur = b.innerBlocks ? trouverBloc(b.innerBlocks) : undefined
+      if (interieur) return interieur
+    }
+    return undefined
+  }
+  const blocSource = sourceBlockId ? trouverBloc(blocks) : undefined
+  const sourceEstCatalogue =
+    blocSource?.type === 'multiple-choice' && blocSource.attributes.choicesSource === 'catalog'
   const quantityItems: NonNullable<FormBlock['attributes']['quantityItems']> = block.attributes.quantityItems || []
 
   const getItemConfig = (choiceId: string) =>
@@ -2823,6 +2844,29 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
           )}
         </div>
       </div>
+
+      {/* Plafonds venus du catalogue */}
+      {sourceEstCatalogue && (
+        <div className="p-4 bg-sky-50 rounded-lg border border-sky-200 space-y-3">
+          <h4 className="font-medium text-sky-700 flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            Quantités du catalogue
+          </h4>
+          <p className="text-xs text-gray-600">
+            Le bloc source lit le catalogue : chaque article est plafonné à ce qu'il en reste à la
+            date choisie dans le formulaire. Rien à régler article par article ici — la liste n'est
+            connue qu'au moment où le formulaire est rempli.
+          </p>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Plafonner au disponible</Label>
+            <input
+              type="checkbox"
+              checked={block.attributes.quantityMaxFromCatalog !== false}
+              onChange={(e) => updateAttribute('quantityMaxFromCatalog', e.target.checked)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Configuration par option */}
       {sourceBlock && sourceBlock.choices.length > 0 && (
@@ -2945,6 +2989,167 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
           </label>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Composant pour la source des options : liste saisie ou catalogue de matériel
+//
+// Une liste saisie à la main vieillit sans prévenir — le parc bouge, le formulaire non. Branchée
+// sur le catalogue, la liste est celle du jour demandé, avec ce qu'il en reste après les
+// engagements déjà pris.
+interface CatalogSourceEditorProps {
+  block: FormBlock
+  updateAttribute: (key: string, value: any) => void
+  isInnerBlock?: boolean
+  parentGroupId?: string
+}
+
+function CatalogSourceEditor({ block, updateAttribute, isInnerBlock, parentGroupId }: CatalogSourceEditorProps) {
+  const { blocks } = useFormBuilder()
+  const estCatalogue = block.attributes.choicesSource === 'catalog'
+
+  // Seules les dates posées **avant** ce bloc peuvent servir : une liste calculée sur une date que
+  // le répondant n'a pas encore choisie n'aurait rien à interroger.
+  const blocsDate: { id: string; label: string }[] = []
+  const estDate = (type: string) => type === 'date' || type === 'advanced-date'
+
+  if (isInnerBlock && parentGroupId) {
+    const parent = blocks.find((b) => b.id === parentGroupId)
+    for (const inner of parent?.innerBlocks || []) {
+      if (inner.id === block.id) break
+      if (estDate(inner.type)) blocsDate.push({ id: inner.id, label: inner.attributes.label || 'Sans titre' })
+    }
+  }
+
+  for (const b of blocks) {
+    if (b.id === block.id || b.id === parentGroupId) break
+    if (estDate(b.type)) blocsDate.push({ id: b.id, label: b.attributes.label || 'Sans titre' })
+    if ((b.type === 'group' || b.type === 'repeater') && b.innerBlocks) {
+      for (const inner of b.innerBlocks) {
+        if (estDate(inner.type)) {
+          blocsDate.push({
+            id: inner.id,
+            label: `${b.attributes.label || 'Groupe'} › ${inner.attributes.label || 'Sans titre'}`,
+          })
+        }
+      }
+    }
+  }
+
+  const selectCls = 'w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary'
+
+  return (
+    <div className="p-4 bg-sky-50 rounded-lg border border-sky-200 space-y-3">
+      <h4 className="font-medium text-sky-700 flex items-center gap-2">
+        <Package className="w-4 h-4" />
+        Source des options
+      </h4>
+
+      <div className="space-y-2">
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="radio"
+            className="mt-1"
+            checked={!estCatalogue}
+            onChange={() => updateAttribute('choicesSource', 'static')}
+          />
+          <span className="text-sm">
+            Liste saisie
+            <span className="block text-xs text-gray-500">Les options ci-dessous, telles quelles.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="radio"
+            className="mt-1"
+            checked={estCatalogue}
+            onChange={() => updateAttribute('choicesSource', 'catalog')}
+          />
+          <span className="text-sm">
+            Catalogue de matériel
+            <span className="block text-xs text-gray-500">
+              La liste et les quantités disponibles à la date choisie dans le formulaire.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {estCatalogue && (
+        <div className="space-y-3 pt-2 border-t border-sky-200">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Date de référence</Label>
+            <select
+              value={block.attributes.catalogDateBlockId || ''}
+              onChange={(e) => updateAttribute('catalogDateBlockId', e.target.value)}
+              className={selectCls}
+            >
+              <option value="">— Sélectionner un bloc date —</option>
+              {blocsDate.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+            {blocsDate.length === 0 && (
+              <p className="text-xs text-amber-600">
+                Aucun bloc date avant celui-ci. Ajoutez d'abord la question de la date.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Date de fin (facultatif)</Label>
+            <select
+              value={block.attributes.catalogEndDateBlockId || ''}
+              onChange={(e) => updateAttribute('catalogEndDateBlockId', e.target.value)}
+              className={selectCls}
+            >
+              <option value="">— Même bloc, ou journée unique —</option>
+              {blocsDate.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              À renseigner si la période tient sur deux questions. Un bloc date en mode plage porte
+              déjà ses deux bornes.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Catégorie</Label>
+            <Input
+              value={block.attributes.catalogCategory || ''}
+              onChange={(e) => updateAttribute('catalogCategory', e.target.value)}
+              placeholder="Toutes les catégories"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Masquer ce qui n'est plus disponible</Label>
+            <input
+              type="checkbox"
+              checked={block.attributes.catalogHideUnavailable !== false}
+              onChange={(e) => updateAttribute('catalogHideUnavailable', e.target.checked)}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Afficher la quantité restante</Label>
+            <input
+              type="checkbox"
+              checked={block.attributes.catalogShowRemaining !== false}
+              onChange={(e) => updateAttribute('catalogShowRemaining', e.target.checked)}
+            />
+          </div>
+
+          <p className="text-xs text-sky-700 bg-sky-100 rounded p-2">
+            Les options saisies plus bas ne sont pas envoyées tant que le catalogue est la source.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

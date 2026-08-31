@@ -119,6 +119,17 @@ export interface BlockAttributes {
   quantitySourceBlockId?: string // ID du bloc source (dropdown, multiple-choice, image-selection)
   quantityItems?: { choiceId: string; choiceLabel: string; choiceValue: string; min?: number; max?: number }[] // Configuration par choix
   quantityOutputFormat?: 'object' | 'value' // Format du JSON envoyé : objet {choix: qté} ou valeur simple
+  quantityMaxFromCatalog?: boolean // Plafonner chaque quantité au disponible remonté par le catalogue
+  // Attributs pour la source externe (catalogue de matériel)
+  choicesSource?: 'static' | 'catalog' // 'catalog' : les options viennent de l'application de gestion
+  catalogDateBlockId?: string // Bloc date dont la réponse détermine la période interrogée
+  catalogEndDateBlockId?: string // Bloc date de fin, si la période tient sur deux blocs
+  catalogCategory?: string // Ne garder que cette catégorie (vide = tout le catalogue)
+  catalogHideUnavailable?: boolean // Masquer les articles dont il ne reste rien (défaut : true)
+  catalogShowRemaining?: boolean // Afficher le disponible après le libellé (défaut : true)
+  // Remplis à l'affichage du formulaire public, jamais enregistrés : état de la requête au catalogue.
+  catalogState?: 'no-date' | 'loading' | 'ready' | 'error'
+  catalogMessage?: string
   // Attributs pour le bloc Oui/Non
   yesLabel?: string // Label du bouton "Oui"
   noLabel?: string // Label du bouton "Non"

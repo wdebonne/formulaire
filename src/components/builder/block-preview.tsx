@@ -101,6 +101,18 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
       case 'dropdown':
         const choices = (block.attributes.choices || []).slice(0, 4) // Show max 4 choices in preview
         const hasMore = (block.attributes.choices || []).length > 4
+        // Le catalogue n'est interrogé qu'au remplissage : l'aperçu annonce la liste au lieu de
+        // laisser croire à un bloc vide qu'on aurait oublié de remplir.
+        if (block.attributes.choicesSource === 'catalog') {
+          return (
+            <p
+              className="mt-2 text-[10px] italic"
+              style={{ color: themeProps.answersColor + '99' }}
+            >
+              Liste et quantités lues dans le catalogue à la date choisie
+            </p>
+          )
+        }
         return (
           <div className="mt-2 space-y-1">
             {choices.map((choice: any, idx: number) => (

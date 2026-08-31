@@ -5,6 +5,7 @@ import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from 
 import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
+import { useCatalogBlocks } from '@/lib/use-catalog-blocks'
 
 // Composant de prévisualisation Excel (chargement dynamique de SheetJS)
 interface ExcelPreviewProps {
@@ -779,7 +780,11 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
   const [repeaterStates, setRepeaterStates] = useState<Record<string, RepeaterState>>({})
 
   const themeProps = theme.properties
-  const allBlocks = form.blocks
+  // Les blocs, options du catalogue déjà injectées : un bloc de choix branché sur l'application de
+  // gestion reçoit ici sa liste du jour, et le bloc quantité qui le suit ses plafonds. Tout ce qui
+  // lit `choices` ensuite — logique conditionnelle, validation, les trois chemins d'affichage —
+  // n'a pas à savoir d'où vient la liste.
+  const allBlocks = useCatalogBlocks(form.id, form.blocks, answers)
   const thankyouBlock = allBlocks.find((b) => b.type === 'thankyou-screen')
 
   // Charger la police du thème
@@ -1420,10 +1425,10 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
         completeData[answerKey] = defaults
       }
 
-      for (const block of form.blocks) {
+      for (const block of allBlocks) {
         if (block.type === 'quantity') {
           const srcId = block.attributes.quantitySourceBlockId || ''
-          const srcBlock = form.blocks.find((b) => b.id === srcId)
+          const srcBlock = allBlocks.find((b) => b.id === srcId)
           fillQuantityDefaults(block, block.id, srcId, srcBlock?.attributes.choices || [])
         }
         if ((block.type === 'repeater' || block.type === 'group') && block.innerBlocks) {
@@ -1993,7 +1998,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
               isLast={currentIndex === visibleBlocks.length - 1}
               isSubmitting={isSubmitting}
               error={error}
-              allBlocks={form.blocks}
+              allBlocks={allBlocks}
               inputStyle={inputStyle}
               buttonBorderRadius={buttonBorderRadius}
             />
@@ -2010,7 +2015,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
               isLast={currentIndex === visibleBlocks.length - 1}
               isSubmitting={isSubmitting}
               error={error}
-              allBlocks={form.blocks}
+              allBlocks={allBlocks}
               inputStyle={inputStyle}
               buttonBorderRadius={buttonBorderRadius}
               inputBorderRadius={inputBorderRadius}
@@ -2029,7 +2034,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
               isLast={currentIndex === visibleBlocks.length - 1}
               isSubmitting={isSubmitting}
               error={error}
-              allBlocks={form.blocks}
+              allBlocks={allBlocks}
               allAnswers={answers}
               inputStyle={inputStyle}
               buttonBorderRadius={buttonBorderRadius}
@@ -2131,6 +2136,38 @@ function buildQuantityChoices(
   const otherChoices = otherVals.map((v: string) => ({ value: v, label: v.slice(10) || 'Autre', isSpecial: true }))
 
   return [...knownChoices, ...customChoices, ...otherChoices]
+}
+
+// Ce que le catalogue est en train de faire, dit plutôt que laissé à deviner.
+//
+// Une liste vide est ambiguë : date pas encore choisie, chargement en cours, catalogue injoignable
+// ou vraiment plus rien de libre ce jour-là. Quatre situations, quatre conduites à tenir pour le
+// répondant — sans ce message, les quatre se ressemblent.
+function CatalogNotice({ block, themeProps }: { block: FormBlock; themeProps: ThemeProperties }) {
+  const etat = block.attributes.catalogState
+  if (!etat) return null
+
+  const vide = (block.attributes.choices || []).length === 0
+  if (etat === 'ready' && !vide) return null
+
+  const message =
+    etat === 'no-date'
+      ? 'Indiquez d\u2019abord la date : la disponibilité en dépend.'
+      : etat === 'loading'
+        ? 'Lecture des disponibilités…'
+        : etat === 'error'
+          ? block.attributes.catalogMessage || 'Liste momentanément indisponible.'
+          : 'Rien de disponible sur cette période.'
+
+  return (
+    <p
+      className="mt-4 text-sm opacity-70 flex items-center gap-2"
+      style={{ color: themeProps.answersColor }}
+    >
+      {etat === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />}
+      {message}
+    </p>
+  )
 }
 
 function QuestionBlock({
@@ -2383,6 +2420,7 @@ function QuestionBlock({
           : ''
         return (
           <div className="mt-4 space-y-2 sm:space-y-3">
+            <CatalogNotice block={block} themeProps={themeProps} />
             {choices.map((choice: any, idx: number) => {
               const isSelected = allowMultiple
                 ? (answer || []).includes(choice.value)
@@ -3496,6 +3534,7 @@ function GroupBlock({
 
         return (
           <div className="space-y-2">
+            <CatalogNotice block={innerBlock} themeProps={themeProps} />
             {choices.map((choice: any, choiceIdx: number) => {
               const isSelected = selectedValues.includes(choice.value)
 
@@ -4664,6 +4703,7 @@ function InnerBlockInput({
         : ''
       return (
         <div className="mt-4 space-y-2">
+        <CatalogNotice block={block} themeProps={themeProps} />
           {innerChoices.map((choice: any, idx: number) => {
             const isSelected = innerAllowMultiple
               ? (answer || []).includes(choice.value)

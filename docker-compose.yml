@@ -25,6 +25,8 @@ services:
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-noreply@formbuilder.local}
       - SMTP_FROM_NAME=${SMTP_FROM_NAME:-FormBuilder}
+      - CATALOG_API_URL=${CATALOG_API_URL:-}
+      - CATALOG_API_TOKEN=${CATALOG_API_TOKEN:-}
     volumes:
       - sqlite-data:/app/prisma/data
       - uploads-data:/app/public/uploads

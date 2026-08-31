@@ -14,13 +14,22 @@
 import type { BlockChoice, FormBlock } from '@/types/form'
 
 export interface CatalogItem {
+  /** Référence sans collision entre les tables de l'application de gestion : `stock:7`, `parc:12`. */
+  ref: string
   id: number
   name: string
   category: string
   unit: string
-  /** Quantité encore libre sur la période demandée, engagements déjà pris déduits. */
-  available: number
-  total: number
+  is_prestation: boolean
+  /**
+   * Quantité encore libre sur la période demandée, engagements déjà pris déduits.
+   *
+   * `null` veut dire « sans limite », et non « zéro » : une prestation — un raccordement
+   * électrique, un débit de boissons — ne se stocke pas, elle est demandée puis réalisée. Lui
+   * calculer une disponibilité la ferait paraître épuisée en permanence.
+   */
+  available: number | null
+  total: number | null
 }
 
 export type CatalogStatus = 'no-date' | 'loading' | 'ready' | 'error'
@@ -107,12 +116,15 @@ export function catalogCacheKey(blockId: string, periode: CatalogPeriod): string
 export function catalogChoices(items: CatalogItem[], block: FormBlock): BlockChoice[] {
   const afficherRestant = block.attributes.catalogShowRemaining !== false
   return items.map((item) => ({
-    id: String(item.id),
-    label: afficherRestant
-      ? `${item.name} — ${item.available} ${item.unit || 'disponible(s)'}`
-      : item.name,
+    // La référence, et non l'identifiant : les deux tables de l'application de gestion numérotent
+    // chacune à partir de un, et deux articles homonymes de sources différentes se confondraient.
+    id: item.ref,
+    label:
+      afficherRestant && item.available !== null
+        ? `${item.name} — ${item.available} ${item.unit || 'disponible(s)'}`
+        : item.name,
     // La valeur voyage jusqu'au webhook : c'est elle que l'application de gestion rapprochera de
-    // son stock, par le nom. La décorer du reste disponible casserait ce rapprochement.
+    // son parc, par le nom. La décorer du reste disponible casserait ce rapprochement.
     value: item.name,
   }))
 }
@@ -122,11 +134,13 @@ export function catalogQuantityItems(
   items: CatalogItem[]
 ): NonNullable<FormBlock['attributes']['quantityItems']> {
   return items.map((item) => ({
-    choiceId: String(item.id),
+    choiceId: item.ref,
     choiceLabel: item.name,
     choiceValue: item.name,
     min: 1,
-    max: Math.max(0, item.available),
+    // Une prestation ne se plafonne pas : `undefined` laisse le bloc quantité sans maximum, là où
+    // un zéro interdirait de demander ce que le formulaire vient précisément de proposer.
+    max: item.available === null ? undefined : Math.max(0, item.available),
   }))
 }
 
@@ -191,15 +205,23 @@ export function resolveCatalogBlocks(
   return resoudre(blocks, blocks)
 }
 
+/** Une quantité absente vaut « sans limite » ; un nombre illisible ou négatif vaut zéro. */
+function quantite(valeur: unknown): number | null {
+  if (valeur === null || valeur === undefined) return null
+  const nombre = Number(valeur)
+  return Number.isFinite(nombre) ? Math.max(0, nombre) : 0
+}
+
 /**
  * Traduit la réponse de l'application de gestion en articles de catalogue.
  *
- * Les noms de champs sont ceux de `/api/manifestations/stock/availability` : `quantity_available`
- * y vaut le total moins ce qui est déjà engagé, réel comme prévisionnel, sur la période demandée.
- * Un disponible négatif — du matériel promis deux fois — est ramené à zéro : il n'y a rien à
- * proposer, et un nombre négatif dans un formulaire ne veut rien dire pour le répondant.
+ * Les noms de champs sont ceux de `/api/manifestations/catalogue`, qui réunit les deux tables où
+ * une collectivité range ce qu'elle prête : le stock des manifestations — des quantités anonymes,
+ * trois cents chaises dont il reste tant — et le parc, qui suit des exemplaires, des lots et les
+ * prestations déclarées par branche. `quantity_available` y vaut ce qui reste sur la période, et
+ * `null` pour une prestation, qui ne se stocke pas.
  */
-export function catalogItemsFromStock(
+export function catalogItems(
   brut: unknown,
   options: { hideUnavailable?: boolean } = {}
 ): CatalogItem[] {
@@ -207,16 +229,23 @@ export function catalogItemsFromStock(
   const masquer = options.hideUnavailable !== false
 
   return lignes
-    .map((article: any) => ({
-      id: Number(article?.id),
-      name: String(article?.name ?? '').trim(),
-      category: String(article?.category_name ?? article?.category ?? '').trim(),
-      unit: String(article?.unit ?? '').trim(),
-      available: Math.max(0, Number(article?.quantity_available ?? 0) || 0),
-      total: Math.max(0, Number(article?.quantity_total ?? 0) || 0),
-    }))
+    .map((article: any) => {
+      const id = Number(article?.id)
+      return {
+        ref: String(article?.ref ?? `${article?.source ?? 'stock'}:${id}`),
+        id,
+        name: String(article?.name ?? '').trim(),
+        category: String(article?.category ?? article?.category_name ?? '').trim(),
+        unit: String(article?.unit ?? '').trim(),
+        is_prestation: Boolean(article?.is_prestation),
+        available: quantite(article?.quantity_available),
+        total: quantite(article?.quantity_total),
+      }
+    })
     .filter((item) => item.name.length > 0)
-    .filter((item) => !masquer || item.available > 0)
+    // « Masquer ce qui n'est plus disponible » ne vise que ce qui se compte : une prestation sans
+    // limite disparaîtrait de tous les formulaires qui cochent cette case.
+    .filter((item) => !masquer || item.available === null || item.available > 0)
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
 }
 

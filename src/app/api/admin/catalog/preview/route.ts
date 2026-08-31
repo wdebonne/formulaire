@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth'
 import {
   CATALOG_NOT_CONFIGURED,
+  CATALOG_ITEMS_PATH,
   catalogCall,
   fetchCatalogFacets,
   getCatalogConfig,
   todayIso,
 } from '@/lib/catalog-config'
-import { ISO_DATE, catalogItemsFromStock } from '@/lib/catalog'
+import { ISO_DATE, catalogItems } from '@/lib/catalog'
 
 // GET /api/admin/catalog/preview — ce que le catalogue répond, tel qu'un formulaire le recevra.
 //
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (categoryId) params.category_id = categoryId
 
     const [stock, facettes] = await Promise.all([
-      catalogCall(config, '/api/manifestations/stock/availability', params),
+      catalogCall(config, CATALOG_ITEMS_PATH, params),
       fetchCatalogFacets(config),
     ])
 
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
       // Rien n'est masqué ici : voir un article à zéro est précisément ce qui explique pourquoi il
       // manque dans le formulaire, alors que la même liste amputée laisserait croire à un filtre
       // de service trop étroit.
-      items: catalogItemsFromStock(stock.data?.data, { hideUnavailable: false }),
+      items: catalogItems(stock.data?.data, { hideUnavailable: false }),
       services: facettes.ok ? facettes.data.services : [],
       categories: facettes.ok ? facettes.data.categories : [],
     })

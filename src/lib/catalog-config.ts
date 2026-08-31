@@ -13,6 +13,15 @@ import type { SystemCatalogSettings } from '@/types/form'
 
 const DELAI_MS = 10_000
 
+/**
+ * Le point d'entrée qui sert les articles.
+ *
+ * `/stock/availability` ne rendait que le stock des manifestations : une collectivité qui tient
+ * ses prestations et son matériel prêtable dans le parc — « Service Technique › Prestations » —
+ * voyait un catalogue vide alors que tout était saisi. `/catalogue` réunit les deux sources.
+ */
+export const CATALOG_ITEMS_PATH = '/api/manifestations/catalogue'
+
 export interface CatalogConfig {
   baseUrl: string
   token: string
@@ -244,7 +253,7 @@ export async function testCatalogConnection(
   if (!facettes.ok) return { success: false, error: facettes.error }
 
   const jour = todayIso()
-  const stock = await catalogCall(config, '/api/manifestations/stock/availability', {
+  const stock = await catalogCall(config, CATALOG_ITEMS_PATH, {
     date_from: jour,
     date_to: jour,
   })

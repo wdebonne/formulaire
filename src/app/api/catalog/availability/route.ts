@@ -3,11 +3,16 @@ import prisma from '@/lib/prisma'
 import {
   ISO_DATE,
   catalogFilterParams,
-  catalogItemsFromStock,
+  catalogItems,
   flattenBlocks,
   isCatalogBlock,
 } from '@/lib/catalog'
-import { CATALOG_NOT_CONFIGURED, catalogCall, getCatalogConfig } from '@/lib/catalog-config'
+import {
+  CATALOG_ITEMS_PATH,
+  CATALOG_NOT_CONFIGURED,
+  catalogCall,
+  getCatalogConfig,
+} from '@/lib/catalog-config'
 import type { FormBlock } from '@/types/form'
 
 // GET /api/catalog/availability - Articles et quantités disponibles sur une période.
@@ -72,7 +77,7 @@ export async function GET(request: NextRequest) {
 
     // Le périmètre réglé sur le bloc — service, nature, catégorie — part avec la demande : c'est
     // l'application de gestion qui sait quel article relève de quel service.
-    const stock = await catalogCall(config, '/api/manifestations/stock/availability', {
+    const stock = await catalogCall(config, CATALOG_ITEMS_PATH, {
       date_from: dateFrom,
       date_to: dateTo,
       ...catalogFilterParams(block),
@@ -81,7 +86,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: stock.error }, { status: stock.status })
     }
 
-    const items = catalogItemsFromStock(stock.data?.data, {
+    const items = catalogItems(stock.data?.data, {
       hideUnavailable: block.attributes.catalogHideUnavailable,
     })
 

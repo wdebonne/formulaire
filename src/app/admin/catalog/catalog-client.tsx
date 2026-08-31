@@ -179,7 +179,11 @@ export function CatalogSettingsClient() {
   const services = apercu?.services ?? []
   const categories = apercu?.categories ?? []
   const articles = apercu?.items ?? []
-  const indisponibles = articles.filter((item) => item.available <= 0).length
+  // Une prestation n'a pas de disponible à comparer : elle est demandée puis réalisée, jamais
+  // épuisée. La compter parmi les indisponibles ferait chercher une rupture qui n'existe pas.
+  const indisponibles = articles.filter(
+    (item) => item.available !== null && item.available <= 0
+  ).length
 
   if (loading) {
     return (
@@ -231,7 +235,7 @@ export function CatalogSettingsClient() {
               <p className="text-xs text-gray-500">
                 Racine du site, sans <code>/api</code> : l’application interroge{' '}
                 <code>/api/services</code>, <code>/api/categories</code> et{' '}
-                <code>/api/manifestations/stock/availability</code>.
+                <code>/api/manifestations/catalogue</code>.
               </p>
             </div>
 
@@ -433,21 +437,31 @@ export function CatalogSettingsClient() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {articles.map((item) => (
-                      <tr key={item.id} className={item.available <= 0 ? 'bg-gray-50' : undefined}>
-                        <td className="px-3 py-2">{item.name}</td>
-                        <td className="px-3 py-2 text-gray-600">{item.category || '—'}</td>
-                        <td className="px-3 py-2 text-gray-600">{item.unit || '—'}</td>
-                        <td
-                          className={`px-3 py-2 text-right font-medium ${
-                            item.available <= 0 ? 'text-gray-400' : 'text-gray-900'
-                          }`}
-                        >
-                          {item.available}
-                        </td>
-                        <td className="px-3 py-2 text-right text-gray-500">{item.total}</td>
-                      </tr>
-                    ))}
+                    {articles.map((item) => {
+                      const epuise = item.available !== null && item.available <= 0
+                      return (
+                        <tr key={item.ref} className={epuise ? 'bg-gray-50' : undefined}>
+                          <td className="px-3 py-2">
+                            {item.name}
+                            {item.is_prestation && (
+                              <span className="ml-2 text-xs text-purple-600">prestation</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">{item.category || '—'}</td>
+                          <td className="px-3 py-2 text-gray-600">{item.unit || '—'}</td>
+                          <td
+                            className={`px-3 py-2 text-right font-medium ${
+                              epuise ? 'text-gray-400' : 'text-gray-900'
+                            }`}
+                          >
+                            {/* Sans limite : une prestation ne se compte pas, l'annoncer à zéro
+                                laisserait croire qu'elle n'est plus proposable. */}
+                            {item.available ?? 'sans limite'}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-500">{item.total ?? '—'}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -120,7 +120,8 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 
 ### 📤 Outputs & integrations
 
-- **Webhooks** — POST/GET/PUT/PATCH to external URLs, custom field mapping with drag-and-drop reordering and search, custom value templates (`{field:blockId}`, `{date:dd-MM-YYYY}`, `{entry_id}`…), and human-readable labels rather than raw slugs.
+- **Webhooks** — POST/GET/PUT/PATCH to external URLs, custom field mapping with drag-and-drop reordering and search, custom value templates (`{field:blockId}`, `{date:dd-MM-YYYY}`, `{entry_id}`…), and human-readable labels rather than raw slugs. **Optional HMAC-SHA256 signature** (`X-Webhook-Signature` header, the GitHub/Stripe convention): set a shared secret and the receiver can verify the call really comes from this form, rather than from anyone who saw the URL go by.
+- **External equipment catalog** — a multiple-choice or dropdown block can draw its options from an equipment-management application instead of a hand-typed list, showing only what is still available on the date answered earlier in the form, filtered by service, kind and category. A typed list ages: an item sold, ten tables bought, and the form still offers last year's stock.
 - **Word document generation** — attach a `.docx` template whose tokens are replaced by the answers, then e-mail the filled document as an attachment. Visual table of available fields (copyable token, possible answers, whether the token is actually present in the template), loop tokens for repeaters, `{case_…}` checkbox tokens rendering ☒/☐ so a blank printed template stays fillable by hand, and a warning for unknown tokens. **Tokens stay stable when a question or an option is renamed.**
 - **Conditional e-mail routing** — one circuit per service, each with its own conditions, recipients, subject and body, so only the people concerned are notified. Conditions reuse the form-logic operators and are collapsed by default.
 - **Periodic PDF reports** — a *Rapports* modal turns responses into a formatted PDF and mails it on a schedule.
@@ -151,6 +152,7 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | **Trash** (`/admin/trash`) | Soft-deleted forms with restore and permanent delete; orphaned forms (deleted owner) carry an amber badge and require owner reassignment before restoration |
 | **Customization** | Site name, logo and favicon applied globally; login page background (solid, gradient or blurred image) and link visibility, with a pixel-identical live preview |
 | **Documents** (`/admin/documents`) | Declare the external PDF converter with a connection test; PDF output only becomes selectable once a test succeeds |
+| **Catalog** (`/admin/catalog`) | Wire the equipment-management application (URL and token), test the connection and preview what it answers, filtered by service, kind, category and period. The token stays on the server: the screen only ever learns that one is set |
 | **Fonts** | Add and remove Google Fonts, available in the theme editor |
 | **SMTP** | Mail server configuration with a test send |
 | **Database** | Backup and restore |
@@ -169,9 +171,9 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | Phone | Phone field (standard or international format, configurable digit count) |
 | Address | Autocomplete via the official French Address API (BAN) — full address, or **town only** with its department and region shown in the suggestions |
 | Number | Numeric input |
-| Multiple Choice | Single or multi-select (with optional "Other" free-text option) |
+| Multiple Choice | Single or multi-select (with optional "Other" free-text option); options can be drawn from the equipment catalog |
 | Image Selection | Choices illustrated with clickable images (grid or stacked) |
-| Dropdown | Searchable list with optional free input and dynamic filtering based on another block |
+| Dropdown | Searchable list with optional free input, dynamic filtering based on another block; options can be drawn from the equipment catalog |
 | Quantity | List of items with individual quantity inputs |
 | Date | Native date picker |
 | Advanced Date | Visual calendar with date-range support and configurable min/max constraints |
@@ -307,6 +309,8 @@ For Portainer and production deployment, see **[DEPLOY-PORTAINER.en.md](DEPLOY-P
 | `REPORT_SCHEDULER` | In-process report scheduler; `0` disables it (drive `/api/internal/reports/run` from your own cron instead) | `1` |
 | `REPORT_SCHEDULER_INTERVAL_MINUTES` | How often due reports are checked, 1–60 | `5` |
 | `MIGRATION_AUTO_REPAIR` | Automatic one-shot recovery of a blocked migration at container start-up; `0` opts out | `1` |
+| `CATALOG_API_URL` | Address of the equipment-management application. **Fallback only**: the wiring is set in Admin → Catalog, which takes precedence | *(empty)* |
+| `CATALOG_API_TOKEN` | Read-only API token for the catalog, same caveat | *(empty)* |
 
 ---
 

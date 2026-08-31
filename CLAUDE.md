@@ -87,6 +87,12 @@ Context for Claude Code when working on this project.
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
 | `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — recipients, subject, body |
 | `src/app/admin/documents/documents-client.tsx` | Admin UI for the external PDF converter (URL + connection test + verified state) |
+| `src/lib/catalog.ts` | Pure/client-safe catalog logic — `isCatalogBlock()`, `catalogPeriod()`, `resolveCatalogBlocks()`, `catalogItemsFromStock()`, `catalogFilterParams()`; no Prisma import |
+| `src/lib/catalog-config.ts` | Server-only catalog wiring — `getCatalogConfig()`, `catalogCall()`, `fetchCatalogFacets()`, `testCatalogConnection()`, `catalogSettingsView()`; holds the API token |
+| `src/lib/use-catalog-blocks.ts` | Public-form hook — one request per block and per period, re-issued only when the answered date changes |
+| `src/app/api/catalog/availability/route.ts` | Public relay — items and remaining quantities for one block of one form |
+| `src/app/api/catalog/facets/route.ts` | Services and categories for the builder's pickers (any signed-in user) |
+| `src/app/admin/catalog/catalog-client.tsx` | Admin UI for the catalog — URL + token, connection test, and a filterable preview of what the catalog answers |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
 
@@ -149,6 +155,7 @@ When adding a new block type, update **all** of these:
 - `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
 - `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; external PDF converter URL and its verification state
+- `SystemSettings.catalogSettings` (JSON stored as string) — typed as `SystemCatalogSettings`; external catalog URL, API token and verification state. The token is stored in clear, like the NextCloud credentials, and is **never** returned to the browser — `catalogSettingsView()` exposes only `hasToken`
 - `Form.reportSettings` (JSON stored as string) — typed as `FormReportSettings`; report period, closing date, included sections, schedule (`ReportSchedule` with `lastRunAt`), recipients, subject/body, and `lastStatus` (`ReportSendStatus`)
 - `SystemSettings.securitySettings` also carries the failed-login alert config: `notifyOnFailedLogin`/`notifyThreshold`/`notifyEmail` — set in `/admin/security` alongside `maxFailedAttempts`, no separate column needed
 
@@ -193,6 +200,8 @@ valeurs — le journal d'activité ne doit pas devenir une seconde copie des don
 
 ### Webhooks Payload
 Webhooks serialize block values using human-readable labels (not raw values/slugs). Dates are locale-formatted. Use `findBlockDeep()` for nested field resolution.
+
+A webhook carrying a `secret` is signed: `applyWebhookSignature()` (`src/lib/webhook-signature.ts`) adds an `X-Webhook-Signature` header holding `sha256=<HMAC-SHA256 of the body>`. **The signature is computed over the exact string sent** — re-serializing the object before signing would produce a digest the receiver cannot reproduce, since two equivalent JSON documents written differently do not share their bytes. All three senders sign (submission, the editor's test, manual replay), a GET carries none (no body to sign, and signing the empty string authenticates nothing), and `/api/forms/[id]/export` strips `secret` from the exported webhooks.
 
 ### Form Versioning
 Auto-versions are created inside the PUT `/api/forms/[id]` route when `saveCount % 10 === 0`, using a `$transaction` to update the form and create the version atomically. Manual versions are created via POST `/api/forms/[id]/versions`. Restore always snapshots the current state first (label: "Avant restauration vN") before overwriting, so no data is ever lost silently.
@@ -433,6 +442,37 @@ The closing date (`closingDate`) caps the report period only — it does **not**
 form from accepting responses. `sendFinalReportOnClosing` fires once, guarded by
 `finalReportSentAt`, which is cleared when the closing date changes so a new date earns a new
 final report.
+
+### External Equipment Catalog
+A `multiple-choice` or `dropdown` block can draw its options from an equipment-management
+application (`choicesSource: 'catalog'`) instead of a hand-typed list, showing what is still
+available on the date answered earlier in the form. A typed list ages — an item sold, a torn tent,
+ten tables bought — and the form keeps offering last year's stock.
+
+The split follows the `audit-actions.ts` / `audit-log.ts` precedent: `src/lib/catalog.ts` is pure
+(period resolution, option injection, quantity capping) so the public form imports it in the
+browser, while `src/lib/catalog-config.ts` is server-only and holds the API token.
+
+**The browser never talks to the management application.** `/api/catalog/availability` relays,
+with a token that stays on the server — a token placed in the browser would be readable by any
+respondent and opens far more than an equipment list. The request is bound to one block of one
+form: otherwise the route would be an open relay for anyone guessing its address, and it is also
+what lets the scope filter be read from the saved form rather than received from the browser,
+where it would be editable.
+
+**Filtering is delegated upstream, never redone locally.** `catalogFilterParams()` sends
+`service` / `kind` / `category_id` along with the request, because that is where an item's
+attachment to a service is written once and for all. Re-sorting here would mean copying that rule
+— and shipping the whole stock to keep three lines of it.
+
+**Wiring lives in Admin → Catalogue** (`SystemSettings.catalogSettings`), with `CATALOG_API_URL` /
+`CATALOG_API_TOKEN` still read as a fallback for installations configured before that screen
+existed; saved settings win over the environment. Unlike the PDF converter, `verified` gates
+nothing: a reachable catalog must serve forms even if nobody ever clicked "Tester". The test only
+reports — and it queries all three upstream endpoints, since a token can open `/api/services` and
+still be refused on stock, which a test stopping at the first call would announce as a success.
+`POST /api/admin/catalog/test` writes the verification state; `GET /api/admin/catalog/preview`
+only looks, so changing a filter never rewrites what the test attested.
 
 ### Form Access Options (the "Options" Modal)
 `Form.accessSettings` decides when and to whom the public form answers: availability window

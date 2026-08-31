@@ -120,7 +120,8 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 
 ### 📤 Sorties & intégrations
 
-- **Webhooks** — POST/GET/PUT/PATCH vers des URL externes, mapping personnalisé des champs avec réorganisation par glisser-déposer et recherche, valeurs calculées par gabarit (`{field:blockId}`, `{date:dd-MM-YYYY}`, `{entry_id}`…), et libellés lisibles plutôt que des slugs bruts.
+- **Webhooks** — POST/GET/PUT/PATCH vers des URL externes, mapping personnalisé des champs avec réorganisation par glisser-déposer et recherche, valeurs calculées par gabarit (`{field:blockId}`, `{date:dd-MM-YYYY}`, `{entry_id}`…), et libellés lisibles plutôt que des slugs bruts. **Signature HMAC-SHA256 optionnelle** (en-tête `X-Webhook-Signature`, convention GitHub/Stripe) : renseignez un secret partagé et le destinataire peut vérifier que l'appel vient bien de ce formulaire, et non de quiconque a vu l'URL passer.
+- **Catalogue de matériel externe** — un bloc de choix multiple ou de liste déroulante peut tirer ses options d'une application de gestion plutôt que d'une liste saisie à la main, en n'affichant que ce qui reste disponible à la date répondue plus haut dans le formulaire, filtré par service, nature et catégorie. Une liste saisie vieillit : un matériel vendu, dix tables achetées, et le formulaire propose encore l'ancien parc.
 - **Génération de documents Word** — associez un modèle `.docx` dont les jetons sont remplacés par les réponses, puis envoyez le document rempli en pièce jointe. Tableau visuel des champs disponibles (jeton copiable, réponses possibles, présence effective du jeton dans le modèle), jetons de boucle pour les blocs répétables, jetons de case à cocher `{case_…}` rendant ☒/☐ pour qu'un modèle imprimé vierge reste remplissable à la main, et avertissement sur les jetons inconnus. **Les jetons restent stables après renommage d'une question ou d'une option.**
 - **Envoi conditionnel par circuits** — un circuit par service, avec ses propres conditions, destinataires, objet et corps, pour que seules les personnes concernées reçoivent le mail. Les conditions réutilisent les opérateurs de la logique du formulaire et sont repliées par défaut.
 - **Rapports PDF périodiques** — la modale *Rapports* transforme les réponses en PDF formaté et l'envoie selon une planification.
@@ -151,6 +152,7 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | **Corbeille** (`/admin/trash`) | Formulaires supprimés avec restauration et suppression définitive ; les formulaires orphelins (propriétaire supprimé) portent un badge ambre et exigent une réassignation de propriétaire avant restauration |
 | **Personnalisation** | Nom du site, logo et favicon appliqués globalement ; fond de la page de connexion (uni, dégradé ou image floutée) et visibilité des liens, avec aperçu strictement identique au rendu réel |
 | **Documents** (`/admin/documents`) | Déclarer le convertisseur PDF externe avec test de connexion ; la sortie PDF ne devient sélectionnable qu'après un test réussi |
+| **Catalogue** (`/admin/catalog`) | Raccorder l'application de gestion du matériel (adresse et jeton), tester la connexion et visualiser ce qu'elle répond, filtré par service, nature, catégorie et période. Le jeton reste sur le serveur : l'écran sait seulement qu'il existe |
 | **Polices** | Ajouter et retirer des Google Fonts, disponibles dans l'éditeur de thèmes |
 | **SMTP** | Configuration du serveur de mail avec envoi de test |
 | **Base de données** | Sauvegarde et restauration |
@@ -169,9 +171,9 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | Téléphone | Champ téléphone (format standard ou international, nombre de chiffres configurable) |
 | Adresse | Autocomplétion via l'API Adresse officielle (BAN) — adresse complète, ou **commune seule** avec département et région affichés dans les suggestions |
 | Nombre | Champ numérique |
-| Choix multiple | Sélection unique ou multiple (avec option « Autre » pour réponse libre) |
+| Choix multiple | Sélection unique ou multiple (avec option « Autre » pour réponse libre) ; options tirées du catalogue de matériel en option |
 | Sélection image | Choix illustrés par des images cliquables (grille ou empilés) |
-| Menu déroulant | Liste avec autocomplétion, saisie libre optionnelle et filtrage dynamique selon un autre bloc |
+| Menu déroulant | Liste avec autocomplétion, saisie libre optionnelle, filtrage dynamique selon un autre bloc ; options tirées du catalogue de matériel en option |
 | Quantité | Liste d'articles avec saisie de quantités individuelles |
 | Date | Sélecteur de date natif |
 | Date avancée | Calendrier visuel avec plage de dates et contraintes min/max configurables |
@@ -307,6 +309,8 @@ Pour le déploiement sur Portainer et en production, consultez **[DEPLOY-PORTAIN
 | `REPORT_SCHEDULER` | Minuterie interne des rapports ; `0` la désactive (pilotez alors `/api/internal/reports/run` depuis votre propre cron) | `1` |
 | `REPORT_SCHEDULER_INTERVAL_MINUTES` | Fréquence de vérification des échéances, 1 à 60 | `5` |
 | `MIGRATION_AUTO_REPAIR` | Réparation automatique, en une seule tentative, d'une migration bloquée au démarrage du conteneur ; `0` pour s'en passer | `1` |
+| `CATALOG_API_URL` | Adresse de l'application de gestion du matériel. **Secours uniquement** : le raccordement se règle dans Administration → Catalogue, qui prend le dessus | *(vide)* |
+| `CATALOG_API_TOKEN` | Jeton d'API en lecture seule du catalogue, même remarque | *(vide)* |
 
 ---
 

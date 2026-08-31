@@ -668,13 +668,15 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
       const res = await fetch('/api/webhooks/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: webhook.url, method: webhook.method, headers, data: testData, bodyFormat: webhook.bodyFormat }),
+        body: JSON.stringify({ url: webhook.url, method: webhook.method, headers, data: testData, bodyFormat: webhook.bodyFormat, secret: webhook.secret }),
       })
       const result = await res.json()
       if (result.success) {
         toast({ title: 'Test réussi', description: `Réponse: ${result.status}` })
       } else {
-        throw new Error(result.error || 'Erreur lors du test')
+        // Le corps de la réponse dit pourquoi : « signature invalide » et « champ obligatoire
+        // manquant » se ressemblent quand on n'affiche que « échec ».
+        throw new Error(result.error || `Réponse ${result.status} : ${String(result.response || '').slice(0, 200)}`)
       }
     } catch (error: any) {
       toast({ title: 'Erreur', description: error.message, variant: 'destructive' })
@@ -723,6 +725,23 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
             <option value="JSON">JSON</option>
             <option value="FORM">Form Data</option>
           </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">Secret de signature</Label>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            value={webhook.secret || ''}
+            onChange={(e) => updateWebhook(webhook.id, { secret: e.target.value })}
+            placeholder="Laisser vide pour envoyer sans signature"
+            className={inputCls}
+          />
+          <p className="text-[11px] text-gray-500 leading-snug">
+            Renseigné, chaque envoi porte l'en-tête <span className="font-mono">X-Webhook-Signature</span> :
+            un condensat HMAC-SHA256 du corps, que le destinataire recalcule avec le même secret pour
+            s'assurer que la requête vient bien de ce formulaire.
+          </p>
         </div>
 
         {/* En-têtes */}

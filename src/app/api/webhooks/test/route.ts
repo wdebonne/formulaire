@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { lookup } from 'dns/promises'
 import { getSession } from '@/lib/auth'
+import { applyWebhookSignature } from '@/lib/webhook-signature'
 
 const PRIVATE_IP_RE = /^(127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|0\.0\.0\.0)|^::1$|^(fc|fd)[0-9a-f]{2,}:/i
 const BLOCKED_HOSTNAMES = new Set(['localhost', '0.0.0.0', 'metadata.google.internal'])
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { url, method, headers, data, bodyFormat } = body
+    const { url, method, headers, data, bodyFormat, secret } = body
 
     if (!url) {
       return NextResponse.json({ error: 'URL requise' }, { status: 400 })
@@ -98,6 +99,10 @@ export async function POST(request: NextRequest) {
           bodyContent = JSON.stringify(testData)
         }
       }
+
+      // Signé comme le sera l'envoi réel : sans quoi le test réussirait là où la soumission
+      // serait refusée, ce qui est le pire des comptes rendus.
+      applyWebhookSignature(requestHeaders, secret, bodyContent)
 
       const response = await fetch(url, {
         method: method || 'POST',

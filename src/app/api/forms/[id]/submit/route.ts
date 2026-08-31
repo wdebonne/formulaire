@@ -4,6 +4,7 @@ import { findBlockDeep, formatBlockValue, formatDateString, resolveDataLabels } 
 import { parseFormDocumentSettings } from '@/lib/docx-template'
 import { sendDocumentForResponse } from '@/lib/document-delivery'
 import { resolveFormGate, submittedCookieName, SUBMITTED_COOKIE_MAX_AGE } from '@/lib/form-gate'
+import { applyWebhookSignature } from '@/lib/webhook-signature'
 
 // POST /api/forms/[id]/submit - Soumettre une réponse à un formulaire
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -323,7 +324,9 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
     }
   }
 
-  // Envoyer la requête
+  // Envoyer la requête, signée si le webhook porte un secret
+  applyWebhookSignature(requestHeaders, webhook.secret, bodyContent)
+
   const response = await fetch(url, {
     method: method || 'POST',
     headers: requestHeaders,

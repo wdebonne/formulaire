@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { applyWebhookSignature } from '@/lib/webhook-signature'
 
 interface Webhook {
   id: string
@@ -12,6 +13,7 @@ interface Webhook {
   fieldMappings: { key: string; blockId: string; flatRepeater?: boolean }[]
   enabled: boolean
   triggerOn: string
+  secret?: string
 }
 
 function slugify(str: string): string {
@@ -267,6 +269,10 @@ export async function POST(
             ).toString()
           }
         }
+
+        // Le renvoi manuel doit être signé comme l'envoi initial : un destinataire qui refuse les
+        // requêtes non signées rejetterait sinon toute reprise après incident.
+        applyWebhookSignature(requestHeaders, webhook.secret, bodyContent)
 
         const fetchResponse = await fetch(webhook.url, {
           method: webhook.method,

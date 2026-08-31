@@ -32,7 +32,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         blocks: JSON.parse(form.blocks),
         logic: JSON.parse(form.logic),
         settings: JSON.parse(form.settings),
-        webhooks: JSON.parse(form.webhooks),
+        // Le secret de signature reste sur le serveur : un export circule par courriel et se dépose
+        // dans un dépôt, et le destinataire du webhook n'aurait plus aucun moyen d'authentifier ses
+        // appels. Le formulaire réimporté redemande son secret.
+        webhooks: JSON.parse(form.webhooks).map(({ secret, ...webhook }: Record<string, unknown>) => webhook),
         theme: form.theme ? {
           name: form.theme.name,
           properties: JSON.parse(form.theme.properties)

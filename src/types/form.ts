@@ -213,6 +213,9 @@ export interface Webhook {
   fieldMappings: WebhookFieldMapping[]
   enabled: boolean
   triggerOn: 'submission' | 'partial' | 'save'
+  // Secret partagé avec le destinataire : renseigné, chaque envoi porte l'en-tête
+  // X-Webhook-Signature. Laissé vide, le webhook part non signé, comme avant.
+  secret?: string
 }
 
 // ── Modèles de document (.docx) ─────────────────────────────────────────────

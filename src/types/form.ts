@@ -293,6 +293,20 @@ export interface FormDocumentSettings {
 }
 
 // Convertisseur PDF externe (SystemSettings.documentSettings)
+// Catalogue de matériel externe (application de gestion).
+//
+// Le jeton est stocké ici comme les identifiants NextCloud le sont dans leurs colonnes : en clair,
+// lisible par l'application seule. Il n'est jamais renvoyé au navigateur — l'écran d'administration
+// n'apprend que son existence.
+export interface SystemCatalogSettings {
+  apiUrl?: string
+  apiToken?: string
+  verified?: boolean // repasse à false dès que l'adresse ou le jeton change
+  verifiedAt?: string
+  verifiedServiceCount?: number
+  verifiedItemCount?: number
+}
+
 export interface SystemDocumentSettings {
   pdfConverterUrl?: string
   pdfConverterVerified?: boolean // passe à false dès que l'URL change

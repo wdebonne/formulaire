@@ -137,6 +137,7 @@ model SystemSettings {
   gdprSettings        String   @default("{}") // Paramètres RGPD : durée de conservation des réponses (JSON stocké en texte)
   logSettings         String   @default("{}") // Rétention du journal d'activité (JSON stocké en texte)
   documentSettings    String   @default("{}") // Convertisseur PDF externe : URL + état de vérification (JSON stocké en texte)
+  catalogSettings     String   @default("{}") // Catalogue de matériel externe : URL, jeton et état de vérification (JSON stocké en texte)
 }
 
 model AuditLog {

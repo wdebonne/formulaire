@@ -7,6 +7,7 @@ import {
   flattenBlocks,
   isCatalogBlock,
 } from '@/lib/catalog'
+import { CATALOG_NOT_CONFIGURED, catalogCall, getCatalogConfig } from '@/lib/catalog-config'
 import type { FormBlock } from '@/types/form'
 
 // GET /api/catalog/availability - Articles et quantités disponibles sur une période.
@@ -21,8 +22,6 @@ import type { FormBlock } from '@/types/form'
 // du navigateur, où il serait modifiable.
 
 export const dynamic = 'force-dynamic'
-
-const DELAI_CATALOGUE_MS = 10_000
 
 function trouverBloc(blocks: FormBlock[], blockId: string): FormBlock | undefined {
   return flattenBlocks(blocks).find((b) => b.id === blockId)
@@ -63,50 +62,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Ce bloc ne lit pas le catalogue' }, { status: 404 })
     }
 
-    const base = (process.env.CATALOG_API_URL || '').replace(/\/+$/, '')
-    const jeton = process.env.CATALOG_API_TOKEN || ''
-    if (!base || !jeton) {
-      // 503 et non 500 : ce n'est pas une panne, c'est une configuration absente, et le message
-      // doit dire quoi renseigner plutôt que d'envoyer chercher dans les journaux.
+    const config = await getCatalogConfig()
+    if (!config) {
       return NextResponse.json(
-        { error: 'Catalogue non configuré (CATALOG_API_URL et CATALOG_API_TOKEN)' },
-        { status: 503 }
+        { error: CATALOG_NOT_CONFIGURED.error },
+        { status: CATALOG_NOT_CONFIGURED.status }
       )
     }
 
     // Le périmètre réglé sur le bloc — service, nature, catégorie — part avec la demande : c'est
     // l'application de gestion qui sait quel article relève de quel service.
-    const parametres = new URLSearchParams({
+    const stock = await catalogCall(config, '/api/manifestations/stock/availability', {
       date_from: dateFrom,
       date_to: dateTo,
       ...catalogFilterParams(block),
     })
-    const url = `${base}/api/manifestations/stock/availability?${parametres.toString()}`
-
-    let reponse: Response
-    try {
-      reponse = await fetch(url, {
-        headers: { 'X-API-Token': jeton, Accept: 'application/json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(DELAI_CATALOGUE_MS),
-      })
-    } catch {
-      return NextResponse.json({ error: 'Catalogue injoignable' }, { status: 502 })
+    if (!stock.ok) {
+      return NextResponse.json({ error: stock.error }, { status: stock.status })
     }
 
-    if (!reponse.ok) {
-      // Le corps de la réponse amont peut contenir n'importe quoi : seul le code est relayé, et le
-      // 401 est nommé parce que c'est la panne la plus probable — un jeton expiré ou révoqué.
-      const detail = reponse.status === 401 || reponse.status === 403 ? ' (jeton refusé)' : ''
-      return NextResponse.json(
-        { error: `Le catalogue a répondu ${reponse.status}${detail}` },
-        { status: 502 }
-      )
-    }
-
-    const corps = await reponse.json().catch(() => null)
-
-    const items = catalogItemsFromStock(corps?.data, {
+    const items = catalogItemsFromStock(stock.data?.data, {
       hideUnavailable: block.attributes.catalogHideUnavailable,
     })
 

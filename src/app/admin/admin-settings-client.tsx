@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   ScrollText,
   FileType2,
+  Boxes,
 } from 'lucide-react'
 
 interface AdminSettingsClientProps {
@@ -114,6 +115,13 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
       icon: FileType2,
       href: '/admin/documents',
       color: 'bg-blue-600',
+    },
+    {
+      title: 'Catalogue',
+      description: 'Application de gestion du matériel : raccordement, test et aperçu des articles',
+      icon: Boxes,
+      href: '/admin/catalog',
+      color: 'bg-amber-600',
     },
   ]
 

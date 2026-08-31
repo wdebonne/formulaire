@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { ISO_DATE, catalogItemsFromStock, flattenBlocks, isCatalogBlock } from '@/lib/catalog'
+import {
+  ISO_DATE,
+  catalogFilterParams,
+  catalogItemsFromStock,
+  flattenBlocks,
+  isCatalogBlock,
+} from '@/lib/catalog'
 import type { FormBlock } from '@/types/form'
 
 // GET /api/catalog/availability - Articles et quantités disponibles sur une période.
@@ -68,7 +74,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const url = `${base}/api/manifestations/stock/availability?date_from=${dateFrom}&date_to=${dateTo}`
+    // Le périmètre réglé sur le bloc — service, nature, catégorie — part avec la demande : c'est
+    // l'application de gestion qui sait quel article relève de quel service.
+    const parametres = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+      ...catalogFilterParams(block),
+    })
+    const url = `${base}/api/manifestations/stock/availability?${parametres.toString()}`
 
     let reponse: Response
     try {
@@ -94,7 +107,6 @@ export async function GET(request: NextRequest) {
     const corps = await reponse.json().catch(() => null)
 
     const items = catalogItemsFromStock(corps?.data, {
-      category: block.attributes.catalogCategory,
       hideUnavailable: block.attributes.catalogHideUnavailable,
     })
 

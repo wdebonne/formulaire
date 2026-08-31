@@ -2384,6 +2384,15 @@ function QuestionBlock({
         const dropdownChoicesMain = (block.attributes.choices || []).filter((c) => !hiddenIdsMain.has(c.id))
         const allowCustomValueMain = block.attributes.allowCustomValue || false
 
+        // Un menu déroulant vide laisse croire à un formulaire cassé : quand le catalogue n'a pas
+        // encore répondu — ou n'a rien à proposer — c'est le message qui prend sa place.
+        if (
+          block.attributes.catalogState &&
+          (block.attributes.catalogState !== 'ready' || dropdownChoicesMain.length === 0)
+        ) {
+          return <CatalogNotice block={block} themeProps={themeProps} />
+        }
+
         // Toujours utiliser le composant avec autocomplétion
         return (
           <DropdownWithAutocomplete
@@ -3652,6 +3661,15 @@ function GroupBlock({
         const dropdownChoices = (innerBlock.attributes.choices || []).filter((c) => !hiddenIdsGroup.has(c.id))
         const allowCustomValueGroup = innerBlock.attributes.allowCustomValue || false
 
+        // Un menu déroulant vide laisse croire à un formulaire cassé : quand le catalogue n'a pas
+        // encore répondu — ou n'a rien à proposer — c'est le message qui prend sa place.
+        if (
+          innerBlock.attributes.catalogState &&
+          (innerBlock.attributes.catalogState !== 'ready' || dropdownChoices.length === 0)
+        ) {
+          return <CatalogNotice block={innerBlock} themeProps={themeProps} />
+        }
+
         // Toujours utiliser le composant avec autocomplétion
         return (
           <DropdownWithAutocomplete
@@ -4656,6 +4674,15 @@ function InnerBlockInput({
         (c: any) => !excludedChoiceValues?.has(c.value) && !hiddenIdsInner.has(c.id)
       )
       const allowCustomValueInner = block.attributes.allowCustomValue || false
+
+      // Un menu déroulant vide laisse croire à un formulaire cassé : quand le catalogue n'a pas
+      // encore répondu — ou n'a rien à proposer — c'est le message qui prend sa place.
+      if (
+        block.attributes.catalogState &&
+        (block.attributes.catalogState !== 'ready' || innerDropdownChoices.length === 0)
+      ) {
+        return <CatalogNotice block={block} themeProps={themeProps} />
+      }
 
       // Toujours utiliser le composant avec autocomplétion
       return (

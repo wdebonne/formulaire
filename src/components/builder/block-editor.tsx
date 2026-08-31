@@ -620,14 +620,12 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
       {/* Choices editor */}
       {['dropdown', 'multiple-choice'].includes(block.type) && (
         <div className="space-y-3">
-          {block.type === 'multiple-choice' && (
-            <CatalogSourceEditor
-              block={block}
-              updateAttribute={updateAttribute}
-              isInnerBlock={isInnerBlock}
-              parentGroupId={parentGroupId}
-            />
-          )}
+          <CatalogSourceEditor
+            block={block}
+            updateAttribute={updateAttribute}
+            isInnerBlock={isInnerBlock}
+            parentGroupId={parentGroupId}
+          />
           <div className="flex items-center justify-between">
             <Label>Options</Label>
             <div className="flex items-center gap-2">
@@ -2782,8 +2780,11 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
     return undefined
   }
   const blocSource = sourceBlockId ? trouverBloc(blocks) : undefined
+  // Même règle que le formulaire public (`isCatalogBlock`) : choix multiple comme liste déroulante
+  // peuvent lire le catalogue, et le bloc quantité suit sa source quelle qu'elle soit.
   const sourceEstCatalogue =
-    blocSource?.type === 'multiple-choice' && blocSource.attributes.choicesSource === 'catalog'
+    (blocSource?.type === 'multiple-choice' || blocSource?.type === 'dropdown') &&
+    blocSource.attributes.choicesSource === 'catalog'
   const quantityItems: NonNullable<FormBlock['attributes']['quantityItems']> = block.attributes.quantityItems || []
 
   const getItemConfig = (choiceId: string) =>
@@ -2998,6 +2999,17 @@ function QuantityEditor({ block, updateAttribute, isInnerBlock, parentGroupId }:
 // Une liste saisie à la main vieillit sans prévenir — le parc bouge, le formulaire non. Branchée
 // sur le catalogue, la liste est celle du jour demandé, avec ce qu'il en reste après les
 // engagements déjà pris.
+interface ServiceFacette {
+  id: number
+  name: string
+  slug: string
+}
+
+interface CategorieFacette {
+  id: number
+  name: string
+}
+
 interface CatalogSourceEditorProps {
   block: FormBlock
   updateAttribute: (key: string, value: any) => void
@@ -3008,6 +3020,39 @@ interface CatalogSourceEditorProps {
 function CatalogSourceEditor({ block, updateAttribute, isInnerBlock, parentGroupId }: CatalogSourceEditorProps) {
   const { blocks } = useFormBuilder()
   const estCatalogue = block.attributes.choicesSource === 'catalog'
+
+  // Les listes de services et de catégories viennent de l'application de gestion, et seulement
+  // quand le bloc s'en sert : un éditeur qui interrogerait le catalogue pour un formulaire qui
+  // l'ignore ferait payer à tout le monde une dépendance que personne n'a demandée.
+  const [facettes, setFacettes] = useState<{ services: ServiceFacette[]; categories: CategorieFacette[] }>({
+    services: [],
+    categories: [],
+  })
+  const [erreurFacettes, setErreurFacettes] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!estCatalogue) return
+    let abandonne = false
+
+    fetch('/api/catalog/facets')
+      .then(async (res) => {
+        const corps = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(corps?.error || `erreur ${res.status}`)
+        return corps
+      })
+      .then((corps) => {
+        if (abandonne) return
+        setFacettes({ services: corps.services ?? [], categories: corps.categories ?? [] })
+        setErreurFacettes(null)
+      })
+      .catch((erreur: Error) => {
+        if (!abandonne) setErreurFacettes(erreur.message)
+      })
+
+    return () => {
+      abandonne = true
+    }
+  }, [estCatalogue])
 
   // Seules les dates posées **avant** ce bloc peuvent servir : une liste calculée sur une date que
   // le répondant n'a pas encore choisie n'aurait rien à interroger.
@@ -3119,13 +3164,62 @@ function CatalogSourceEditor({ block, updateAttribute, isInnerBlock, parentGroup
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Catégorie</Label>
-            <Input
-              value={block.attributes.catalogCategory || ''}
-              onChange={(e) => updateAttribute('catalogCategory', e.target.value)}
-              placeholder="Toutes les catégories"
-            />
+            <Label className="text-xs font-medium">Service</Label>
+            <select
+              value={block.attributes.catalogService || ''}
+              onChange={(e) => updateAttribute('catalogService', e.target.value)}
+              className={selectCls}
+            >
+              <option value="">Tous les services</option>
+              {facettes.services.map((service) => (
+                <option key={service.id} value={service.slug}>
+                  {service.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              Un service a la charge de certaines catégories : ne retenir que les siennes évite de
+              proposer au demandeur du matériel dont ce service n'a pas la main.
+            </p>
           </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Nature</Label>
+            <select
+              value={block.attributes.catalogKind || 'all'}
+              onChange={(e) => updateAttribute('catalogKind', e.target.value)}
+              className={selectCls}
+            >
+              <option value="all">Matériels et prestations</option>
+              <option value="prestation">Prestations seulement</option>
+              <option value="materiel">Matériels seulement</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">Catégorie</Label>
+            <select
+              value={block.attributes.catalogCategoryId ? String(block.attributes.catalogCategoryId) : ''}
+              onChange={(e) =>
+                updateAttribute('catalogCategoryId', e.target.value ? Number(e.target.value) : undefined)
+              }
+              className={selectCls}
+            >
+              <option value="">Toutes les catégories</option>
+              {facettes.categories.map((categorie) => (
+                <option key={categorie.id} value={String(categorie.id)}>
+                  {categorie.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {erreurFacettes && (
+            <p className="text-xs text-amber-600">
+              Listes indisponibles ({erreurFacettes}) : le catalogue reste interrogé au remplissage,
+              seul le choix des filtres est impossible ici.
+            </p>
+          )}
 
           <div className="flex items-center justify-between">
             <Label className="text-xs font-medium">Masquer ce qui n'est plus disponible</Label>

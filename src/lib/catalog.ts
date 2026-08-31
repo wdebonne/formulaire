@@ -40,7 +40,10 @@ export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /** Un bloc dont les options viennent du catalogue plutôt que de la liste saisie. */
 export function isCatalogBlock(block: FormBlock): boolean {
-  return block.type === 'multiple-choice' && block.attributes.choicesSource === 'catalog'
+  return (
+    (block.type === 'multiple-choice' || block.type === 'dropdown') &&
+    block.attributes.choicesSource === 'catalog'
+  )
 }
 
 /** Parcourt les blocs de premier niveau et les blocs internes des groupes et répéteurs. */
@@ -198,10 +201,9 @@ export function resolveCatalogBlocks(
  */
 export function catalogItemsFromStock(
   brut: unknown,
-  options: { category?: string; hideUnavailable?: boolean } = {}
+  options: { hideUnavailable?: boolean } = {}
 ): CatalogItem[] {
   const lignes = Array.isArray(brut) ? brut : []
-  const categorie = (options.category || '').trim().toLowerCase()
   const masquer = options.hideUnavailable !== false
 
   return lignes
@@ -214,7 +216,29 @@ export function catalogItemsFromStock(
       total: Math.max(0, Number(article?.quantity_total ?? 0) || 0),
     }))
     .filter((item) => item.name.length > 0)
-    .filter((item) => !categorie || item.category.toLowerCase() === categorie)
     .filter((item) => !masquer || item.available > 0)
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+}
+
+/**
+ * Filtres à transmettre à l'application de gestion.
+ *
+ * Le tri se fait là-bas, pas ici : « les prestations de l'urbanisme » se décide en SQL, où le
+ * rattachement d'un article à un service est écrit une fois pour toutes. Trier après coup
+ * obligerait à recopier cette règle — et à faire voyager tout le stock pour n'en garder trois
+ * lignes.
+ */
+export function catalogFilterParams(block: FormBlock): Record<string, string> {
+  const filtres: Record<string, string> = {}
+
+  const service = (block.attributes.catalogService || '').trim()
+  if (service) filtres.service = service
+
+  const nature = block.attributes.catalogKind
+  if (nature === 'prestation' || nature === 'materiel') filtres.kind = nature
+
+  const categorie = block.attributes.catalogCategoryId
+  if (categorie) filtres.category_id = String(categorie)
+
+  return filtres
 }

@@ -124,7 +124,9 @@ export interface BlockAttributes {
   choicesSource?: 'static' | 'catalog' // 'catalog' : les options viennent de l'application de gestion
   catalogDateBlockId?: string // Bloc date dont la réponse détermine la période interrogée
   catalogEndDateBlockId?: string // Bloc date de fin, si la période tient sur deux blocs
-  catalogCategory?: string // Ne garder que cette catégorie (vide = tout le catalogue)
+  catalogService?: string // Slug, identifiant ou nom du service : ne proposer que son périmètre
+  catalogKind?: 'all' | 'prestation' | 'materiel' // Nature des articles proposés
+  catalogCategoryId?: number // Ne garder qu'une catégorie (vide = tout le périmètre)
   catalogHideUnavailable?: boolean // Masquer les articles dont il ne reste rien (défaut : true)
   catalogShowRemaining?: boolean // Afficher le disponible après le libellé (défaut : true)
   // Remplis à l'affichage du formulaire public, jamais enregistrés : état de la requête au catalogue.

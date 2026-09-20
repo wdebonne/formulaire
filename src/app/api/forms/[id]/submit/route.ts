@@ -5,13 +5,16 @@ import { parseFormDocumentSettings } from '@/lib/docx-template'
 import { sendDocumentForResponse } from '@/lib/document-delivery'
 import { resolveFormGate, submittedCookieName, SUBMITTED_COOKIE_MAX_AGE } from '@/lib/form-gate'
 import { applyWebhookSignature } from '@/lib/webhook-signature'
+import { evaluateSubmissionAntiSpam } from '@/lib/form-antispam'
+import { parseFormAccessSettings } from '@/lib/form-options'
+import { getClientIp } from '@/lib/security'
 
 // POST /api/forms/[id]/submit - Soumettre une réponse à un formulaire
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const body = await request.json()
-    const { data, metadata } = body
+    const { data, metadata, honeypot, renderToken } = body
 
     // Vérifier que le formulaire existe et est publié
     const form = await prisma.form.findFirst({
@@ -27,6 +30,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { error: 'Formulaire non trouvé ou non publié' },
         { status: 404 }
       )
+    }
+
+    // Anti-spam avant la porte d'accès : un flot automatisé doit être arrêté avant les requêtes
+    // de comptage, et surtout avant les webhooks et les e-mails que déclenche une réponse admise.
+    const antiSpam = evaluateSubmissionAntiSpam(parseFormAccessSettings(form.accessSettings), {
+      formId: form.id,
+      ip: getClientIp(request),
+      honeypot,
+      renderToken,
+    })
+    if (antiSpam.verdict === 'discard') {
+      // Le leurre a été rempli : la réponse est jetée et l'appelant reçoit un succès. Lui
+      // signaler l'échec reviendrait à lui indiquer quel champ laisser vide au prochain essai.
+      console.warn(`Soumission ignorée (anti-spam: ${antiSpam.reason}) sur le formulaire ${form.id}`)
+      return NextResponse.json({ success: true })
+    }
+    if (antiSpam.verdict === 'reject') {
+      return NextResponse.json({ error: antiSpam.message }, { status: antiSpam.status })
     }
 
     // Les options d'accès sont revérifiées ici et pas seulement au rendu de la page : sans ce

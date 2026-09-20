@@ -495,6 +495,14 @@ export interface FormAccessSettings {
   requireLogin?: boolean
   loginRequiredMessage?: string
 
+  // Anti-spam — appliqué dans la route de soumission (src/lib/form-antispam.ts)
+  honeypotEnabled?: boolean
+  minFillTimeEnabled?: boolean
+  minFillSeconds?: number
+  rateLimitEnabled?: boolean
+  rateLimitMax?: number
+  rateLimitWindowMinutes?: number
+
   // Confidentialité
   noIndex?: boolean
 }

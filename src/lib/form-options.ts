@@ -19,6 +19,16 @@ export const DEFAULT_ACCESS_MESSAGES: Record<Exclude<FormGateState, 'open'>, str
   password_required: 'Ce formulaire est protégé. Saisissez le mot de passe pour y accéder.',
 }
 
+// Nom du champ leurre attendu dans le corps de la soumission. Il est rendu par le formulaire
+// public, masqué en CSS et retiré du parcours clavier : un humain ne le voit pas, un robot qui
+// remplit tous les champs du document le remplit.
+export const HONEYPOT_FIELD = 'website'
+
+// Bornes des réglages anti-spam, partagées par la modale et par la route qui les enregistre.
+export const MIN_FILL_SECONDS_RANGE = { min: 1, max: 120 } as const
+export const RATE_LIMIT_MAX_RANGE = { min: 1, max: 1000 } as const
+export const RATE_LIMIT_WINDOW_RANGE = { min: 1, max: 1440 } as const
+
 export const DEFAULT_ACCESS_SETTINGS: FormAccessSettings = {
   opensAt: null,
   closesAt: null,
@@ -34,6 +44,12 @@ export const DEFAULT_ACCESS_SETTINGS: FormAccessSettings = {
   alreadySubmittedMessage: '',
   requireLogin: false,
   loginRequiredMessage: '',
+  honeypotEnabled: true,
+  minFillTimeEnabled: true,
+  minFillSeconds: 3,
+  rateLimitEnabled: true,
+  rateLimitMax: 20,
+  rateLimitWindowMinutes: 10,
   noIndex: false,
 }
 

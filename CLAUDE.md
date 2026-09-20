@@ -78,6 +78,7 @@ Context for Claude Code when working on this project.
 | `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
 | `src/lib/form-options.ts` | Pure/client-safe access options — `FormAccessSettings` defaults, `parseFormAccessSettings()`, `accessMessage()`, `accessSummary()`, `scheduleState()`; no Prisma import |
 | `src/lib/form-gate.ts` | Server-only enforcement — `resolveFormGate()`, access/submitted cookie names, `signAccessToken()`, `hashFormPassword()` |
+| `src/lib/form-antispam.ts` | Server-only anti-spam — `signRenderToken()`/`readRenderToken()`, the per-IP submission bucket, `evaluateSubmissionAntiSpam()` |
 | `src/components/forms/form-options-modal.tsx` | "Options" modal — availability window, password, quota, participation restrictions, noindex |
 | `src/app/[slug]/form-gate-screen.tsx` | Public screen shown in place of a form that is closed, scheduled, full, already answered, or locked |
 | `src/app/api/forms/[id]/options/route.ts` | Access options API (GET/PUT, `getAccessibleForm`) — never returns the password hash |
@@ -164,7 +165,7 @@ base64 signature would have landed whole in an Excel cell.
 - `AuditLog` model — append-only activity log: `action`, `status` (`success`|`failure`), `userId`/`userEmail` (email copied at write time so it survives user deletion), `ipAddress`, `targetType`/`targetId`/`targetLabel` (label copied at write time, e.g. form title), `metadata` (JSON-as-string), `createdAt`; indexed on `action`, `userId`, `createdAt`
 - `SystemSettings.logSettings` (JSON stored as string) — typed as `LogSettings` in `src/lib/audit-log.ts`; holds `retentionEnabled`/`retentionDays` (default: 365 days), read via `getLogSettings()`/`getLogRetentionCutoffDate()`
 - `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
-- `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
+- `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, anti-spam settings (`honeypotEnabled`, `minFillTimeEnabled`/`minFillSeconds`, `rateLimitEnabled`/`rateLimitMax`/`rateLimitWindowMinutes`), `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
 - `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; which PDF engine is used (`pdfConverterProvider`: `gotenberg` | `nextcloud`, absent = `gotenberg`), the Gotenberg URL, and the verification state (`pdfConverterVerified`, plus `pdfConversionVerifiedAt`/`pdfConversionMethod` recording the last conversion actually exercised)
 - `SystemSettings.catalogSettings` (JSON stored as string) — typed as `SystemCatalogSettings`; external catalog URL, API token and verification state. The token is stored in clear, like the NextCloud credentials, and is **never** returned to the browser — `catalogSettingsView()` exposes only `hasToken`
@@ -601,6 +602,45 @@ therefore cannot be unlocked from inside a *cross-site* iframe embed — the bro
 cookie back. `SameSite=None` is not the fix: it requires `Secure`, which plain-HTTP self-hosted
 deployments don't have, so it would break those instead. Password protection and cross-site
 embedding are mutually exclusive; the direct link works normally.
+
+### Anti-spam on Public Submission (`src/lib/form-antispam.ts`)
+Three cumulative measures on `POST /api/forms/[id]/submit`, no captcha and no external service.
+They are configured per form in `Form.accessSettings` (the "Options" modal, *Anti-spam* section)
+and **on by default** — `parseFormAccessSettings()` merges over `DEFAULT_ACCESS_SETTINGS`, so a
+form saved before the feature existed is protected without being re-saved. The split follows the
+`form-options.ts` / `form-gate.ts` precedent: defaults, bounds and `HONEYPOT_FIELD` are pure and
+importable from the `'use client'` modal, enforcement is server-only.
+
+**Order matters: the bucket comes first.** `evaluateSubmissionAntiSpam()` runs *before*
+`resolveFormGate()`, so a flood is stopped ahead of the quota-counting query and, above all, ahead
+of the webhooks, the document e-mails and the row to purge later — those, not the HTTP request, are
+what a submission actually costs. Every attempt is counted, including the ones the honeypot or the
+timing check reject a line later; that is precisely the automated flow being slowed down.
+
+**The honeypot answers 200 and stores nothing.** Returning an error would tell the sender which
+field to leave empty next time. The verdict is `discard`, distinct from `reject`, for that reason
+— don't "fix" it into a 400. The field is rendered by `PublicFormClient` into all three top-level
+render paths (split, float, main), off-screen at `left: -9999px`, `tabIndex={-1}`, inside
+`aria-hidden`. It only exists after hydration (`visibleBlocks` is filled in an effect, so SSR
+renders the empty-form branch) — which is fine: a bot that does not run JS cannot fill it either.
+
+**The minimum fill time rests on a signed timestamp, not on a client clock.** `/[slug]/page.tsx`
+and `/forms/[id]/preview/page.tsx` both pass `renderToken={signRenderToken(form.id)}`; the client
+returns it untouched. An unsigned `startedAt` would be forged in one line. **Add the prop to any
+new page rendering `PublicFormClient`**, otherwise every submission from it is refused for lack of
+a token — which is exactly what happens to a script POSTing straight to the route, and is the
+single most effective of the three measures.
+
+The token deliberately **never expires**: capping it would make a tab left open overnight lose
+everything typed into it, and replay is already covered by the bucket. Verification is
+`timingSafeEqual` over an HMAC of `${formId}:${issuedAt}`, so a token is worthless on another form.
+
+**The bucket is per process.** Behind several instances each keeps its own count and the effective
+ceiling is multiplied by their number — dissuasive, not a strict guarantee, same caveat as the
+in-memory throttle in `/api/forms/[id]/access`. It is deliberately **not** `recordFailedLogin()`:
+that path blacklists an IP application-wide, a wildly disproportionate answer to a respondent
+clicking twice. Note that several respondents behind one NAT share an IP — the modal says so, and
+the default (20 per 10 min) leaves room for a registration desk.
 
 ### Runtime Version Parity — Keep the Image and the Dev Machine on the Same Node
 The Docker image is `node:24-alpine`, matching `.nvmrc` and the typical dev machine. **Keep them in

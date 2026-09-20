@@ -7,6 +7,9 @@ import { logEvent } from '@/lib/audit-log'
 import { hashFormPassword } from '@/lib/form-gate'
 import {
   DEFAULT_ACCESS_SETTINGS,
+  MIN_FILL_SECONDS_RANGE,
+  RATE_LIMIT_MAX_RANGE,
+  RATE_LIMIT_WINDOW_RANGE,
   parseFormAccessSettings,
   parseLocalDateTime,
   toPublicAccessSettings,
@@ -23,6 +26,18 @@ function sanitizeDateTime(value: unknown): string | null {
 
 function sanitizeMessage(value: unknown): string {
   return String(value ?? '').slice(0, MESSAGE_MAX)
+}
+
+// Un réglage anti-spam hors bornes retombe sur la valeur par défaut plutôt que de désactiver la
+// protection : une saisie fantaisiste ne doit pas ouvrir le formulaire à un flot automatisé.
+function sanitizeBounded(
+  value: unknown,
+  range: { min: number; max: number },
+  fallback: number
+): number {
+  const parsed = Math.floor(Number(value))
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(range.max, Math.max(range.min, parsed))
 }
 
 // GET /api/forms/[id]/options — options d'accès + contexte utile à la modale
@@ -122,6 +137,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       alreadySubmittedMessage: sanitizeMessage(body?.alreadySubmittedMessage),
       requireLogin: Boolean(body?.requireLogin),
       loginRequiredMessage: sanitizeMessage(body?.loginRequiredMessage),
+      honeypotEnabled: Boolean(body?.honeypotEnabled),
+      minFillTimeEnabled: Boolean(body?.minFillTimeEnabled),
+      minFillSeconds: sanitizeBounded(
+        body?.minFillSeconds,
+        MIN_FILL_SECONDS_RANGE,
+        DEFAULT_ACCESS_SETTINGS.minFillSeconds!
+      ),
+      rateLimitEnabled: Boolean(body?.rateLimitEnabled),
+      rateLimitMax: sanitizeBounded(
+        body?.rateLimitMax,
+        RATE_LIMIT_MAX_RANGE,
+        DEFAULT_ACCESS_SETTINGS.rateLimitMax!
+      ),
+      rateLimitWindowMinutes: sanitizeBounded(
+        body?.rateLimitWindowMinutes,
+        RATE_LIMIT_WINDOW_RANGE,
+        DEFAULT_ACCESS_SETTINGS.rateLimitWindowMinutes!
+      ),
       noIndex: Boolean(body?.noIndex),
     }
 
@@ -145,6 +178,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         maxResponses,
         onePerDevice: next.onePerDevice,
         requireLogin: next.requireLogin,
+        honeypotEnabled: next.honeypotEnabled,
+        minFillTimeEnabled: next.minFillTimeEnabled,
+        rateLimitEnabled: next.rateLimitEnabled,
         noIndex: next.noIndex,
       },
     })

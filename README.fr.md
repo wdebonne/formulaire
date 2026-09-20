@@ -85,6 +85,7 @@ serveur, sans aucun service tiers dans la boucle.
 - **Modal de partage** — lien direct, shortcode personnalisable, code d'intégration `<iframe>` et véritable studio de QR code.
 - **3 niveaux de permissions** — Lecture, Édition, Administrateur — avec autocomplétion des utilisateurs lors du partage.
 - **Options d'accès** (menu de la carte du formulaire → *Options*) — dates de mise en ligne et de clôture, protection par mot de passe, nombre maximum de réponses, une seule réponse par appareil, restriction aux utilisateurs connectés et retrait des moteurs de recherche. Chaque règle est appliquée **côté serveur au rendu de la page comme à l'envoi d'une réponse**, avec un message personnalisable par situation. Le tableau de bord affiche un badge *Programmé* / *Clôturé* quand un formulaire publié n'accepte pas réellement de réponses.
+- **Anti-spam** (même modale, section *Anti-spam*) — trois mesures cumulées, sans captcha ni service externe : un **champ leurre** invisible pour les répondants (rempli, la réponse est ignorée silencieusement), un **délai minimum de remplissage** attesté par un horodatage signé par le serveur (donc impossible à antidater, et un script qui appelle directement l'adresse d'envoi sans charger la page est refusé) et une **limitation de débit par adresse IP et par formulaire**. Actif par défaut sur tous les formulaires ; chaque mesure se règle ou se désactive.
 
 <details>
 <summary><b>Studio de QR code</b></summary>

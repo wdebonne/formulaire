@@ -17,7 +17,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { DEFAULT_ACCESS_MESSAGES, formatAccessDate, parseLocalDateTime } from '@/lib/form-options'
+import {
+  DEFAULT_ACCESS_MESSAGES,
+  DEFAULT_ACCESS_SETTINGS,
+  MIN_FILL_SECONDS_RANGE,
+  RATE_LIMIT_MAX_RANGE,
+  RATE_LIMIT_WINDOW_RANGE,
+  formatAccessDate,
+  parseLocalDateTime,
+} from '@/lib/form-options'
 import type { PublicFormAccessSettings } from '@/types/form'
 import {
   CalendarClock,
@@ -26,6 +34,7 @@ import {
   Loader2,
   Lock,
   Settings2,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 
@@ -51,6 +60,12 @@ interface OptionsState {
   alreadySubmittedMessage: string
   requireLogin: boolean
   loginRequiredMessage: string
+  honeypotEnabled: boolean
+  minFillTimeEnabled: boolean
+  minFillSeconds: string
+  rateLimitEnabled: boolean
+  rateLimitMax: string
+  rateLimitWindowMinutes: string
   noIndex: boolean
 }
 
@@ -68,6 +83,12 @@ const EMPTY_STATE: OptionsState = {
   alreadySubmittedMessage: '',
   requireLogin: false,
   loginRequiredMessage: '',
+  honeypotEnabled: true,
+  minFillTimeEnabled: true,
+  minFillSeconds: String(DEFAULT_ACCESS_SETTINGS.minFillSeconds),
+  rateLimitEnabled: true,
+  rateLimitMax: String(DEFAULT_ACCESS_SETTINGS.rateLimitMax),
+  rateLimitWindowMinutes: String(DEFAULT_ACCESS_SETTINGS.rateLimitWindowMinutes),
   noIndex: false,
 }
 
@@ -169,6 +190,14 @@ export function FormOptionsModal({
         alreadySubmittedMessage: s.alreadySubmittedMessage ?? '',
         requireLogin: Boolean(s.requireLogin),
         loginRequiredMessage: s.loginRequiredMessage ?? '',
+        honeypotEnabled: s.honeypotEnabled !== false,
+        minFillTimeEnabled: s.minFillTimeEnabled !== false,
+        minFillSeconds: String(s.minFillSeconds ?? DEFAULT_ACCESS_SETTINGS.minFillSeconds),
+        rateLimitEnabled: s.rateLimitEnabled !== false,
+        rateLimitMax: String(s.rateLimitMax ?? DEFAULT_ACCESS_SETTINGS.rateLimitMax),
+        rateLimitWindowMinutes: String(
+          s.rateLimitWindowMinutes ?? DEFAULT_ACCESS_SETTINGS.rateLimitWindowMinutes
+        ),
         noIndex: Boolean(s.noIndex),
       })
       setPasswordSet(Boolean(s.passwordSet))
@@ -220,6 +249,9 @@ export function FormOptionsModal({
           opensAt: state.opensAt || null,
           closesAt: state.closesAt || null,
           maxResponses: state.maxResponses ? Number(state.maxResponses) : null,
+          minFillSeconds: Number(state.minFillSeconds),
+          rateLimitMax: Number(state.rateLimitMax),
+          rateLimitWindowMinutes: Number(state.rateLimitWindowMinutes),
           ...(newPassword && { password: newPassword }),
         }),
       })
@@ -453,6 +485,106 @@ export function FormOptionsModal({
                     placeholder={DEFAULT_ACCESS_MESSAGES.login_required}
                     onChange={(loginRequiredMessage) => patch({ loginRequiredMessage })}
                   />
+                </div>
+              )}
+            </Section>
+
+            <Section
+              icon={ShieldCheck}
+              title="Anti-spam"
+              description="Mesures appliquées à l’envoi de chaque réponse, sans captcha ni service externe."
+            >
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={state.honeypotEnabled}
+                  onChange={(e) => patch({ honeypotEnabled: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-800">
+                  Champ leurre invisible pour les répondants
+                </span>
+              </label>
+              <p className="pl-7 text-xs text-gray-500">
+                Un champ masqué est ajouté au formulaire : rempli, la réponse est ignorée
+                silencieusement. Invisible à l’écran, hors du parcours clavier et ignoré des
+                lecteurs d’écran — aucun répondant ne le rencontre.
+              </p>
+
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={state.minFillTimeEnabled}
+                  onChange={(e) => patch({ minFillTimeEnabled: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-800">Exiger un délai minimum de remplissage</span>
+              </label>
+              {state.minFillTimeEnabled && (
+                <div className="space-y-2 pl-7">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min={MIN_FILL_SECONDS_RANGE.min}
+                      max={MIN_FILL_SECONDS_RANGE.max}
+                      value={state.minFillSeconds}
+                      onChange={(e) => patch({ minFillSeconds: e.target.value })}
+                      className="w-24"
+                    />
+                    <span className="text-sm text-gray-600">
+                      secondes entre l’affichage de la page et l’envoi
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    L’instant d’affichage est signé par le serveur : il ne peut pas être antidaté,
+                    et un script qui appelle directement l’adresse d’envoi sans charger la page est
+                    refusé.
+                  </p>
+                </div>
+              )}
+
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={state.rateLimitEnabled}
+                  onChange={(e) => patch({ rateLimitEnabled: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm text-gray-800">
+                  Limiter le débit de réponses par connexion
+                </span>
+              </label>
+              {state.rateLimitEnabled && (
+                <div className="space-y-2 pl-7">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-600">
+                        Réponses maximum par adresse IP
+                      </Label>
+                      <Input
+                        type="number"
+                        min={RATE_LIMIT_MAX_RANGE.min}
+                        max={RATE_LIMIT_MAX_RANGE.max}
+                        value={state.rateLimitMax}
+                        onChange={(e) => patch({ rateLimitMax: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-600">Sur une période de (minutes)</Label>
+                      <Input
+                        type="number"
+                        min={RATE_LIMIT_WINDOW_RANGE.min}
+                        max={RATE_LIMIT_WINDOW_RANGE.max}
+                        value={state.rateLimitWindowMinutes}
+                        onChange={(e) => patch({ rateLimitWindowMinutes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Plusieurs répondants derrière une même connexion (réseau d’entreprise, borne
+                    d’accueil) partagent la même adresse IP : prévoyez large si vous attendez des
+                    envois groupés depuis un même lieu.
+                  </p>
                 </div>
               )}
             </Section>

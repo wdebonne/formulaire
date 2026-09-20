@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { PublicFormClient } from './public-form-client'
 import { FormGateScreen } from './form-gate-screen'
 import { resolveFormGate } from '@/lib/form-gate'
+import { signRenderToken } from '@/lib/form-antispam'
 import { formatAccessDate, parseFormAccessSettings } from '@/lib/form-options'
 
 // Liste des routes réservées à exclure
@@ -128,5 +129,14 @@ export default async function PublicFormPage({ params }: { params: Promise<{ slu
     webhooks: JSON.parse(form.webhooks),
   }
 
-  return <PublicFormClient form={parsedForm} theme={parsedTheme} siteLogo={systemSettings?.siteLogo ?? null} />
+  // Jeton horodaté signé au moment du rendu : la route de soumission s'en sert pour vérifier
+  // qu'il s'est écoulé un temps humainement plausible entre l'affichage et l'envoi.
+  return (
+    <PublicFormClient
+      form={parsedForm}
+      theme={parsedTheme}
+      siteLogo={systemSettings?.siteLogo ?? null}
+      renderToken={signRenderToken(form.id)}
+    />
+  )
 }

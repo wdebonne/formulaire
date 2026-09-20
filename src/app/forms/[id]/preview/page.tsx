@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { PublicFormClient } from '@/app/[slug]/public-form-client'
+import { signRenderToken } from '@/lib/form-antispam'
 
 export default async function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -80,6 +81,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
       form={parsedForm}
       theme={parsedTheme}
       siteLogo={systemSettings?.siteLogo ?? null}
+      renderToken={signRenderToken(form.id)}
     />
   )
 }

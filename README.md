@@ -85,6 +85,7 @@ with no third-party service in the loop.
 - **Share modal** — direct link, customisable shortcode, `<iframe>` embed snippet, and a full QR code designer.
 - **3 permission levels** — Read, Edit, Administrator — with user autocomplete when sharing.
 - **Access options** (form card menu → *Options*) — go-live and closing dates, password protection, maximum number of responses, one response per device, restriction to signed-in users, and search-engine opt-out. Every rule is enforced **server-side both when the page is rendered and when a response is submitted**, with a customisable message per situation. The dashboard shows a *Scheduled* / *Closed* badge when a published form is not actually accepting responses.
+- **Anti-spam** (same modal, *Anti-spam* section) — three cumulative measures, no captcha and no external service: a **honeypot field** invisible to respondents (filled in, the response is silently discarded), a **minimum fill time** attested by a server-signed timestamp (so it cannot be backdated, and a script POSTing straight to the submit endpoint without loading the page is refused), and a **rate limit per IP address and per form**. On by default for every form; each measure can be tuned or turned off.
 
 <details>
 <summary><b>QR code designer</b></summary>

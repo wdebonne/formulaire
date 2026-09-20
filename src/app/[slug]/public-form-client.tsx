@@ -14,6 +14,7 @@ import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximiz
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 import { useCatalogBlocks } from '@/lib/use-catalog-blocks'
+import { HONEYPOT_FIELD } from '@/lib/form-options'
 
 // Composant de prévisualisation Excel (chargement dynamique de SheetJS)
 interface ExcelPreviewProps {
@@ -718,6 +719,28 @@ interface PublicFormClientProps {
     properties: ThemeProperties
   }
   siteLogo?: string | null
+  // Horodatage signé du rendu de la page, renvoyé tel quel à la soumission (anti-spam).
+  renderToken?: string
+}
+
+// Champ leurre : invisible pour un répondant, hors du parcours clavier et ignoré des lecteurs
+// d'écran, mais présent dans le document. Un robot qui remplit tous les champs le remplit aussi,
+// et la route de soumission jette alors la réponse sans le lui dire.
+function HoneypotField({ inputRef }: { inputRef: React.RefObject<HTMLInputElement> }) {
+  return (
+    <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', top: 'auto', width: 1, height: 1, overflow: 'hidden' }}>
+      <label htmlFor={HONEYPOT_FIELD}>Ne remplissez pas ce champ</label>
+      <input
+        ref={inputRef}
+        id={HONEYPOT_FIELD}
+        name={HONEYPOT_FIELD}
+        type="text"
+        tabIndex={-1}
+        autoComplete="off"
+        defaultValue=""
+      />
+    </div>
+  )
 }
 
 function LogoBar({ siteLogo, alignment }: { siteLogo: string; alignment: 'left' | 'center' | 'right' }) {
@@ -770,7 +793,7 @@ function getNextVisibleInnerIndex(
   return null
 }
 
-export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProps) {
+export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicFormClientProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [isAnimating, setIsAnimating] = useState(false)
@@ -783,6 +806,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
   const visibleBlocksRef = useRef<FormBlock[]>([])
   // Ref toujours synchronisée avec answers pour éviter le stale closure dans handleSubmit
   const answersRef = useRef<Record<string, any>>({})
+  const honeypotRef = useRef<HTMLInputElement>(null)
 
   // État pour les blocs répétables
   const [repeaterStates, setRepeaterStates] = useState<Record<string, RepeaterState>>({})
@@ -1463,6 +1487,8 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           data: completeData,
+          honeypot: honeypotRef.current?.value ?? '',
+          renderToken,
           metadata: {
             userAgent: navigator.userAgent,
             submittedAt: new Date().toISOString(),
@@ -1738,6 +1764,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
+        <HoneypotField inputRef={honeypotRef} />
         <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
       </>
     )
@@ -1837,6 +1864,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
+        <HoneypotField inputRef={honeypotRef} />
         <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
       </>
     )
@@ -2089,6 +2117,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
       {/* Logo - Bottom */}
       {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
     </div>
+    <HoneypotField inputRef={honeypotRef} />
     <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
     </>
   )

@@ -104,7 +104,7 @@ Context for Claude Code when working on this project.
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
 | `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — routes, conditions, recipients, subject, body, optional attachment |
 | `src/app/admin/documents/documents-client.tsx` | Admin UI for PDF conversion — engine choice (NextCloud / Gotenberg), connection test, conversion test with the produced PDF downloadable, verified state |
-| `src/lib/catalog.ts` | Pure/client-safe catalog logic — `isCatalogBlock()`, `catalogPeriod()`, `resolveCatalogBlocks()`, `catalogItemsFromStock()`, `catalogFilterParams()`; no Prisma import |
+| `src/lib/catalog.ts` | Pure/client-safe catalog logic — `isCatalogBlock()`, `catalogPeriod()`, `resolveCatalogBlocks()`, `catalogItems()`, `catalogFilterParams()`; no Prisma import |
 | `src/lib/catalog-config.ts` | Server-only catalog wiring — `getCatalogConfig()`, `catalogCall()`, `fetchCatalogFacets()`, `testCatalogConnection()`, `catalogSettingsView()`; holds the API token |
 | `src/lib/use-catalog-blocks.ts` | Public-form hook — one request per block and per period, re-issued only when the answered date changes |
 | `src/app/api/catalog/availability/route.ts` | Public relay — items and remaining quantities for one block of one form |
@@ -112,6 +112,9 @@ Context for Claude Code when working on this project.
 | `src/app/admin/catalog/catalog-client.tsx` | Admin UI for the catalog — URL + token, connection test, and a filterable preview of what the catalog answers |
 | `prisma/schema.prisma` | Database schema |
 | `prisma/seed.ts` | Default data (themes, admin account) |
+| `tests/lib/*.test.ts` | Vitest suite over the pure modules — no database, no server, no browser |
+| `vitest.config.mts` | Test runner config — `@/` alias, `TZ=Europe/Paris` |
+| `.github/workflows/ci.yml` | CI — typecheck, tests, `next build`, and `migrate deploy` on a seeded database |
 
 ---
 
@@ -122,9 +125,16 @@ npm run dev          # Start dev server
 npm run db:push      # Apply schema changes
 npm run db:studio    # Open database GUI
 npm run db:seed      # Re-seed default data
-npm run lint         # ESLint
+npm run typecheck    # tsc --noEmit (tests included)
+npm test             # Vitest, single run
+npm run test:watch   # Vitest, watch mode
+npm run lint         # ESLint — see the note below before relying on it
 npm run build        # Production build
 ```
+
+`npm run lint` opens Next's interactive setup prompt when ESLint has never been configured, which
+hangs a non-interactive shell. **CI deliberately does not run it**; `npm run typecheck` plus
+`npm test` plus `npm run build` are what gate a change.
 
 ---
 
@@ -229,6 +239,46 @@ Blocks with choices (`dropdown`, `multiple-choice`, `image-selection`) store `ch
 
 L'action est journalisée (`response.update`) avec la **liste des champs** modifiés, jamais leurs
 valeurs — le journal d'activité ne doit pas devenir une seconde copie des données personnelles.
+
+### Tests & CI — What the Pure/Server Split Buys
+The pure/server split kept throughout this codebase is not only a build constraint: it is what
+makes the interesting logic testable at all. `report-stats.ts`, `catalog.ts`, `form-options.ts`,
+`condition-eval.ts`, `response-format.ts` and `document-fields.ts` import no Prisma, no
+`next/headers`, no nodemailer — so `tests/lib/*.test.ts` exercises them with no database, no server
+and no browser, and the whole suite runs in under a second.
+
+**The suite documents intent, not implementation.** Each test is named after the behaviour the code
+was written to guarantee, and the non-obvious ones carry the *why* as a comment — the same rule as
+the source. A test that merely restates the code teaches a future reader nothing and blocks every
+refactor.
+
+**Cover the reasoning already written down.** Most of the sections in this file describe a decision
+that a test can pin: choice labels resolved at display time and never rewritten, `formatBlockValue`
+returning attachments untouched, anti-spam defaults on, the closing date capping every report
+period, saved document tags surviving a rename, a prestation never hidden as out-of-stock, a route
+with no condition always firing. Those are the tests worth having.
+
+**Verify the suite fails when the behaviour breaks.** A test that passes on broken code is worse
+than no test. The tests here were checked by mutating each module and confirming the suite went red;
+one mutation survived and exposed a genuine hole — the comma re-joining in `condition-eval.ts` was
+only ever exercised through its short-circuit, never through the loop the fix exists for. Do the
+same when adding tests.
+
+**CI runs typecheck, tests and `next build`** (`.github/workflows/ci.yml`), plus a second job that
+replays `prisma migrate deploy` on a **seeded** database. That second job is not ceremony: a
+table-rebuild migration copying `INSERT INTO "X_new" SELECT * FROM "X"` passes on an empty database
+and fails on a populated one — exactly how `20260609000000_form_userid_nullable` shipped broken and
+blocked every existing instance with `P3009`. The build step matters for the same reason: `tsc`
+alone does not catch a server-only module imported from a `'use client'` component, or a package
+that fails to bundle.
+
+Node's version comes from `.nvmrc` in CI, so the runner, the Docker image and the dev machine cannot
+drift — the "Runtime Version Parity" section above is the reason. `@types/node` is pinned to the
+same major as the runtime for that same reason; it lagged at 20 while everything else ran 24.
+
+`tests/`, `vitest.config.mts` and `.github/` are in `.dockerignore`: nothing there belongs in the
+image, and excluding them keeps `next build` inside Docker from typechecking files that import
+vitest.
 
 ### Accessibility of the Public Form (RGAA 4.1 / WCAG 2.1 AA)
 The renderer had **zero** ARIA attributes: choice options were bare `<button>`s, so a screen reader

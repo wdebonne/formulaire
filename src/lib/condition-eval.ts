@@ -62,16 +62,53 @@ export function canonicalizeValue(block: any, value: any): string {
 
 // Les valeurs comparables d'une réponse. Un choix multiple est stocké en chaîne jointe par
 // resolveDataLabels : on la redécoupe pour que « est égal à » reste vrai sur une option cochée.
+//
+// Le découpage sur la virgule est ambigu dès qu'un libellé en contient (« Écran, second ») : les
+// fragments consécutifs sont donc recollés tant qu'ils reconstituent une option connue du bloc,
+// en privilégiant la correspondance la plus longue. Sans cela, une option unique était scindée en
+// deux valeurs inexistantes et la condition ne se déclenchait jamais. Même raisonnement que
+// `tokenize()` dans report-stats.ts, qui rencontre le problème sur le même stockage.
 function answerParts(block: any, rawValue: any): string[] {
   if (rawValue === undefined || rawValue === null || rawValue === '') return []
   if (Array.isArray(rawValue)) return rawValue.map((v) => canonicalizeValue(block, v)).filter(Boolean)
 
   const formatted = flatten(formatBlockValue(block, rawValue))
   if (!formatted) return []
-  return formatted
-    .split(',')
-    .map((part) => canonicalizeValue(block, part))
-    .filter(Boolean)
+
+  const known = new Set(
+    ((block?.attributes?.choices || []) as any[])
+      .flatMap((choice) => [choice?.value, choice?.id, choice?.label])
+      .filter(Boolean)
+      .map((candidate) => canonicalizeValue(block, candidate))
+      .filter(Boolean)
+  )
+
+  const whole = canonicalizeValue(block, formatted)
+  if (known.has(whole) || !formatted.includes(',')) return whole ? [whole] : []
+
+  const fragments = formatted.split(',').map((part) => part.trim()).filter(Boolean)
+  const parts: string[] = []
+  let index = 0
+
+  while (index < fragments.length) {
+    let matched = false
+    for (let end = fragments.length; end > index; end--) {
+      const candidate = canonicalizeValue(block, fragments.slice(index, end).join(', '))
+      if (candidate && known.has(candidate)) {
+        parts.push(candidate)
+        index = end
+        matched = true
+        break
+      }
+    }
+    if (!matched) {
+      const single = canonicalizeValue(block, fragments[index])
+      if (single) parts.push(single)
+      index++
+    }
+  }
+
+  return parts
 }
 
 function evaluateOne(

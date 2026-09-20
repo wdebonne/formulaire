@@ -42,7 +42,10 @@ L'application tourne sur [http://localhost:3000](http://localhost:3000).
 |----------|-------------|
 | `npm run dev` | Démarrer le serveur de développement avec rechargement automatique |
 | `npm run build` | Compiler pour la production |
-| `npm run lint` | Lancer ESLint |
+| `npm test` | Lancer la suite de tests (Vitest, une passe) |
+| `npm run test:watch` | Relancer les tests à chaque modification |
+| `npm run typecheck` | Vérifier les types sans compiler (`tsc --noEmit`) |
+| `npm run lint` | Lancer ESLint — voir la note ci-dessous |
 | `npm run db:push` | Synchroniser le schéma Prisma avec SQLite |
 | `npm run db:studio` | Ouvrir Prisma Studio (interface base de données) |
 | `npm run db:seed` | Réinitialiser les données par défaut (thèmes, compte admin) |
@@ -139,6 +142,78 @@ Le formulaire public vise le **RGAA 4.1 (WCAG 2.1 AA)**. Pour les organismes pub
 1. Parcourir le formulaire **au clavier seul** (Tab, flèches, Entrée, Espace) sans jamais utiliser la souris.
 2. Ouvrir l'onglet *Accessibility* des outils de développement et vérifier le **nom accessible** et l'**état** de chaque contrôle ajouté.
 3. Contrôler qu'aucun `aria-labelledby` / `aria-describedby` ne désigne un identifiant absent du document.
+
+---
+
+## Tests
+
+Les modules « purs » de `src/lib` — ceux qui n'importent ni Prisma, ni `next/headers`, ni nodemailer
+— sont couverts par une suite [Vitest](https://vitest.dev) dans `tests/lib/`. Ils s'exécutent sans
+base de données, sans serveur et sans navigateur : la suite entière tourne en moins d'une seconde.
+
+```bash
+npm test                          # toute la suite
+npm run test:watch                # en continu pendant le développement
+npx vitest run tests/lib/catalog.test.ts   # un seul fichier
+```
+
+### Modules couverts
+
+| Module | Ce que la suite garantit |
+|--------|--------------------------|
+| `report-stats.ts` | Résolution des périodes, plafond de la date de clôture, normalisation des choix stockés sous plusieurs formes, échelles de notes, taux de remplissage |
+| `catalog.ts` | Période déduite des dates répondues, plafonds de quantité, prestation jamais masquée comme un stock épuisé, filtres transmis en amont |
+| `form-options.ts` | Fusion au-dessus des défauts, anti-spam actif par défaut, condensat jamais exposé, état d'ouverture d'un formulaire |
+| `condition-eval.ts` | Un circuit sans condition part toujours, normalisation slug / identifiant / libellé, « est égal à » vrai sur une option cochée parmi d'autres |
+| `response-format.ts` | Résolution des libellés, formats de date, pièces jointes et signatures recopiées intactes |
+| `document-fields.ts` | Stabilité des jetons après renommage, déduplication globale, jetons de cases à cocher |
+
+### Écrire un test qui serve à quelque chose
+
+- **Nommez le comportement, pas la fonction.** « ne compte pas deux fois une option stockée sous deux
+  formes » se lit ; « teste computeReportStats » ne dit rien.
+- **Expliquez le *pourquoi* quand il n'est pas évident**, en commentaire au-dessus du test — même
+  règle que pour le code. Un test qui paraphrase l'implémentation n'apprend rien et bloque toute
+  refonte.
+- **Testez ce que la documentation promet.** Les sections de [CLAUDE.md](CLAUDE.md) décrivent des
+  décisions précises — les libellés résolus à l'affichage et jamais réécrits, l'anti-spam actif par
+  défaut, la date de clôture qui plafonne toute période, un jeton de document qui survit à un
+  renommage. Ce sont ces garanties-là qui méritent un test.
+- **Vérifiez que le test échoue quand le comportement casse.** Cassez volontairement la ligne
+  concernée et relancez : si la suite reste verte, le test ne teste rien. Cette suite a été
+  contrôlée ainsi, et le procédé a révélé un vrai trou — une reconstitution de libellé n'était
+  exercée que par son court-circuit, jamais par la boucle qui lui donne sa raison d'être.
+
+### Ce qui n'est pas couvert
+
+Les routes API, les composants React et les modules serveur (Prisma, envoi d'e-mails, rendu PDF,
+conversion de documents) n'ont pas de tests automatisés. C'est le `next build` de l'intégration
+continue qui les garde compilables, et rien de plus : une modification qui les touche demande une
+vérification manuelle.
+
+---
+
+## Intégration continue
+
+`.github/workflows/ci.yml` s'exécute à chaque poussée sur `main` et à chaque pull request.
+
+**Vérification** — `npm ci`, génération du client Prisma, `npm run typecheck`, `npm test`, puis
+`npm run build`. Le build n'est pas redondant avec le typecheck : lui seul détecte un module serveur
+importé depuis un composant `'use client'`, un paquet qui ne s'empaquette pas, ou une route qui ne
+compile pas.
+
+**Migrations** — un second job rejoue `prisma migrate deploy` sur une base vide, la peuple avec
+`db:seed`, puis rejoue les migrations. Ce n'est pas une formalité : une migration qui reconstruit une
+table passe sur une base vide (le `INSERT ... SELECT` ne copie alors aucune ligne) et échoue sur une
+base peuplée. C'est exactement ainsi que `20260609000000_form_userid_nullable` est partie cassée et a
+bloqué toutes les instances existantes sur `P3009`. Voir [Migrations de base de données](#migrations-de-base-de-données).
+
+La version de Node vient de `.nvmrc`, pour que le runner, l'image Docker et le poste de
+développement ne puissent pas diverger — voir [Parité des versions d'exécution](#parité-des-versions-dexécution).
+
+**`npm run lint` n'est pas lancé en CI** : sans configuration ESLint préexistante, la commande ouvre
+l'assistant interactif de Next et se bloque indéfiniment sur un shell non interactif. Ce sont
+`typecheck`, `test` et `build` qui font foi.
 
 ---
 

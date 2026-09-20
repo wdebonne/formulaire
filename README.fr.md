@@ -38,6 +38,7 @@ serveur, sans aucun service tiers dans la boucle.
 - [Variables d'environnement](#variables-denvironnement)
 - [Structure du projet](#structure-du-projet)
 - [Scripts disponibles](#scripts-disponibles)
+- [Tests & intégration continue](#tests--intégration-continue)
 - [Sécurité](#sécurité)
 - [Contribution, journal & licence](#contribution)
 
@@ -384,6 +385,9 @@ formbuilder-standalone/
 | `npm run dev` | Démarrer le serveur de développement |
 | `npm run build` | Compiler pour la production |
 | `npm start` | Démarrer le serveur de production |
+| `npm test` | Lancer la suite de tests (Vitest) |
+| `npm run test:watch` | Relancer les tests à chaque modification |
+| `npm run typecheck` | Vérifier les types sans compiler |
 | `npm run lint` | Lancer ESLint |
 | `npm run db:push` | Appliquer le schéma Prisma à la base |
 | `npm run db:studio` | Ouvrir Prisma Studio |
@@ -393,6 +397,34 @@ formbuilder-standalone/
 > [!NOTE]
 > Le développement local utilise `db:push`, tandis que Docker rejoue `prisma/migrations/` avec `migrate deploy`.
 > **Tout changement de schéma nécessite un fichier de migration**, sans quoi il n'atteindra jamais la production.
+
+---
+
+## Tests & intégration continue
+
+La séparation « module pur / module serveur » suivie dans tout le projet rend la logique métier
+directement testable : `report-stats.ts`, `catalog.ts`, `form-options.ts`, `condition-eval.ts`,
+`response-format.ts` et `document-fields.ts` n'importent ni Prisma, ni `next/headers`, ni nodemailer.
+
+```bash
+npm test          # la suite complète, en moins d'une seconde
+npm run typecheck # tsc --noEmit, tests compris
+```
+
+Ce que la suite garantit : les libellés de choix résolus à l'affichage sans jamais réécrire ce qui
+est stocké, une option jamais comptée deux fois selon sa forme de stockage, les pièces jointes et
+signatures recopiées intactes, les protections anti-spam actives par défaut, la date de clôture qui
+plafonne toute période de rapport, et les jetons d'un modèle Word qui survivent au renommage d'une
+question.
+
+L'intégration continue (`.github/workflows/ci.yml`) vérifie les types, lance les tests et compile
+l'application à chaque poussée. Un second job **rejoue les migrations sur une base peuplée** : une
+migration qui reconstruit une table passe sur une base vide et échoue sur une base contenant des
+données — c'est ainsi qu'une migration est partie cassée et a bloqué les instances existantes.
+
+> [!NOTE]
+> Les routes API, les composants React et les modules serveur ne sont pas couverts par des tests
+> automatisés : le `next build` de la CI les garde compilables, rien de plus.
 
 ---
 

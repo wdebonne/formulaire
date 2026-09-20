@@ -38,6 +38,7 @@ with no third-party service in the loop.
 - [Environment variables](#environment-variables)
 - [Project structure](#project-structure)
 - [Available scripts](#available-scripts)
+- [Tests & continuous integration](#tests--continuous-integration)
 - [Security](#security)
 - [Contributing, changelog & license](#contributing)
 
@@ -384,6 +385,9 @@ formbuilder-standalone/
 | `npm run dev` | Start the development server |
 | `npm run build` | Build for production |
 | `npm start` | Start the production server |
+| `npm test` | Run the test suite (Vitest) |
+| `npm run test:watch` | Re-run tests on every change |
+| `npm run typecheck` | Check types without emitting |
 | `npm run lint` | Run ESLint |
 | `npm run db:push` | Push the Prisma schema to the database |
 | `npm run db:studio` | Open Prisma Studio |
@@ -393,6 +397,34 @@ formbuilder-standalone/
 > [!NOTE]
 > Local development uses `db:push`, while Docker replays `prisma/migrations/` with `migrate deploy`.
 > **Any schema change needs a migration file**, or it will never reach production.
+
+---
+
+## Tests & continuous integration
+
+The pure/server module split followed throughout the project makes the business logic directly
+testable: `report-stats.ts`, `catalog.ts`, `form-options.ts`, `condition-eval.ts`,
+`response-format.ts` and `document-fields.ts` import neither Prisma, nor `next/headers`, nor
+nodemailer.
+
+```bash
+npm test          # the whole suite, in under a second
+npm run typecheck # tsc --noEmit, tests included
+```
+
+What the suite guarantees: choice labels resolved at display time without ever rewriting what is
+stored, an option never counted twice depending on its stored shape, attachments and signatures
+copied untouched, anti-spam protections on by default, the closing date capping every report period,
+and Word template tokens surviving a question being renamed.
+
+CI (`.github/workflows/ci.yml`) checks types, runs the tests and builds the application on every
+push. A second job **replays the migrations on a seeded database**: a migration that rebuilds a table
+passes on an empty database and fails on one holding data — which is how a migration once shipped
+broken and blocked existing instances.
+
+> [!NOTE]
+> API routes, React components and server modules are not covered by automated tests: CI's
+> `next build` keeps them compiling, and nothing more.
 
 ---
 

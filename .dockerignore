@@ -29,6 +29,12 @@ Thumbs.db
 .git
 .gitignore
 
+# Tests et intégration continue : rien de tout cela n'entre dans l'image, et les exclure
+# évite que `next build` y typecheck des fichiers important vitest.
+tests
+vitest.config.mts
+.github
+
 # Misc
 README.md
 CHANGELOG.md

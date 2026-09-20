@@ -42,7 +42,10 @@ The app runs at [http://localhost:3000](http://localhost:3000).
 |---------|-------------|
 | `npm run dev` | Start development server with hot reload |
 | `npm run build` | Build for production |
-| `npm run lint` | Run ESLint |
+| `npm test` | Run the test suite (Vitest, single pass) |
+| `npm run test:watch` | Re-run tests on every change |
+| `npm run typecheck` | Check types without emitting (`tsc --noEmit`) |
+| `npm run lint` | Run ESLint — see the note below |
 | `npm run db:push` | Sync Prisma schema to SQLite |
 | `npm run db:studio` | Open Prisma Studio (database GUI) |
 | `npm run db:seed` | Re-seed default data (themes, admin user) |
@@ -139,6 +142,76 @@ The public form targets **RGAA 4.1 (WCAG 2.1 AA)**. For French public bodies thi
 1. Walk the form **by keyboard alone** (Tab, arrows, Enter, Space), never touching the mouse.
 2. Open the devtools *Accessibility* tab and check the **accessible name** and **state** of every control you added.
 3. Confirm no `aria-labelledby` / `aria-describedby` points at an id absent from the document.
+
+---
+
+## Tests
+
+The pure modules in `src/lib` — those importing neither Prisma, nor `next/headers`, nor nodemailer —
+are covered by a [Vitest](https://vitest.dev) suite in `tests/lib/`. They run with no database, no
+server and no browser: the whole suite completes in under a second.
+
+```bash
+npm test                          # the whole suite
+npm run test:watch                # continuously, while developing
+npx vitest run tests/lib/catalog.test.ts   # a single file
+```
+
+### Modules covered
+
+| Module | What the suite guarantees |
+|--------|---------------------------|
+| `report-stats.ts` | Period resolution, the closing date capping every range, normalising choices stored in several shapes, rating scales, completion rates |
+| `catalog.ts` | Period derived from the answered dates, quantity caps, a prestation never hidden as out-of-stock, filters delegated upstream |
+| `form-options.ts` | Merging over defaults, anti-spam on by default, the hash never exposed, a form's schedule state |
+| `condition-eval.ts` | A route with no condition always fires, slug / id / label normalisation, "equals" true on one option among several |
+| `response-format.ts` | Label resolution, date formats, attachments and signatures copied untouched |
+| `document-fields.ts` | Token stability across renames, global deduplication, checkbox tokens |
+
+### Writing a test that earns its place
+
+- **Name the behaviour, not the function.** "does not count an option twice when stored in two
+  shapes" reads; "tests computeReportStats" says nothing.
+- **State the *why* when it is not obvious**, as a comment above the test — the same rule as the
+  code. A test that paraphrases the implementation teaches nothing and blocks every refactor.
+- **Test what the documentation promises.** The sections of [CLAUDE.md](CLAUDE.md) describe precise
+  decisions — choice labels resolved at display time and never rewritten, anti-spam on by default,
+  the closing date capping every period, a document token surviving a rename. Those are the
+  guarantees worth a test.
+- **Check the test fails when the behaviour breaks.** Deliberately break the line concerned and
+  re-run: if the suite stays green, the test tests nothing. This suite was checked that way, and the
+  exercise exposed a real hole — a label reconstruction was only ever reached through its
+  short-circuit, never through the loop that is its whole reason for existing.
+
+### What is not covered
+
+API routes, React components and server modules (Prisma, mail sending, PDF rendering, document
+conversion) have no automated tests. CI's `next build` keeps them compiling, and nothing more: a
+change touching them needs manual verification.
+
+---
+
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request.
+
+**Verify** — `npm ci`, Prisma client generation, `npm run typecheck`, `npm test`, then `npm run
+build`. The build is not redundant with the typecheck: it alone catches a server-only module
+imported from a `'use client'` component, a package that fails to bundle, or a route that does not
+compile.
+
+**Migrations** — a second job replays `prisma migrate deploy` on an empty database, seeds it with
+`db:seed`, then replays the migrations again. This is not ceremony: a migration that rebuilds a table
+passes on an empty database (the `INSERT ... SELECT` copies no rows) and fails on a populated one.
+That is exactly how `20260609000000_form_userid_nullable` shipped broken and blocked every existing
+instance with `P3009`. See [Database Migrations](#database-migrations).
+
+Node's version comes from `.nvmrc`, so the runner, the Docker image and the dev machine cannot drift
+— see [Runtime Version Parity](#runtime-version-parity).
+
+**`npm run lint` is not run in CI**: with no pre-existing ESLint configuration, the command opens
+Next's interactive setup and hangs indefinitely on a non-interactive shell. `typecheck`, `test` and
+`build` are what gate a change.
 
 ---
 

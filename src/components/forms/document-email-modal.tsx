@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   Filter,
+  Info,
   Loader2,
   Mail,
   Plus,
@@ -37,6 +38,7 @@ interface FormBlock {
 interface DocumentEmailModalProps {
   formId: string
   blocks: FormBlock[]
+  hasTemplate?: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
   onSaved?: (settings: FormDocumentSettings) => void
@@ -81,7 +83,9 @@ function valueOptions(field?: DocumentCatalogField): { label: string; value: str
   return []
 }
 
-function newRoute(name: string): DocumentEmailRoute {
+// Sans modèle Word, un nouveau circuit est un e-mail simple : la case « joindre » resterait
+// cochée pour rien, et un corps annonçant une pièce jointe absente serait un mensonge.
+function newRoute(name: string, withDocument: boolean): DocumentEmailRoute {
   return {
     id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name,
@@ -91,16 +95,19 @@ function newRoute(name: string): DocumentEmailRoute {
     recipients: [],
     recipientBlockIds: [],
     subject: 'Nouvelle réponse — {form_title}',
-    body:
-      '<p>Bonjour,</p>\n<p>Veuillez trouver ci-joint le document généré à partir de la réponse ' +
-      'au formulaire « {form_title} » reçue le {entry_date}.</p>\n<p>Cordialement,</p>',
-    attachDocument: true,
+    body: withDocument
+      ? '<p>Bonjour,</p>\n<p>Veuillez trouver ci-joint le document généré à partir de la réponse ' +
+        'au formulaire « {form_title} » reçue le {entry_date}.</p>\n<p>Cordialement,</p>'
+      : '<p>Bonjour,</p>\n<p>Nous avons bien reçu votre réponse au formulaire ' +
+        '« {form_title} » le {entry_date}.</p>\n<p>Cordialement,</p>',
+    attachDocument: withDocument,
   }
 }
 
 export function DocumentEmailModal({
   formId,
   blocks,
+  hasTemplate: hasTemplateHint,
   open,
   onOpenChange,
   onSaved,
@@ -109,7 +116,7 @@ export function DocumentEmailModal({
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [hasTemplate, setHasTemplate] = useState(false)
+  const [hasTemplate, setHasTemplate] = useState(hasTemplateHint ?? false)
   const [enabled, setEnabled] = useState(false)
   const [sendOnSubmission, setSendOnSubmission] = useState(true)
   const [routes, setRoutes] = useState<DocumentEmailRoute[]>([])
@@ -227,11 +234,12 @@ export function DocumentEmailModal({
         ) : (
           <div className="space-y-5 py-2">
             {!hasTemplate && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  Aucun modèle Word n’est encore importé. Les circuits resteront inactifs tant que
-                  la modale « Modèle de document » n’en contient pas.
+                  Aucun modèle Word n’est importé : les circuits envoient un e-mail simple —
+                  accusé de réception au répondant, notification à l’équipe. Pour joindre un
+                  document rempli, importez un modèle depuis « Modèle de document ».
                 </span>
               </div>
             )}
@@ -245,7 +253,7 @@ export function DocumentEmailModal({
                   className="rounded"
                 />
                 <span className="text-sm font-medium text-gray-900">
-                  Activer l’envoi du document par e-mail
+                  Activer l’envoi d’e-mails à chaque réponse
                 </span>
               </label>
               <label className="flex items-center gap-3 pl-7">
@@ -543,19 +551,28 @@ export function DocumentEmailModal({
                           />
                         </div>
 
-                        <label className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={route.attachDocument !== false}
-                            onChange={(e) =>
-                              updateRoute(route.id, { attachDocument: e.target.checked })
-                            }
-                            className="rounded"
-                          />
-                          <span className="text-sm text-gray-700">
-                            Joindre le document généré
-                          </span>
-                        </label>
+                        <div className="space-y-1.5">
+                          <label className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={route.attachDocument !== false}
+                              onChange={(e) =>
+                                updateRoute(route.id, { attachDocument: e.target.checked })
+                              }
+                              className="rounded"
+                            />
+                            <span className="text-sm text-gray-700">
+                              Joindre le document généré
+                            </span>
+                          </label>
+                          {!hasTemplate && route.attachDocument !== false && (
+                            <p className="flex items-start gap-1.5 pl-7 text-xs text-amber-700">
+                              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                              Aucun modèle Word n’est importé : ce circuit n’enverra rien tant que
+                              la case reste cochée. Décochez-la pour un e-mail simple.
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -566,7 +583,7 @@ export function DocumentEmailModal({
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  const route = newRoute(`Circuit ${routes.length + 1}`)
+                  const route = newRoute(`Circuit ${routes.length + 1}`, hasTemplate)
                   setRoutes((prev) => [...prev, route])
                   setOpenRouteId(route.id)
                 }}

@@ -87,6 +87,7 @@ interface ResponsesClientProps {
     settings: any
     webhooks?: Webhook[]
     hasDocumentTemplate?: boolean
+    hasEmailRoutes?: boolean
     createdAt?: string | Date
   }
   responses: FormResponse[]
@@ -104,6 +105,9 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [hasTemplate, setHasTemplate] = useState(form.hasDocumentTemplate ?? false)
+  // Le bouton d'envoi ne dépend pas du modèle : un circuit sans pièce jointe (accusé de
+  // réception, notification d'équipe) s'envoie sans qu'aucun .docx existe.
+  const [hasRoutes, setHasRoutes] = useState(form.hasEmailRoutes ?? false)
   const [sendingDocument, setSendingDocument] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editDraft, setEditDraft] = useState<Record<string, any>>({})
@@ -687,7 +691,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         })
       } else if (data.success) {
         toast({
-          title: `Document envoyé — ${sent.length} circuit${sent.length > 1 ? 's' : ''}`,
+          title: `E-mail envoyé — ${sent.length} circuit${sent.length > 1 ? 's' : ''}`,
           description: sent
             .map((r: any) => `${r.routeName} → ${(r.recipients ?? []).join(', ')}`)
             .join(' · '),
@@ -706,7 +710,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     } catch (error: any) {
       toast({
         title: 'Erreur',
-        description: error.message || 'Impossible d’envoyer le document',
+        description: error.message || 'Impossible d’envoyer les e-mails',
         variant: 'destructive',
       })
     } finally {
@@ -716,7 +720,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
 
   const documentButtonTitle = (response: FormResponse): string => {
     const status = response.documentStatus
-    if (!status) return 'Envoyer le document par e-mail'
+    if (!status) return 'Envoyer les e-mails de cette réponse'
     const when = format(new Date(status.lastSent), 'dd/MM/yyyy HH:mm', { locale: fr })
 
     const fallback = status.conversionFallback
@@ -1052,38 +1056,38 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                               </button>
                             )}
                             {hasTemplate && (
-                              <>
-                                <a
-                                  href={`/api/forms/${form.id}/responses/${response.id}/document`}
-                                  download
-                                  className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex"
-                                  title="Télécharger le document rempli"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </a>
-                                <button
-                                  onClick={() => handleSendDocument(response.id)}
-                                  disabled={sendingDocument === response.id}
-                                  className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-                                    {
-                                      sent: 'text-green-500 hover:text-green-600 hover:bg-green-50',
-                                      failed: 'text-red-500 hover:text-red-600 hover:bg-red-50',
-                                      'none-matched':
-                                        'text-gray-300 hover:text-gray-500 hover:bg-gray-50',
-                                      never: 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50',
-                                    }[documentState(response)]
-                                  }`}
-                                  title={documentButtonTitle(response)}
-                                >
-                                  {sendingDocument === response.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : documentState(response) === 'sent' ? (
-                                    <MailCheck className="w-4 h-4" />
-                                  ) : (
-                                    <Mail className="w-4 h-4" />
-                                  )}
-                                </button>
-                              </>
+                              <a
+                                href={`/api/forms/${form.id}/responses/${response.id}/document`}
+                                download
+                                className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors inline-flex"
+                                title="Télécharger le document rempli"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
+                            )}
+                            {hasRoutes && (
+                              <button
+                                onClick={() => handleSendDocument(response.id)}
+                                disabled={sendingDocument === response.id}
+                                className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                                  {
+                                    sent: 'text-green-500 hover:text-green-600 hover:bg-green-50',
+                                    failed: 'text-red-500 hover:text-red-600 hover:bg-red-50',
+                                    'none-matched':
+                                      'text-gray-300 hover:text-gray-500 hover:bg-gray-50',
+                                    never: 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50',
+                                  }[documentState(response)]
+                                }`}
+                                title={documentButtonTitle(response)}
+                              >
+                                {sendingDocument === response.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : documentState(response) === 'sent' ? (
+                                  <MailCheck className="w-4 h-4" />
+                                ) : (
+                                  <Mail className="w-4 h-4" />
+                                )}
+                              </button>
                             )}
                             <button
                               onClick={() => handleDelete(response.id)}
@@ -1330,34 +1334,34 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                     </Button>
                   )}
                   {hasTemplate && (
-                    <>
-                      <a
-                        href={`/api/forms/${form.id}/responses/${selectedResponse.id}/document`}
-                        download
-                      >
-                        <Button
-                          variant="outline"
-                          className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Document
-                        </Button>
-                      </a>
+                    <a
+                      href={`/api/forms/${form.id}/responses/${selectedResponse.id}/document`}
+                      download
+                    >
                       <Button
                         variant="outline"
-                        onClick={() => handleSendDocument(selectedResponse.id)}
-                        disabled={sendingDocument === selectedResponse.id}
-                        className="hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                        title={documentButtonTitle(selectedResponse)}
+                        className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
                       >
-                        {sendingDocument === selectedResponse.id ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Mail className="w-4 h-4 mr-2" />
-                        )}
-                        Envoyer par e-mail
+                        <Download className="w-4 h-4 mr-2" />
+                        Document
                       </Button>
-                    </>
+                    </a>
+                  )}
+                  {hasRoutes && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSendDocument(selectedResponse.id)}
+                      disabled={sendingDocument === selectedResponse.id}
+                      className="hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                      title={documentButtonTitle(selectedResponse)}
+                    >
+                      {sendingDocument === selectedResponse.id ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Mail className="w-4 h-4 mr-2" />
+                      )}
+                      Envoyer par e-mail
+                    </Button>
                   )}
                   <Button
                     variant="destructive"
@@ -1468,8 +1472,12 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
       <DocumentEmailModal
         formId={form.id}
         blocks={form.blocks}
+        hasTemplate={hasTemplate}
         open={emailModalOpen}
         onOpenChange={setEmailModalOpen}
+        onSaved={(settings) =>
+          setHasRoutes((settings.email.routes ?? []).some((route) => route.enabled))
+        }
       />
 
       <ReportModal

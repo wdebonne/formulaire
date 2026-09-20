@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getAccessibleForm } from '@/lib/form-access'
-import { hasDocumentTemplate, sendDocumentForResponse } from '@/lib/document-delivery'
+import { hasEmailRoutes, sendDocumentForResponse } from '@/lib/document-delivery'
 import { prisma } from '@/lib/prisma'
 
-// POST /api/forms/[id]/responses/[responseId]/document/send — (re)envoyer l'e-mail avec le
-// document en pièce jointe, sur le même modèle que le renvoi de webhook.
+// POST /api/forms/[id]/responses/[responseId]/document/send — (re)évaluer les circuits d'envoi
+// d'une réponse et renvoyer leurs e-mails, sur le même modèle que le renvoi de webhook.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; responseId: string }> }
@@ -18,9 +18,10 @@ export async function POST(
     const form = await getAccessibleForm(id, session, 'read')
     if (!form) return NextResponse.json({ error: 'Formulaire non trouvé' }, { status: 404 })
 
-    if (!hasDocumentTemplate(form.documentSettings)) {
+    // Le modèle Word n'est pas requis : un circuit sans pièce jointe envoie un simple e-mail.
+    if (!hasEmailRoutes(form.documentSettings)) {
       return NextResponse.json(
-        { error: 'Aucun modèle de document n’est associé à ce formulaire' },
+        { error: 'Aucun circuit d’envoi actif sur ce formulaire' },
         { status: 400 }
       )
     }

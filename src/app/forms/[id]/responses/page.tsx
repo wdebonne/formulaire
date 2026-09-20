@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { hasDocumentTemplate } from '@/lib/document-delivery'
+import { hasDocumentTemplate, hasEmailRoutes } from '@/lib/document-delivery'
 import type { DocumentSendStatus } from '@/types/form'
 import { ResponsesClient } from './responses-client'
 
@@ -62,6 +62,7 @@ export default async function ResponsesPage({ params }: { params: Promise<{ id: 
     settings: JSON.parse(form.settings),
     webhooks: JSON.parse(form.webhooks || '[]'),
     hasDocumentTemplate: hasDocumentTemplate(form.documentSettings),
+    hasEmailRoutes: hasEmailRoutes(form.documentSettings),
   }
 
   const parsedResponses = responses.map((r) => {

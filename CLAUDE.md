@@ -72,7 +72,7 @@ Context for Claude Code when working on this project.
 | `src/app/api/forms/[id]/upload/route.ts` | Public (gated) attachment upload + removal before submission |
 | `src/app/api/forms/[id]/files/[name]/route.ts` | Authenticated attachment download, gated by `getAccessibleForm()` |
 | `src/lib/document-storage.ts` | Private .docx storage outside `public/` — `saveTemplateFile()`, `readTemplateFile()`, `looksLikeDocx()` |
-| `src/lib/document-delivery.ts` | Generates the document for a response and mails it — `generateDocumentForResponse()`, `sendDocumentForResponse()`, `resolveRecipients()` |
+| `src/lib/document-delivery.ts` | Mails the e-mails a response triggers, attachment optional — `sendDocumentForResponse()`, `generateDocumentForResponse()`, `resolveRecipients()`, `hasEmailRoutes()`/`hasDocumentTemplate()` |
 | `src/lib/pdf-convert.ts` | PDF conversion, either engine — `resolveProvider()`, `testGotenberg()`, `convertDocxToPdf()`, `isPdfConversionAvailable()`, `buildProbeDocx()`, `testPdfConversion()` |
 | `src/lib/nextcloud-convert.ts` | Server-only NextCloud engine — WebDAV deposit, `convertWithNextcloud()` (Euro-Office → ONLYOFFICE → Nextcloud conversion API), `probeNextcloud()` |
 | `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
@@ -91,7 +91,7 @@ Context for Claude Code when working on this project.
 | `src/lib/report-scheduler.ts` | Server-only — `runDueReports()`, `startReportScheduler()` (in-process timer) |
 | `src/components/forms/report-modal.tsx` | "Rapports" modal — Période / Contenu / Envoi tabs, live preview bar, PDF download, send-now |
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
-| `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — recipients, subject, body |
+| `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — routes, conditions, recipients, subject, body, optional attachment |
 | `src/app/admin/documents/documents-client.tsx` | Admin UI for PDF conversion — engine choice (NextCloud / Gotenberg), connection test, conversion test with the produced PDF downloadable, verified state |
 | `src/lib/catalog.ts` | Pure/client-safe catalog logic — `isCatalogBlock()`, `catalogPeriod()`, `resolveCatalogBlocks()`, `catalogItemsFromStock()`, `catalogFilterParams()`; no Prisma import |
 | `src/lib/catalog-config.ts` | Server-only catalog wiring — `getCatalogConfig()`, `catalogCall()`, `fetchCatalogFacets()`, `testCatalogConnection()`, `catalogSettingsView()`; holds the API token |
@@ -329,6 +329,24 @@ A form can carry a `.docx` template whose tokens are replaced by the response va
 being mailed as an attachment. Configured from **two separate modals** on the responses page
 toolbar (next to "Exporter CSV" / "Tout supprimer"): *Modèle de document* and *E-mail d'envoi*.
 
+**The template is optional — the e-mail is the feature.** A route with `attachDocument: false`
+sends a plain message, so the same machinery covers the acknowledgement mailed to the respondent
+(recipient read from an `email` block via `recipientBlockIds`) and the notification mailed to the
+team on every new response. Nothing about that requires Word. `sendDocumentForResponse()` therefore
+generates the document **only when a route that actually matched asks for it**: no template read, no
+`.docx` render and no PDF round-trip for a form that has none. Conversely, a matched route that
+*does* ask for an attachment it cannot get **fails explicitly rather than sending** — a "veuillez
+trouver ci-joint" with nothing attached is worth less than a visible failure — while the
+attachment-free routes of the same response go out normally, so a broken template never silences
+the respondent's acknowledgement (same reasoning as the PDF → `.docx` fallback).
+
+Subject and body tokens are resolved by `emailTokens()`, which feeds `buildDocumentData()` the
+**merged** catalog (`catalogToMappings(buildFieldCatalog(blocks, template.mappings))`) instead of the
+saved mappings alone. Saved tags keep their block — that is the renaming guarantee — and questions
+added since the last template import, or asked by a form that never had one and therefore has no
+saved mapping at all, still resolve. Without that merge, `{form_title}` in a templateless form's
+subject would be blanked by `applyTags()`, which empties unknown tokens.
+
 **Why docxtemplater and not Carbone**: Carbone switched from Apache-2.0 to the *Carbone Community
 License* in v3.5.5 (2023-02-15) and every release since. The CCL adds field-of-use restrictions
 (internal use only, "no exposing the feature to third parties, even via a wrapper", no
@@ -432,6 +450,11 @@ labels and joined multi-choice answers into `"A, B"`. `canonicalizeValue()` norm
 working on responses recorded before that resolution existed. `equals` on a multi-valued answer is
 true when the option is among those selected — that is what "si la réponse est Matériel" means to a
 user, and it differs from the form evaluator's strict `===`.
+
+Neither `POST /api/forms/[id]/submit` nor the manual replay route requires
+`template.storedName` any more — both gate on *an enabled route existing* (`hasEmailRoutes()`).
+`hasDocumentTemplate()` survives for what genuinely needs a template: the "Télécharger le document"
+link. On the responses page the two buttons are gated separately for that reason.
 
 Sending is fully backend-internal (`sendDocumentForResponse`), never throws — a broken template or
 an unreachable SMTP must not fail the respondent's submission, same contract as `logEvent()`. It

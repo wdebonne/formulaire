@@ -51,6 +51,7 @@ with no third-party service in the loop.
 | 🎨 **Themes & branding** | Colors, Google Fonts, gradients, background images, logo placement |
 | 🔐 **Access control** | Availability window, password, quota, one-per-device, sign-in required |
 | 📄 **Word documents** | `.docx` templates filled with the answers and mailed to the right service |
+| ✉️ **E-mails on response** | Acknowledgement to the respondent, notification to the team, conditional routing — with or without an attachment |
 | 📊 **PDF reports** | Scheduled, e-mailed statistical summaries with charts and breakdowns |
 | 🛡️ **Compliance** | GDPR retention & erasure, audit trail, anti-bruteforce, IP allow/deny lists |
 | 🐳 **Self-hosted** | Single Docker image, SQLite, multi-arch (AMD64 + ARM64) |
@@ -125,6 +126,7 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 - **External equipment catalog** — a multiple-choice or dropdown block can draw its options from an equipment-management application instead of a hand-typed list, showing only what is still available on the date answered earlier in the form, filtered by service, kind and category. A typed list ages: an item sold, ten tables bought, and the form still offers last year's stock.
 - **Word document generation** — attach a `.docx` template whose tokens are replaced by the answers, then e-mail the filled document as an attachment. Visual table of available fields (copyable token, possible answers, whether the token is actually present in the template), loop tokens for repeaters, `{case_…}` checkbox tokens rendering ☒/☐ so a blank printed template stays fillable by hand, and a warning for unknown tokens. **Tokens stay stable when a question or an option is renamed.**
 - **Conditional e-mail routing** — one circuit per service, each with its own conditions, recipients, subject and body, so only the people concerned are notified. Conditions reuse the form-logic operators and are collapsed by default.
+- **Acknowledgement and team notification** — the attachment is optional: a circuit without a document sends a plain e-mail, **with no Word template required**. The recipient can be the address the respondent typed in (any *Email* block of the form), which gives the acknowledgement; a fixed address gives the team notification on every new response. Subject and body accept the same `{…}` tokens as templates, resolved even when no template exists.
 - **Periodic PDF reports** — a *Rapports* modal turns responses into a formatted PDF and mails it on a schedule.
 - **Optional PDF output** — through the office server of your **NextCloud** (Euro-Office, ONLYOFFICE, Nextcloud Office: nothing more to install) or a dedicated [Gotenberg](https://gotenberg.dev/) container, whichever you pick in the admin panel. Should the conversion fail at send time, the filled `.docx` goes out in place of the PDF rather than nothing at all.
 - **JSON import / export** of forms, and form duplication.

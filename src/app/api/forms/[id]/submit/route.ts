@@ -108,14 +108,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       })
     }
 
-    // Génération du document et envoi par e-mail. sendDocumentForResponse ne lève jamais et
-    // enregistre son propre statut : un modèle cassé ou un SMTP injoignable ne doit pas faire
-    // échouer la soumission côté répondant.
+    // E-mails déclenchés par la réponse. Aucun modèle Word n'est exigé ici : un circuit peut
+    // n'être qu'un accusé de réception au répondant ou une notification à l'équipe, et
+    // sendDocumentForResponse ne produit le document que pour les circuits qui le réclament.
+    // Il ne lève jamais et enregistre son propre statut : un modèle cassé ou un SMTP
+    // injoignable ne doit pas faire échouer la soumission côté répondant.
     const documentSettings = parseFormDocumentSettings(form.documentSettings)
     if (
       documentSettings.email.enabled &&
       documentSettings.email.sendOnSubmission &&
-      documentSettings.template.storedName &&
       documentSettings.email.routes.some((route) => route.enabled)
     ) {
       await sendDocumentForResponse(form, response)

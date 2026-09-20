@@ -167,6 +167,7 @@ npx vitest run tests/lib/catalog.test.ts   # a single file
 | `condition-eval.ts` | A route with no condition always fires, slug / id / label normalisation, "equals" true on one option among several |
 | `response-format.ts` | Label resolution, date formats, attachments and signatures copied untouched |
 | `document-fields.ts` | Token stability across renames, global deduplication, checkbox tokens |
+| `webhook-retry.ts` | Retry cadence: strictly increasing delays, never-negative jitter, exhaustion after six attempts |
 
 ### Writing a test that earns its place
 
@@ -186,7 +187,7 @@ npx vitest run tests/lib/catalog.test.ts   # a single file
 ### What is not covered
 
 API routes, React components and server modules (Prisma, mail sending, PDF rendering, document
-conversion) have no automated tests. CI's `next build` keeps them compiling, and nothing more: a
+conversion, the webhook retry queue) have no automated tests. CI's `next build` keeps them compiling, and nothing more: a
 change touching them needs manual verification.
 
 ---

@@ -56,6 +56,7 @@ serveur, sans aucun service tiers dans la boucle.
 | ✉️ **E-mails sur réponse** | Accusé de réception au répondant, notification à l'équipe, circuits conditionnels — avec ou sans pièce jointe |
 | 📊 **Rapports PDF** | Synthèses statistiques planifiées et envoyées par e-mail, avec graphiques et répartitions |
 | 📈 **Statistiques à l'écran** | Les mêmes chiffres consultables directement, sans générer de PDF, sur la période de votre choix |
+| 🔁 **Webhooks fiables** | Reprise automatique des envois en échec, six tentatives échelonnées sur 24 h |
 | 🛡️ **Conformité** | Conservation et effacement RGPD, journal d'activité, anti-bruteforce, listes blanche/noire d'IP |
 | ♿ **Accessibilité** | Formulaire public utilisable au clavier et au lecteur d'écran — rôles ARIA, focus suivi, erreurs annoncées |
 | 🐳 **Auto-hébergé** | Une seule image Docker, SQLite, multi-architecture (AMD64 + ARM64) |

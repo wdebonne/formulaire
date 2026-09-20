@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { applyWebhookSignature } from '@/lib/webhook-signature'
+import { cancelWebhookRetries, enqueueWebhookRetry } from '@/lib/webhook-queue'
 import { answerToText, isStructuredAnswer } from '@/lib/response-format'
 
 // Corps `FORM` : une valeur structurée (pièce jointe, quantité, groupe) n'a pas d'écriture
@@ -336,6 +337,24 @@ export async function POST(
       where: { id: responseId },
       data: { webhookStatus: JSON.stringify(updatedStatus) },
     })
+
+    // La file de reprise et la relance manuelle visent le même envoi : laisser la file insister
+    // après une relance réussie enverrait la réponse deux fois. À l'inverse, une relance manuelle
+    // qui échoue alors qu'aucune reprise n'était programmée en ouvre une — c'est bien une perte
+    // silencieuse de plus, qu'il n'y a pas de raison de traiter autrement que la première.
+    for (const result of results) {
+      if (result.success) {
+        await cancelWebhookRetries(responseId, result.webhookId)
+      } else {
+        const webhook = webhooksToSend.find((w: any) => w.id === result.webhookId)
+        const pending = await prisma.webhookDelivery.count({
+          where: { responseId, webhookId: result.webhookId, status: 'pending' },
+        })
+        if (webhook && pending === 0) {
+          await enqueueWebhookRetry(responseId, webhook, result.error || 'Relance manuelle échouée')
+        }
+      }
+    }
 
     return NextResponse.json({
       success: allSuccess,

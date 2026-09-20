@@ -104,6 +104,9 @@ Context for Claude Code when working on this project.
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
 | `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — routes, conditions, recipients, subject, body, optional attachment |
 | `src/app/admin/documents/documents-client.tsx` | Admin UI for PDF conversion — engine choice (NextCloud / Gotenberg), connection test, conversion test with the produced PDF downloadable, verified state |
+| `src/lib/webhook-send.ts` | Payload + envoi d'un webhook — `buildWebhookPayload()`, `buildWebhookRequest()`, `sendWebhook()`; no Prisma, 10 s timeout |
+| `src/lib/webhook-retry.ts` | Pure backoff schedule — `WEBHOOK_RETRY_DELAYS_MS`, `webhookRetryDelayMs()`, `nextWebhookAttemptAt()`, `isWebhookExhausted()`, `describeWebhookRetry()` |
+| `src/lib/webhook-queue.ts` | Server-only retry queue — `enqueueWebhookRetry()`, `runDueWebhookRetries()`, `cancelWebhookRetries()` |
 | `src/lib/catalog.ts` | Pure/client-safe catalog logic — `isCatalogBlock()`, `catalogPeriod()`, `resolveCatalogBlocks()`, `catalogItems()`, `catalogFilterParams()`; no Prisma import |
 | `src/lib/catalog-config.ts` | Server-only catalog wiring — `getCatalogConfig()`, `catalogCall()`, `fetchCatalogFacets()`, `testCatalogConnection()`, `catalogSettingsView()`; holds the API token |
 | `src/lib/use-catalog-blocks.ts` | Public-form hook — one request per block and per period, re-issued only when the answered date changes |
@@ -195,6 +198,7 @@ Anything heavy (a data URL) or that should not be mirrored onto their disk needs
 - `SystemSettings.logSettings` (JSON stored as string) — typed as `LogSettings` in `src/lib/audit-log.ts`; holds `retentionEnabled`/`retentionDays` (default: 365 days), plus `autoPurgeEnabled`/`lastAutoPurgeAt`, read via `getLogSettings()`/`getLogRetentionCutoffDate()`
 - `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
 - `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, anti-spam settings (`honeypotEnabled`, `minFillTimeEnabled`/`minFillSeconds`, `rateLimitEnabled`/`rateLimitMax`/`rateLimitWindowMinutes`), `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
+- `WebhookDelivery` model — the retry queue: `responseId`, `webhookId`, `status` (`pending`|`delivered`|`abandoned`), `attempts`, `nextAttemptAt`, `lastError`; indexed on `(status, nextAttemptAt)` so the timer asks for what is due rather than scanning. `onDelete: Cascade` from `Response`: a purged answer takes its pending retries with it. It deliberately stores **no payload** — see "Webhook Retry Queue"
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
 - `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; which PDF engine is used (`pdfConverterProvider`: `gotenberg` | `nextcloud`, absent = `gotenberg`), the Gotenberg URL, and the verification state (`pdfConverterVerified`, plus `pdfConversionVerifiedAt`/`pdfConversionMethod` recording the last conversion actually exercised)
 - `SystemSettings.catalogSettings` (JSON stored as string) — typed as `SystemCatalogSettings`; external catalog URL, API token and verification state. The token is stored in clear, like the NextCloud credentials, and is **never** returned to the browser — `catalogSettingsView()` exposes only `hasToken`
@@ -380,6 +384,79 @@ it quietly. There is no partial-submission path in the product; `Response.status
 
 A webhook carrying a `secret` is signed: `applyWebhookSignature()` (`src/lib/webhook-signature.ts`) adds an `X-Webhook-Signature` header holding `sha256=<HMAC-SHA256 of the body>`. **The signature is computed over the exact string sent** — re-serializing the object before signing would produce a digest the receiver cannot reproduce, since two equivalent JSON documents written differently do not share their bytes. All three senders sign (submission, the editor's test, manual replay), a GET carries none (no body to sign, and signing the empty string authenticates nothing), and `/api/forms/[id]/export` strips `secret` from the exported webhooks.
 
+### What `/api/uploads/[filename]` Actually Serves
+This route serves `public/uploads` with **no authentication at all**, and that is deliberate — but
+the reasoning is worth writing down, because it reads like a hole and periodically gets re-reported
+as one.
+
+**Respondent attachments are not there and never were.** They live in
+`storage/response-files/{formId}/` and are only reachable through `GET /api/forms/[id]/files/[name]`,
+gated by `getAccessibleForm()`. The Téléchargement block has worked that way since it shipped; there
+is no future date at which this route starts exposing them.
+
+**What is there is authored, and meant to be public**: the site logo, the favicon, block media
+images, Excel preview files. All of it is written by `POST /api/upload`, which **requires a
+session** — so the route is unauthenticated on read, never on write. Adding authentication to the
+read would break the public form outright: an anonymous respondent has to be able to load the logo
+and the images of the form they are filling in.
+
+Filenames are UUIDv4, so nothing is enumerable. SVG is allowed but served with
+`Content-Security-Policy: default-src 'none'` and `X-Content-Type-Options: nosniff` (the S5 fix in
+SECURITY_AUDIT.md), so it cannot execute script on the app's origin.
+
+**The one real residue**: block media attached to a *password-protected or login-restricted* form is
+served without that gate. The page is gated, so the URL is not handed out — but anyone who has the
+URL keeps it. Accepted, not overlooked: gating it would require the respondent's unlock cookie on a
+plain image request, which is exactly the `SameSite=Lax` problem documented under Form Access
+Options. Don't put anything sensitive in block media.
+
+### The Public Form Is Monolingual
+Every user-facing string in `public-form-client.tsx` and `form-gate-screen.tsx` is written in French
+in the source. There is no i18n layer, no language selector, and form labels themselves are stored
+in a single language. This is a deliberate non-goal, not an oversight — adding it means extracting
+the UI strings *and* making author-written labels translatable (schema, editor, storage, respondent
+language persistence), which is a project of its own. Don't half-introduce it: a
+`t()` wrapper around a third of the strings is worse than none, because it looks finished.
+
+### Webhook Retry Queue
+A failed webhook used to leave a line in `Response.webhookStatus` and nothing else: the answer was
+stored, the receiving application never saw it, and nobody was told. A silent loss, only found by
+reconciling two databases by hand.
+
+**The first attempt stays synchronous** in `/api/forms/[id]/submit`. The vast majority succeed at
+once, and the responses page has to show the result immediately. Only a *failure* enqueues a
+`WebhookDelivery` row.
+
+**The queue stores identifiers, never the body.** The payload is rebuilt from `Response.data` and
+the form's current webhook config on every attempt. Storing the serialized body would make a second
+copy of personal data — one more thing to retain and to purge under GDPR — and would replay the
+faulty configuration instead of the one just fixed. `onDelete: Cascade` on the response means a
+purge takes the pending retries with it.
+
+**Six attempts, 1 min → 24 h, with positive-only jitter.** The spread matters: a hundred answers
+piled up during an outage would otherwise all fire on the same second and finish off a receiver
+that has just come back. `WEBHOOK_RETRY_JITTER` never shortens a delay below the announced one.
+Beyond 24 h, insisting adds nothing a manual replay would not do better, and the row is marked
+`abandoned` — which is the moment an admin needs to find, so it is the one that writes an audit
+entry (`webhook.retry_abandoned`).
+
+**A webhook disabled or deleted since the failure is abandoned, not retried.** Insisting would
+override a decision taken after the fact.
+
+**Retries run on the existing maintenance timer**, as a third independent job beside reports and
+retention purges — a failed report pass must not hold back a delivery that would go through.
+`runDueWebhookRetries()` never throws, same contract as the other two, and processes at most 50
+rows per pass so one outage cannot starve the others.
+
+**Manual replay and the queue cancel each other out.** A successful manual replay marks pending
+retries delivered, otherwise the response would go out twice; a failed manual replay with nothing
+queued opens a retry, since that is a silent loss like any other.
+
+`src/lib/webhook-send.ts` exists because the payload builder was duplicated between the submit route
+and the manual replay route — the queue would have made it a third copy. `sendWebhook()` also caps
+the request at `WEBHOOK_TIMEOUT_MS` (10 s): without it, a receiver that never answers held the
+respondent's submission open until the server's own timeout.
+
 ### Form Versioning
 Auto-versions are created inside the PUT `/api/forms/[id]` route when `saveCount % 10 === 0`, using a `$transaction` to update the form and create the version atomically. Manual versions are created via POST `/api/forms/[id]/versions`. Restore always snapshots the current state first (label: "Avant restauration vN") before overwriting, so no data is ever lost silently.
 
@@ -399,7 +476,9 @@ The "Aperçu" button in the builder does **not** use a custom re-implementation 
 2. It opens a `fixed inset-0` iframe overlay pointing to `/forms/[id]/preview`.
 3. That page (`src/app/forms/[id]/preview/page.tsx`) is auth-protected and renders the exact same `PublicFormClient` component as the public form — regardless of published/draft status.
 
-This guarantees the preview is always pixel-perfect with the published form. `src/components/builder/form-preview.tsx` is a legacy component that is no longer used.
+This guarantees the preview is always pixel-perfect with the published form. The legacy
+`src/components/builder/form-preview.tsx` (1 811 lines re-implementing the renderer) was deleted
+once nothing imported it — a second renderer that nobody runs is a second renderer that drifts.
 
 ### Login Page Customization & Public Settings Caching
 `SystemSettings.loginPageSettings` drives the forgot-password link visibility and the page background (solid/gradient/image+blur). `src/lib/utils.ts` exports `getLoginBackgroundStyle()` — the single source of truth for turning those settings into CSS (separate blurred image layer behind the card so the card itself stays sharp). Both `src/app/login/page.tsx` and the live preview in `customization-client.tsx` call this helper, so they always render identically.

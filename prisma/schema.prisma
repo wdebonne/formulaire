@@ -23,29 +23,29 @@ model User {
 }
 
 model Form {
-  id          String        @id @default(uuid())
-  title       String
-  slug        String        @unique
-  description String?
-  status      String        @default("draft")
-  blocks      String        @default("[]")
-  logic       String        @default("[]")
-  settings    String        @default("{}")
-  webhooks    String        @default("[]")
-  documentSettings String   @default("{}") // Modèle .docx + paramètres d'e-mail (JSON stocké en texte)
-  reportSettings String    @default("{}") // Rapports périodiques : période, contenu, planification (JSON stocké en texte)
-  accessSettings String    @default("{}") // Conditions d'accès : fenêtre de publication, mot de passe, quotas (JSON stocké en texte)
-  themeId     String?
-  userId      String?
-  deletedAt   DateTime?
-  saveCount   Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  theme       Theme?        @relation(fields: [themeId], references: [id])
-  shares      FormShare[]
-  responses   Response[]
-  versions    FormVersion[]
+  id               String        @id @default(uuid())
+  title            String
+  slug             String        @unique
+  description      String?
+  status           String        @default("draft")
+  blocks           String        @default("[]")
+  logic            String        @default("[]")
+  settings         String        @default("{}")
+  webhooks         String        @default("[]")
+  documentSettings String        @default("{}") // Modèle .docx + paramètres d'e-mail (JSON stocké en texte)
+  reportSettings   String        @default("{}") // Rapports périodiques : période, contenu, planification (JSON stocké en texte)
+  accessSettings   String        @default("{}") // Conditions d'accès : fenêtre de publication, mot de passe, quotas (JSON stocké en texte)
+  themeId          String?
+  userId           String?
+  deletedAt        DateTime?
+  saveCount        Int           @default(0)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  user             User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  theme            Theme?        @relation(fields: [themeId], references: [id])
+  shares           FormShare[]
+  responses        Response[]
+  versions         FormVersion[]
 
   @@index([userId])
   @@index([slug])
@@ -99,18 +99,48 @@ model Theme {
 }
 
 model Response {
-  id            String   @id @default(uuid())
-  formId        String
-  data          String   @default("{}")
-  status        String   @default("completed")
-  metadata      String   @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  webhookStatus String?  @default("{}")
-  documentStatus String? @default("{}") // Dernier envoi du document généré (JSON stocké en texte)
-  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  id                String            @id @default(uuid())
+  formId            String
+  data              String            @default("{}")
+  status            String            @default("completed")
+  metadata          String            @default("{}")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  webhookStatus     String?           @default("{}")
+  documentStatus    String?           @default("{}") // Dernier envoi du document généré (JSON stocké en texte)
+  form              Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  webhookDeliveries WebhookDelivery[]
 
   @@index([formId])
+}
+
+// File de reprise des webhooks en échec.
+//
+// Seuls des identifiants sont conservés : le corps de la requête est reconstruit à chaque
+// tentative depuis Response.data et la configuration du formulaire. Stocker le corps ferait une
+// seconde copie des données personnelles, à conserver et à purger en plus de la réponse — et une
+// reprise rejouerait la configuration fautive au lieu de celle qu'on vient de corriger.
+//
+// `onDelete: Cascade` : une réponse effacée (purge RGPD, conservation, suppression manuelle)
+// emporte ses reprises. Sans quoi la file tenterait indéfiniment d'envoyer une réponse qui
+// n'existe plus.
+model WebhookDelivery {
+  id            String   @id @default(uuid())
+  responseId    String
+  webhookId     String
+  webhookName   String   @default("")
+  url           String   @default("")
+  status        String   @default("pending") // pending | delivered | abandoned
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime
+  lastError     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  response      Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  // L'index qui compte : la minuterie demande « ce qui est dû », pas « tout ».
+  @@index([status, nextAttemptAt])
+  @@index([responseId])
 }
 
 model SystemSettings {
@@ -129,9 +159,9 @@ model SystemSettings {
   updatedAt           DateTime @updatedAt
   smtpFromName        String?
   // NextCloud WebDAV (partagé entre tous les administrateurs)
-  nextcloudUrl        String?  // URL de l'instance, ex: https://cloud.monsite.fr
-  nextcloudUser       String?  // Nom d'utilisateur NextCloud
-  nextcloudPass       String?  // Mot de passe d'application NextCloud
+  nextcloudUrl        String? // URL de l'instance, ex: https://cloud.monsite.fr
+  nextcloudUser       String? // Nom d'utilisateur NextCloud
+  nextcloudPass       String? // Mot de passe d'application NextCloud
   nextcloudBasePath   String?  @default("/") // Dossier racine dans NextCloud
   securitySettings    String   @default("{}") // Règles anti-bruteforce (JSON stocké en texte)
   gdprSettings        String   @default("{}") // Paramètres RGPD : durée de conservation des réponses (JSON stocké en texte)

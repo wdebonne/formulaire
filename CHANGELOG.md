@@ -11,6 +11,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Automatic retry of failed webhooks** — a failed webhook left a trace in the response's status and nothing more: the answer was stored, the receiving application never saw it, and nobody was told. A silent loss, only found by reconciling two databases by hand. Failed deliveries now enter a **retry queue** handled by the maintenance timer.
+  - **Six attempts spread over twenty-four hours** — 1 min, 5 min, 15 min, 1 h, 6 h, 24 h. A minute covers a service restart, twenty-four hours cover an outage dealt with the next morning; beyond that, insisting adds nothing a manual replay would not do better, and the row is marked "abandoned" — with an audit entry, since that is the moment the loss becomes final.
+  - **A random spread is added to each delay**, never subtracted: a hundred answers piled up during an outage would otherwise all fire on the same second and finish off a receiver that has just come back.
+  - **The first attempt stays immediate**: the vast majority succeed at once and the responses page has to show the result straight away. Only a failure enters the queue.
+  - **The queue stores no personal data** — identifiers only. The request body is rebuilt on every attempt from the response and the form's current webhook configuration: no second copy to retain or purge under GDPR, and a configuration fixed in the meantime is the one that goes out. Deleting a response takes its retries with it.
+  - **A webhook disabled or deleted since the failure is not retried**: insisting would override a decision taken after the fact. And a successful manual replay cancels pending retries, without which the response would go out twice.
+  - **A 10-second timeout** now applies to every delivery: a receiver that never answers used to hold the respondent's submission open until the server's own timeout.
+
+### Changed
+- **Deleted `form-preview.tsx`** — 1,811 lines re-implementing the form renderer, unused since the *Aperçu* button started opening the real public component in an iframe. A second renderer nobody runs is a second renderer that drifts.
+
+### Fixed
+- **The webhook payload builder existed twice**, between the submit route and the manual replay route; the retry queue would have made it a third. It now lives in a single module, `src/lib/webhook-send.ts`.
+
+### Documentation
+- **`/api/uploads/[filename]` without authentication — clarified rather than "fixed"**. This comes back periodically as a hole, with the idea that it will become critical once respondent attachments exist. They already exist, and never went through it: they live in `storage/response-files/` and are only readable through an authenticated route. What `public/uploads` serves — logo, favicon, block images — is **uploaded by a signed-in account** and meant to be seen by anonymous respondents: requiring authentication on read would break the public form outright. One real residue remains, now written down: the media of a block belonging to a password-protected form is served without that password.
+- **Monolingual public interface** — every string is written in French in the source, with no i18n layer. This is an accepted non-goal rather than an oversight: documenting it prevents it being half-introduced, which would be worse than not at all.
+
+### Added
 - **Automated tests and continuous integration** — roughly 50,000 lines, no test, no workflow: every change rested on a re-read and a manual try. Yet the pure/server module split followed throughout the project already made the business logic directly testable, with no database, no server and no browser. A [Vitest](https://vitest.dev) suite now covers the six modules concerned, and a GitHub Actions workflow checks every push.
   - **180 tests over `report-stats.ts`, `catalog.ts`, `form-options.ts`, `condition-eval.ts`, `response-format.ts` and `document-fields.ts`**, in under a second. They describe the guarantees the code was written to hold: choice labels resolved at display time without ever rewriting what is stored, an option never counted twice depending on whether it was saved as its slug or its label, an attachment copied untouched rather than reduced to its name, anti-spam protections on by default, the closing date capping every report period, a Word template token surviving its question being renamed.
   - **The suite was verified by deliberately breaking each module** — a suite that stays green on broken code is worthless. All six mutations are caught; the first pass let one survive, and that hole was real: the reconstruction of a comma-bearing label was only ever exercised through its short-circuit, never through the loop that is its whole reason for existing.

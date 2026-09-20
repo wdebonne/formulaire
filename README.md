@@ -56,6 +56,7 @@ with no third-party service in the loop.
 | ✉️ **E-mails on response** | Acknowledgement to the respondent, notification to the team, conditional routing — with or without an attachment |
 | 📊 **PDF reports** | Scheduled, e-mailed statistical summaries with charts and breakdowns |
 | 📈 **On-screen statistics** | The same figures, read directly for any period, without generating a PDF |
+| 🔁 **Reliable webhooks** | Failed deliveries retried automatically, six attempts spread over 24 h |
 | 🛡️ **Compliance** | GDPR retention & erasure, audit trail, anti-bruteforce, IP allow/deny lists |
 | ♿ **Accessibility** | Public form usable by keyboard and screen reader — ARIA roles, managed focus, announced errors |
 | 🐳 **Self-hosted** | Single Docker image, SQLite, multi-arch (AMD64 + ARM64) |

@@ -11,6 +11,7 @@
 
 import { runDueReports } from './report-scheduler'
 import { runDueRetentionPurges } from './retention-purge'
+import { runDueWebhookRetries } from './webhook-queue'
 
 const DEFAULT_INTERVAL_MINUTES = 5
 
@@ -19,6 +20,8 @@ export interface MaintenanceSummary {
   reportsFailed: number
   responsesDeleted: number
   logsDeleted: number
+  webhooksDelivered: number
+  webhooksAbandoned: number
   errors: string[]
 }
 
@@ -29,6 +32,8 @@ export async function runMaintenancePass(now: Date = new Date()): Promise<Mainte
     reportsFailed: 0,
     responsesDeleted: 0,
     logsDeleted: 0,
+    webhooksDelivered: 0,
+    webhooksAbandoned: 0,
     errors: [],
   }
 
@@ -51,6 +56,17 @@ export async function runMaintenancePass(now: Date = new Date()): Promise<Mainte
   } catch (error: any) {
     summary.errors.push(`Purges : ${error?.message || 'erreur inconnue'}`)
     console.error('Passage de maintenance — purges:', error)
+  }
+
+  // Reprises de webhook : troisième obligation indépendante des deux précédentes. Un rapport qui
+  // échoue ne doit pas retenir une livraison qui, elle, repasserait.
+  try {
+    const webhooks = await runDueWebhookRetries(now)
+    summary.webhooksDelivered = webhooks.delivered
+    summary.webhooksAbandoned = webhooks.abandoned
+  } catch (error: any) {
+    summary.errors.push(`Webhooks : ${error?.message || 'erreur inconnue'}`)
+    console.error('Passage de maintenance — webhooks:', error)
   }
 
   return summary

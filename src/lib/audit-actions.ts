@@ -21,6 +21,8 @@ export type AuditAction =
   | 'form.report_send'
   | 'form.options_update'
   | 'response.update'
+  | 'webhook.retry_succeeded'
+  | 'webhook.retry_abandoned'
   | 'user.create'
   | 'user.update'
   | 'user.delete'
@@ -48,6 +50,8 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   'form.report_send': 'Envoi d\'un rapport',
   'form.options_update': 'Modification des options d\'accès',
   'response.update': 'Modification d\'une réponse',
+  'webhook.retry_succeeded': 'Webhook livré après reprise',
+  'webhook.retry_abandoned': 'Webhook abandonné après échecs répétés',
   'user.create': 'Création d\'utilisateur',
   'user.update': 'Modification d\'utilisateur',
   'user.delete': 'Suppression d\'utilisateur',
@@ -87,7 +91,7 @@ export const ACTION_CATEGORIES: { label: string; actions: AuditAction[] }[] = [
   },
   {
     label: 'Réponses',
-    actions: ['response.update'],
+    actions: ['response.update', 'webhook.retry_succeeded', 'webhook.retry_abandoned'],
   },
   {
     label: 'Utilisateurs',

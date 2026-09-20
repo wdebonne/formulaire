@@ -167,6 +167,7 @@ npx vitest run tests/lib/catalog.test.ts   # un seul fichier
 | `condition-eval.ts` | Un circuit sans condition part toujours, normalisation slug / identifiant / libellé, « est égal à » vrai sur une option cochée parmi d'autres |
 | `response-format.ts` | Résolution des libellés, formats de date, pièces jointes et signatures recopiées intactes |
 | `document-fields.ts` | Stabilité des jetons après renommage, déduplication globale, jetons de cases à cocher |
+| `webhook-retry.ts` | Cadence des reprises : progression croissante, écart aléatoire jamais négatif, épuisement après six tentatives |
 
 ### Écrire un test qui serve à quelque chose
 
@@ -187,7 +188,7 @@ npx vitest run tests/lib/catalog.test.ts   # un seul fichier
 ### Ce qui n'est pas couvert
 
 Les routes API, les composants React et les modules serveur (Prisma, envoi d'e-mails, rendu PDF,
-conversion de documents) n'ont pas de tests automatisés. C'est le `next build` de l'intégration
+conversion de documents, file de reprise des webhooks) n'ont pas de tests automatisés. C'est le `next build` de l'intégration
 continue qui les garde compilables, et rien de plus : une modification qui les touche demande une
 vérification manuelle.
 

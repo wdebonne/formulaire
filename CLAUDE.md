@@ -39,6 +39,8 @@ Context for Claude Code when working on this project.
 | `src/components/builder/qr-code-panel.tsx` | QR code designer (advanced options + live preview + PNG export), rendered in the share modal |
 | `src/lib/qr-render.ts` | Custom canvas QR renderer — `QrDesign` type, `DEFAULT_QR_DESIGN`, `drawQrCode()` |
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
+| `src/lib/a11y.ts` | Pure/client-safe ARIA plumbing — `labelId()`/`descId()`/`errorId()`/`fieldId()`/`hintId()`, `describedBy()`, `fieldA11y()`, `usesNativeLabel()`; no Prisma import |
+| `src/lib/choice-list.ts` | Pure keyboard/ARIA props for button-based choice lists — `choiceListProps()`, `choiceOptionProps()`, `selectedChoiceIndex()` |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
 | `src/app/forms/[id]/stats/stats-client.tsx` | On-screen statistics page (`/forms/[id]/stats`) — period picker + every section of the PDF report, rendered from `computeReportStats()` |
@@ -134,7 +136,9 @@ When adding a new block type, update **all** of these:
 2. `src/stores/form-builder.ts` — default attributes in the block initializer
 3. `src/components/builder/block-editor.tsx` — settings panel
 4. `src/components/builder/block-preview.tsx` — builder preview
-5. `src/app/[slug]/public-form-client.tsx` — public form renderer
+5. `src/app/[slug]/public-form-client.tsx` — public form renderer, in **three** places (`QuestionBlock`,
+   `GroupBlock.renderInnerInput`, `InnerBlockInput`) — and each needs the ARIA plumbing described
+   under "Accessibility of the Public Form" below, not just the markup
 6. `src/app/forms/[id]/responses/responses-client.tsx` — response display
 7. `src/lib/response-export.ts` — `formatExportCell()`, shared by the CSV and Excel exports
 8. API webhook route — payload serialization
@@ -225,6 +229,58 @@ Blocks with choices (`dropdown`, `multiple-choice`, `image-selection`) store `ch
 
 L'action est journalisée (`response.update`) avec la **liste des champs** modifiés, jamais leurs
 valeurs — le journal d'activité ne doit pas devenir une seconde copie des données personnelles.
+
+### Accessibility of the Public Form (RGAA 4.1 / WCAG 2.1 AA)
+The renderer had **zero** ARIA attributes: choice options were bare `<button>`s, so a screen reader
+announced a row of buttons without saying which was selected or whether the question took one answer
+or several. For a French public body, RGAA conformance is a legal obligation, so treat the following
+as part of the contract rather than polish.
+
+The split follows the `form-options.ts` / `form-gate.ts` precedent — `src/lib/a11y.ts` and
+`src/lib/choice-list.ts` are pure and importable from `'use client'` components.
+
+**`fieldA11y()` is the single source of a field's ARIA attributes.** It returns `id`,
+`aria-labelledby` (or `aria-label` when `hideLabel` removes the `<h2>` from the document — an
+`aria-labelledby` pointing at nothing names nothing), `aria-describedby`, `aria-invalid` and
+`aria-required` in one object to spread onto the control. `errorId()`/`descId()`/`labelId()` are the
+only writers of those ids, so a `describedby` can never name an element nobody renders. Spread
+`groupA11y` (the same object minus `id`) onto a `role="group"` wrapper for anything made of several
+buttons — choice, rating, quantity, signature, file, date range — since an `<h2>` cannot be a
+`<label for>`.
+
+**All three renderers need it.** `QuestionBlock`, `GroupBlock.renderInnerInput` and `InnerBlockInput`
+each compute their own `a11y`/`groupA11y` and choice props. A new block type wired into only one of
+them is accessible on a standalone question and mute inside a group.
+
+**Arrow keys move focus without checking**, which is *not* the usual radio pattern. Checking an
+option advances to the next question after 300 ms, so selecting on arrow would scroll the form at
+every keypress; the ARIA Authoring Practices provide for exactly this when selection causes a change
+of context. `choiceListProps()`/`choiceOptionProps()` are plain functions rather than a hook because
+a group renders several choice lists at once, and the traversal reads `event.currentTarget` so no ref
+has to be threaded through.
+
+**The global Enter handler must keep standing aside for interactive elements.** It calls
+`preventDefault()` to advance to the next question; without the `closest('button, a[href],
+[role="radio"], …')` guard, the browser never fires the activation, and on a keyboard alone *no
+option is checkable and no button pressable*. Don't simplify that condition away.
+
+**Focus follows the question.** One question replaces another without a navigation, so
+`questionRegionRef` (or `screenRegionRef` for the welcome/thank-you branches, which return early
+through their own render paths) is focused on every change — but only when nothing inside it already
+holds focus, because text inputs auto-focus and stealing that would stop the respondent typing.
+
+**Decorative means `aria-hidden`.** Letter badges (`A`, `B`…), the check icon inside a selected
+option, question numbers and the min/value/max row under a slider all restate what ARIA already
+carries; left exposed, `A` ends up glued to the option's accessible name. Conversely an icon-only
+button (navigation chevrons, quantity `−`/`+`, modal close) needs an explicit `aria-label`.
+
+**The signature block cannot be made keyboard-operable** — it requires a pointing device. The canvas
+announces its state and how to sign, and the README states the limitation; don't paper over it with
+ARIA that promises an interaction that does not exist.
+
+**Never restore `maximumScale`/`userScalable` in `src/app/layout.tsx`.** Blocking zoom fails WCAG
+1.4.4 outright. The iOS auto-zoom it was guarding against is already handled by the explicit
+`fontSize: '16px'` on the public form's inputs.
 
 ### Respondent Attachments & Signatures
 `file` and `signature` store **structured values** in `Response.data`, typed `UploadedFileValue`

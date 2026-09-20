@@ -99,7 +99,7 @@ export function FormGateScreen({
           className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl"
           style={{ backgroundColor: `${accent}1a`, color: accent }}
         >
-          <Icon className="h-7 w-7" />
+          <Icon className="h-7 w-7" aria-hidden="true" />
         </div>
 
         <h1 className="text-xl font-semibold" style={{ color: titleColor }}>
@@ -131,24 +131,34 @@ export function FormGateScreen({
 
         {state === 'password_required' && (
           <form onSubmit={handleUnlock} className="mt-6 space-y-3 text-left">
+            <label htmlFor="fb-gate-password" className="sr-only">
+              Mot de passe du formulaire
+            </label>
             <input
+              id="fb-gate-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mot de passe"
               autoFocus
               autoComplete="current-password"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? 'fb-gate-password-error' : undefined}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-transparent focus:ring-2"
               style={{ ['--tw-ring-color' as string]: accent }}
             />
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p id="fb-gate-password-error" role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
+            )}
             <button
               type="submit"
               disabled={submitting || !password}
               className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: accent, color: themeProps.buttonsFontColor || '#ffffff' }}
             >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               Accéder au formulaire
             </button>
           </form>

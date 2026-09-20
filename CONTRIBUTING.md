@@ -108,9 +108,37 @@ A new block type needs no work here: the catalog is derived from the blocks, so 
 2. Add default attributes in `src/stores/form-builder.ts` (block initializer)
 3. Create the editor settings panel in `src/components/builder/block-editor.tsx`
 4. Create the preview component in `src/components/builder/block-preview.tsx`
-5. Create the public form component in `src/app/[slug]/public-form-client.tsx`
+5. Create the public form component in `src/app/[slug]/public-form-client.tsx` — in **all three** renderers (`QuestionBlock`, `GroupBlock.renderInnerInput`, `InnerBlockInput`), with the accessibility attributes described below
 6. Handle the response in the response viewer (`src/app/forms/[id]/responses/responses-client.tsx`)
 7. Handle the block in webhook payload serialization (API route)
+
+---
+
+## Accessibility
+
+The public form targets **RGAA 4.1 (WCAG 2.1 AA)**. For French public bodies this is a legal obligation: a contribution that adds an inaccessible control regresses conformance for everyone.
+
+### What a new field must carry
+
+- **Attributes come from `fieldA11y()`** (`src/lib/a11y.ts`), spread onto the control: `id`, `aria-labelledby` (or `aria-label` when `hideLabel` removes the heading from the document), `aria-describedby`, `aria-invalid`, `aria-required`. Don't write those ids by hand — `labelId()`, `descId()` and `errorId()` are their only source, otherwise an `aria-describedby` ends up naming an element nobody renders.
+- **A control made of several buttons** (choice, rating, quantity, signature, file, date range) goes inside a `role="group"` wrapper carrying `groupA11y` — the same object minus `id`. An `<h2>` cannot be a `<label for>`.
+- **A choice list** takes `choiceListProps()` on the container and `choiceOptionProps()` on each option (`src/lib/choice-list.ts`): `radio` or `checkbox` role, `aria-checked`, and a single tab stop for the whole group.
+- **All three renderers matter.** A block wired into `QuestionBlock` alone is accessible on a standalone question and mute inside a group or a repeater.
+- **Decorative means `aria-hidden`** — letter badges, the check icon, question numbers. A button with no visible text (icon only) wants an explicit `aria-label` instead.
+
+### What not to undo
+
+- The guard in the global `Enter` listener in `public-form-client.tsx`: without it, `preventDefault()` stops the browser from activating the focused button or option, and **nothing is checkable by keyboard alone**.
+- Moving focus on question change, and its "unless a field already took focus" reservation: removing it would stop respondents typing in text fields.
+- `maximumScale` / `userScalable` in `src/app/layout.tsx`: restoring them blocks zoom, a direct WCAG 1.4.4 failure.
+
+### Checking
+
+`npm run build` says nothing about accessibility. At a minimum, before opening a PR touching the public renderer:
+
+1. Walk the form **by keyboard alone** (Tab, arrows, Enter, Space), never touching the mouse.
+2. Open the devtools *Accessibility* tab and check the **accessible name** and **state** of every control you added.
+3. Confirm no `aria-labelledby` / `aria-describedby` points at an id absent from the document.
 
 ---
 

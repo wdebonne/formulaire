@@ -16,6 +16,17 @@ import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/st
 import { useCatalogBlocks } from '@/lib/use-catalog-blocks'
 import { HONEYPOT_FIELD } from '@/lib/form-options'
 import {
+  describedBy,
+  descId,
+  errorId,
+  fieldA11y,
+  fieldId,
+  hintId,
+  labelId,
+  usesNativeLabel,
+} from '@/lib/a11y'
+import { choiceListProps, choiceOptionProps, selectedChoiceIndex } from '@/lib/choice-list'
+import {
   DRAFT_SAVE_DEBOUNCE_MS,
   buildFormDraft,
   clearDraft,
@@ -107,7 +118,7 @@ function ExcelPreview({ url, name, allowExpand = true, allowDownload = false, th
 
   if (loading) return (
     <div className="flex items-center justify-center py-4 text-sm" style={{ color: themeProps.answersColor }}>
-      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+      <Loader2 aria-hidden="true" className="w-4 h-4 animate-spin mr-2" />
       Chargement du fichier…
     </div>
   )
@@ -131,7 +142,7 @@ function ExcelPreview({ url, name, allowExpand = true, allowDownload = false, th
               className="flex items-center gap-1 text-xs px-2 py-1 rounded border transition-opacity hover:opacity-80"
               style={{ borderColor: themeProps.answersColor + '40', color: themeProps.answersColor }}
             >
-              <Download className="w-3 h-3" />
+              <Download aria-hidden="true" className="w-3 h-3" />
               Télécharger
             </a>
           )}
@@ -141,7 +152,7 @@ function ExcelPreview({ url, name, allowExpand = true, allowDownload = false, th
               className="flex items-center gap-1 text-xs px-2 py-1 rounded border transition-opacity hover:opacity-80"
               style={{ borderColor: themeProps.answersColor + '40', color: themeProps.answersColor }}
             >
-              <Maximize2 className="w-3 h-3" />
+              <Maximize2 aria-hidden="true" className="w-3 h-3" />
               Agrandir
             </button>
           )}
@@ -154,18 +165,28 @@ function ExcelPreview({ url, name, allowExpand = true, allowDownload = false, th
       {/* Fullscreen modal */}
       {expanded && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setExpanded(false)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={name || 'Aperçu du fichier'}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <span className="font-semibold text-sm text-gray-800">{name}</span>
               <div className="flex gap-2 items-center">
                 {allowDownload && (
                   <a href={url} download={name} className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-gray-200 text-gray-600 hover:bg-gray-50">
-                    <Download className="w-3 h-3" />
+                    <Download aria-hidden="true" className="w-3 h-3" />
                     Télécharger
                   </a>
                 )}
-                <button onClick={() => setExpanded(false)} className="p-1 rounded hover:bg-gray-100 text-gray-500">
-                  <X className="w-5 h-5" />
+                <button
+                  onClick={() => setExpanded(false)}
+                  aria-label="Fermer l'aperçu"
+                  className="p-1 rounded hover:bg-gray-100 text-gray-500"
+                >
+                  <X aria-hidden="true" className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -284,6 +305,10 @@ function getYouTubeVideoId(url: string): string | null {
 }
 
 // Composant Dropdown avec autocomplétion et possibilité de saisie libre
+// Attributs d'accessibilité transmis par le bloc appelant (intitulé, description, état d'erreur)
+// aux composants qui rendent eux-mêmes leur `<input>`.
+type FieldA11yProps = ReturnType<typeof fieldA11y>
+
 interface DropdownWithAutocompleteProps {
   choices: { id?: string; label: string; value: string }[]
   value: string
@@ -295,6 +320,8 @@ interface DropdownWithAutocompleteProps {
   inputStyle: React.CSSProperties
   error?: boolean
   allowCustomValue?: boolean // Si true, permet la saisie libre
+  a11y?: FieldA11yProps
+  listId?: string
 }
 
 function DropdownWithAutocomplete({
@@ -308,6 +335,8 @@ function DropdownWithAutocomplete({
   inputStyle,
   error,
   allowCustomValue = false,
+  a11y,
+  listId = 'fb-dropdown-list',
 }: DropdownWithAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -439,8 +468,16 @@ function DropdownWithAutocomplete({
     <div className="mt-4 relative" ref={containerRef}>
       <div className="relative">
         <input
+          {...a11y}
           ref={inputRef}
           type="text"
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            isOpen && highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined
+          }
           value={searchTerm}
           onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
@@ -464,8 +501,12 @@ function DropdownWithAutocomplete({
           }}
           className="absolute right-3 top-1/2 -translate-y-1/2"
           style={{ color: themeProps.answersColor }}
+          aria-label={isOpen ? 'Fermer la liste des options' : 'Afficher la liste des options'}
+          aria-expanded={isOpen}
+          aria-controls={listId}
+          tabIndex={-1}
         >
-          <ChevronDown
+          <ChevronDown aria-hidden="true"
             className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
             size={20}
           />
@@ -483,32 +524,42 @@ function DropdownWithAutocomplete({
           }}
         >
           {filteredChoices.length > 0 ? (
-            filteredChoices.map((choice, index) => (
-              <button
-                key={choice.id || choice.value}
-                type="button"
-                onClick={() => handleSelect(choice)}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                className="w-full text-left px-4 py-3 transition-colors"
-                style={{
-                  color: themeProps.answersColor,
-                  backgroundColor:
-                    highlightedIndex === index
-                      ? themeProps.buttonsBgColor + '20'
-                      : value === choice.value
-                      ? themeProps.buttonsBgColor + '10'
-                      : 'transparent',
-                }}
-              >
-                {choice.label}
-                {value === choice.value && (
-                  <Check className="inline-block ml-2 w-4 h-4" />
-                )}
-              </button>
-            ))
+            <div role="listbox" id={listId}>
+              {filteredChoices.map((choice, index) => (
+                <button
+                  key={choice.id || choice.value}
+                  type="button"
+                  role="option"
+                  id={`${listId}-option-${index}`}
+                  aria-selected={value === choice.value}
+                  // Le focus reste sur le champ de saisie, l'option active étant désignée par
+                  // `aria-activedescendant` : en faire un arrêt de tabulation ferait sortir du
+                  // champ et refermerait la liste.
+                  tabIndex={-1}
+                  onClick={() => handleSelect(choice)}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  className="w-full text-left px-4 py-3 transition-colors"
+                  style={{
+                    color: themeProps.answersColor,
+                    backgroundColor:
+                      highlightedIndex === index
+                        ? themeProps.buttonsBgColor + '20'
+                        : value === choice.value
+                        ? themeProps.buttonsBgColor + '10'
+                        : 'transparent',
+                  }}
+                >
+                  {choice.label}
+                  {value === choice.value && (
+                    <Check aria-hidden="true" className="inline-block ml-2 w-4 h-4" />
+                  )}
+                </button>
+              ))}
+            </div>
           ) : searchTerm ? (
             <div
               className="px-4 py-3 text-sm"
+              role="status"
               style={{ color: themeProps.answersColor + '80' }}
             >
               Aucune option correspondante. Veuillez sélectionner une option de la liste.
@@ -516,6 +567,7 @@ function DropdownWithAutocomplete({
           ) : (
             <div
               className="px-4 py-3 text-sm"
+              role="status"
               style={{ color: themeProps.answersColor + '80' }}
             >
               Aucune option disponible
@@ -526,7 +578,7 @@ function DropdownWithAutocomplete({
 
       {/* Message inline pour valeur personnalisée (hors panneau z-50 pour ne pas masquer le bouton OK) */}
       {allowCustomValue && filteredChoices.length === 0 && searchTerm && (
-        <p className="mt-1 text-xs" style={{ color: themeProps.answersColor + '70' }}>
+        <p className="mt-1 text-xs" role="status" style={{ color: themeProps.answersColor + '70' }}>
           Votre réponse &quot;{searchTerm}&quot; sera enregistrée.
         </p>
       )}
@@ -554,6 +606,8 @@ interface AddressAutocompleteProps {
   inputStyle: React.CSSProperties
   error?: boolean
   scope?: 'full' | 'city'
+  a11y?: FieldA11yProps
+  listId?: string
 }
 
 function AddressAutocomplete({
@@ -566,6 +620,8 @@ function AddressAutocomplete({
   inputStyle,
   error,
   scope = 'full',
+  a11y,
+  listId = 'fb-address-list',
 }: AddressAutocompleteProps) {
   const cityOnly = scope === 'city'
   const [suggestions, setSuggestions] = useState<AddressFeature[]>([])
@@ -658,7 +714,15 @@ function AddressAutocomplete({
     <div className="mt-4 relative" ref={containerRef}>
       <div className="relative">
         <input
+          {...a11y}
           type="text"
+          role="combobox"
+          aria-expanded={isOpen && suggestions.length > 0}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            isOpen && highlightedIndex >= 0 ? `${listId}-option-${highlightedIndex}` : undefined
+          }
           value={value || ''}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -675,13 +739,20 @@ function AddressAutocomplete({
         />
         {isLoading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 className="w-4 h-4 animate-spin" style={{ color: themeProps.answersColor }} />
+            <Loader2
+              className="w-4 h-4 animate-spin"
+              style={{ color: themeProps.answersColor }}
+              aria-hidden="true"
+            />
+            <span className="sr-only">Recherche des adresses en cours</span>
           </div>
         )}
       </div>
 
       {isOpen && suggestions.length > 0 && (
         <div
+          role="listbox"
+          id={listId}
           className="absolute z-50 w-full mt-1 max-h-60 overflow-auto border-2 shadow-lg"
           style={{
             backgroundColor: themeProps.choicesBgColor || themeProps.backgroundColor || '#fff',
@@ -693,6 +764,10 @@ function AddressAutocomplete({
             <button
               key={index}
               type="button"
+              role="option"
+              id={`${listId}-option-${index}`}
+              aria-selected={highlightedIndex === index}
+              tabIndex={-1}
               onClick={() => handleSelect(feature)}
               onMouseEnter={() => setHighlightedIndex(index)}
               className="w-full text-left px-4 py-3 transition-colors"
@@ -778,16 +853,31 @@ function ResumeDraftPrompt({
   onResume,
   onDiscard,
 }: ResumeDraftPromptProps) {
+  const resumeRef = useRef<HTMLButtonElement>(null)
+
+  // La boîte s'ouvre par-dessus le formulaire : le focus doit y entrer, sinon la tabulation
+  // continue derrière elle sur des champs que l'on est justement en train de proposer de remplir.
+  useEffect(() => {
+    if (draft) resumeRef.current?.focus()
+  }, [draft])
+
   if (!draft) return null
 
   const count = draftAnswerCount(draft)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fb-resume-draft-title"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
         <div className="flex items-center gap-2 px-5 py-4 border-b">
-          <RotateCcw className="w-5 h-5 text-gray-500" />
-          <span className="font-semibold text-sm text-gray-800">Reprendre votre saisie ?</span>
+          <RotateCcw aria-hidden="true" className="w-5 h-5 text-gray-500" />
+          <span id="fb-resume-draft-title" className="font-semibold text-sm text-gray-800">
+            Reprendre votre saisie ?
+          </span>
         </div>
         <div className="px-5 py-4 space-y-2">
           <p className="text-sm text-gray-700">
@@ -807,6 +897,7 @@ function ResumeDraftPrompt({
             Recommencer
           </button>
           <button
+            ref={resumeRef}
             onClick={onResume}
             className="px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90"
             style={{
@@ -1072,6 +1163,30 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
 
   const currentBlock = visibleBlocks[currentIndex]
   const progress = visibleBlocks.length > 0 ? ((currentIndex + 1) / visibleBlocks.length) * 100 : 0
+
+  // Le formulaire remplace une question par la suivante sans changer de page : sans déplacement du
+  // focus, un lecteur d'écran continue d'annoncer l'ancienne et le clavier reste sur un bouton qui
+  // n'existe plus. `questionRegionRef` est le point de chute, et il n'est repris que si rien
+  // d'autre ne l'a déjà pris — les champs texte s'auto-focalisent, et leur voler le focus
+  // empêcherait de taper.
+  const questionRegionRef = useRef<HTMLDivElement>(null)
+  // Écrans d'accueil et de fin : ils sortent par une branche de rendu distincte, et l'écran de
+  // remerciement est le seul retour qu'un répondant obtienne de son envoi.
+  const screenRegionRef = useRef<HTMLDivElement>(null)
+  const repeaterFocusKey = currentBlock
+    ? `${currentBlock.id}:${repeaterStates[currentBlock.id]?.repetitionCount ?? ''}:${
+        repeaterStates[currentBlock.id]?.currentInnerIndex ?? ''
+      }:${repeaterStates[currentBlock.id]?.showRepeatQuestion ?? ''}`
+    : ''
+
+  useEffect(() => {
+    // La proposition de reprise est modale : y répondre passe avant tout déplacement de focus.
+    if (pendingDraft) return
+    const region = questionRegionRef.current ?? screenRegionRef.current
+    if (!region) return
+    if (region.contains(document.activeElement)) return
+    region.focus()
+  }, [currentIndex, isSubmitted, repeaterFocusKey, pendingDraft])
 
   // Déterminer le bloc à afficher (peut être un bloc interne d'un repeater)
   const getCurrentDisplayBlock = (): { block: FormBlock; isInnerBlock: boolean; parentBlock?: FormBlock } => {
@@ -1706,10 +1821,18 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
     if (isSubmitted || isSubmitting) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        goToNext()
+      if (e.key !== 'Enter' || e.shiftKey) return
+
+      // Entrée valide la question — sauf quand le focus est sur un élément qu'Entrée actionne
+      // déjà. Sans cette réserve, `preventDefault()` empêchait le navigateur de déclencher le
+      // bouton ou l'option sélectionnée : au clavier, plus rien n'était cochable.
+      const target = e.target as HTMLElement | null
+      if (target?.closest('button, a[href], [role="radio"], [role="checkbox"], [role="option"], summary')) {
+        return
       }
+
+      e.preventDefault()
+      goToNext()
     }
 
     let wheelCooldown = false
@@ -1797,7 +1920,12 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
     const isImageOnLeft = layout === 'float-left'
 
     const contentSection = (
-      <div className={`flex-1 flex flex-col justify-center p-8 md:p-12 ${isImageOnLeft ? '' : 'items-end text-right md:pr-16'}`}>
+      <div
+        ref={screenRegionRef}
+        tabIndex={-1}
+        role={isSubmitted ? 'status' : 'group'}
+        className={`flex-1 flex flex-col justify-center p-8 md:p-12 outline-none ${isImageOnLeft ? '' : 'items-end text-right md:pr-16'}`}
+      >
         <div className={`${isImageOnLeft ? '' : 'max-w-lg'}`}>
           {/* Logo */}
           {form.settings.logo && (
@@ -1841,7 +1969,7 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
                 }}
               >
                 {screenBlock.attributes.buttonText || 'Commencer'}
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight aria-hidden="true" className="w-5 h-5" />
               </button>
             </div>
           )}
@@ -1960,9 +2088,14 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
         
         {/* Contenu centré */}
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className={`max-w-md w-full transition-all duration-300 ${
-            isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
-          }`}>
+          <div
+            ref={screenRegionRef}
+            tabIndex={-1}
+            role={isSubmitted ? 'status' : 'group'}
+            className={`max-w-md w-full outline-none transition-all duration-300 ${
+              isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+            }`}
+          >
             <WelcomeScreenContent
               block={screenBlock}
               themeProps={themeProps}
@@ -1978,7 +2111,7 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
         {form.settings.showBranding !== false && (
           <div className="p-4 text-center">
             <span className="text-xs" style={{ color: themeProps.answersColor + '80' }}>
-              propulsé par <a href="#" className="underline">FormBuilder</a>
+              propulsé par <span className="underline">FormBuilder</span>
             </span>
           </div>
         )}
@@ -2060,7 +2193,12 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
           {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
 
           <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-8">
-            <div className="max-w-xl w-full">
+            <div
+              ref={screenRegionRef}
+              tabIndex={-1}
+              role="status"
+              className="max-w-xl w-full outline-none"
+            >
               {thankyouBlock?.attributes.showAttachment &&
                 (thankyouBlock.attributes.attachmentLayout || 'stack') === 'stack' &&
                 thankyouBlock.attributes.attachmentUrl && (
@@ -2143,7 +2281,15 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
 
   // Composant barre de progression horizontale
   const HorizontalProgressBar = () => (
-    <div className={`${barSizes[progressBarSize]} bg-gray-200 w-full shrink-0`}>
+    <div
+      className={`${barSizes[progressBarSize]} bg-gray-200 w-full shrink-0`}
+      role="progressbar"
+      aria-label="Progression dans le formulaire"
+      aria-valuemin={0}
+      aria-valuemax={visibleBlocks.length}
+      aria-valuenow={currentIndex + 1}
+      aria-valuetext={`Question ${currentIndex + 1} sur ${visibleBlocks.length}`}
+    >
       <div
         className="h-full transition-all duration-300"
         style={{ width: `${progress}%`, backgroundColor: themeProps.buttonsBgColor }}
@@ -2155,6 +2301,12 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
   const VerticalProgressBar = () => (
     <div 
       className={`${barSizesVertical[progressBarSize]} bg-gray-200 h-full shrink-0`}
+      role="progressbar"
+      aria-label="Progression dans le formulaire"
+      aria-valuemin={0}
+      aria-valuemax={visibleBlocks.length}
+      aria-valuenow={currentIndex + 1}
+      aria-valuetext={`Question ${currentIndex + 1} sur ${visibleBlocks.length}`}
       style={{ position: 'fixed', top: 0, bottom: 0, [progressBarPosition]: 0 }}
     >
       <div
@@ -2191,7 +2343,11 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
         }}
       >
         <div
-          className={`max-w-xl w-full transition-opacity duration-300 ${
+          ref={questionRegionRef}
+          tabIndex={-1}
+          role="group"
+          aria-label={`Question ${currentIndex + 1} sur ${visibleBlocks.length}`}
+          className={`max-w-xl w-full outline-none transition-opacity duration-300 ${
             isAnimating ? 'opacity-0' : 'opacity-100'
           }`}
         >
@@ -2265,17 +2421,19 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
           <button
             onClick={goToPrev}
             disabled={currentIndex === 0}
+            aria-label="Question précédente"
             className="p-2 sm:p-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black/5 active:bg-black/10 transition-colors"
             style={{ color: themeProps.questionsColor }}
           >
-            <ChevronUp className="w-6 h-6 sm:w-5 sm:h-5" />
+            <ChevronUp aria-hidden="true" className="w-6 h-6 sm:w-5 sm:h-5" />
           </button>
           <button
             onClick={() => goToNext()}
+            aria-label="Question suivante"
             className="p-2 sm:p-2 rounded-md hover:bg-black/5 active:bg-black/10 transition-colors"
             style={{ color: themeProps.questionsColor }}
           >
-            <ChevronDown className="w-6 h-6 sm:w-5 sm:h-5" />
+            <ChevronDown aria-hidden="true" className="w-6 h-6 sm:w-5 sm:h-5" />
           </button>
         </div>
         <div className="flex items-center gap-3">
@@ -2283,15 +2441,21 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
               repère, fermer l'onglet reste un risque aux yeux du répondant. */}
           {draftSavedAt && (
             <span
+              role="status"
               className="hidden sm:flex items-center gap-1 text-xs opacity-60"
               style={{ color: themeProps.answersColor }}
             >
-              <Check className="w-3 h-3" />
+              <Check aria-hidden="true" className="w-3 h-3" />
               Brouillon enregistré
             </span>
           )}
           <span className="text-sm" style={{ color: themeProps.answersColor }}>
-            {currentIndex + 1} / {visibleBlocks.length}
+            <span aria-hidden="true">
+              {currentIndex + 1} / {visibleBlocks.length}
+            </span>
+            <span className="sr-only">
+              Question {currentIndex + 1} sur {visibleBlocks.length}
+            </span>
           </span>
         </div>
       </div>
@@ -2352,6 +2516,10 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`
 }
 
+// Attributs ARIA du conteneur `role="group"` : l'intitulé de la question est un `<h2>` qui ne
+// peut pas être un `<label for>` d'un ensemble de boutons.
+type GroupA11yProps = Omit<FieldA11yProps, 'id'>
+
 interface FileUploadInputProps {
   formId: string
   block: FormBlock
@@ -2360,6 +2528,7 @@ interface FileUploadInputProps {
   themeProps: ThemeProperties
   inputBorderRadius?: string
   compact?: boolean
+  groupProps?: GroupA11yProps
 }
 
 function FileUploadInput({
@@ -2370,6 +2539,7 @@ function FileUploadInput({
   themeProps,
   inputBorderRadius = '8px',
   compact = false,
+  groupProps,
 }: FileUploadInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -2420,10 +2590,12 @@ function FileUploadInput({
   if (value) {
     return (
       <div
+        role="group"
+        {...groupProps}
         className={`${compact ? 'mt-2' : 'mt-4'} flex items-center gap-3 border-2 px-4 py-3`}
         style={{ borderColor: themeProps.buttonsBgColor + '60', borderRadius: inputBorderRadius }}
       >
-        <Paperclip className="w-5 h-5 shrink-0" style={{ color: themeProps.buttonsBgColor }} />
+        <Paperclip aria-hidden="true" className="w-5 h-5 shrink-0" style={{ color: themeProps.buttonsBgColor }} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-base" style={{ color: themeProps.answersColor }}>
             {value.name}
@@ -2439,21 +2611,25 @@ function FileUploadInput({
           onClick={removeFile}
           className="shrink-0 rounded-md p-1.5 transition-colors hover:bg-black/5"
           style={{ color: themeProps.answersColor }}
-          aria-label="Retirer le fichier"
+          aria-label={`Retirer le fichier ${value.name}`}
         >
-          <X className="w-5 h-5" />
+          <X aria-hidden="true" className="w-5 h-5" />
         </button>
       </div>
     )
   }
 
+  const uploadHintId = `${fieldId(block.id)}-upload-hint`
+
   return (
-    <div className={compact ? 'mt-2' : 'mt-4'}>
+    <div className={compact ? 'mt-2' : 'mt-4'} role="group" {...groupProps}>
       <input
         ref={inputRef}
         type="file"
         accept={accept}
-        className="hidden"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) sendFile(file)
@@ -2462,6 +2638,7 @@ function FileUploadInput({
       <button
         type="button"
         disabled={uploading}
+        aria-describedby={uploading ? undefined : uploadHintId}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => {
           e.preventDefault()
@@ -2484,24 +2661,36 @@ function FileUploadInput({
         }}
       >
         {uploading ? (
-          <span className="flex items-center justify-center text-base" style={{ color: themeProps.answersColor }}>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          <span
+            role="status"
+            className="flex items-center justify-center text-base"
+            style={{ color: themeProps.answersColor }}
+          >
+            <Loader2 aria-hidden="true" className="mr-2 h-5 w-5 animate-spin" />
             Envoi du fichier…
           </span>
         ) : (
           <>
-            <Paperclip className="mx-auto mb-2 h-6 w-6" style={{ color: themeProps.buttonsBgColor }} />
+            <Paperclip aria-hidden="true" className="mx-auto mb-2 h-6 w-6" style={{ color: themeProps.buttonsBgColor }} />
             <span className="block text-base" style={{ color: themeProps.answersColor }}>
               Glissez un fichier ici ou cliquez pour parcourir
             </span>
-            <span className="mt-1 block text-xs opacity-60" style={{ color: themeProps.answersColor }}>
-              {extensions.length > 0 ? `${extensions.join(', ')} — ` : ''}
+            <span
+              id={uploadHintId}
+              className="mt-1 block text-xs opacity-60"
+              style={{ color: themeProps.answersColor }}
+            >
+              {extensions.length > 0 ? `Formats acceptés : ${extensions.join(', ')} — ` : ''}
               {maxMb} Mo maximum
             </span>
           </>
         )}
       </button>
-      {uploadError && <p className="mt-2 text-sm text-red-500">{uploadError}</p>}
+      {uploadError && (
+        <p className="mt-2 text-sm text-red-500" role="alert">
+          {uploadError}
+        </p>
+      )}
     </div>
   )
 }
@@ -2516,6 +2705,7 @@ interface SignaturePadInputProps {
   themeProps: ThemeProperties
   inputBorderRadius?: string
   compact?: boolean
+  groupProps?: GroupA11yProps
 }
 
 function SignaturePadInput({
@@ -2525,6 +2715,7 @@ function SignaturePadInput({
   themeProps,
   inputBorderRadius = '8px',
   compact = false,
+  groupProps,
 }: SignaturePadInputProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef(false)
@@ -2621,8 +2812,13 @@ function SignaturePadInput({
     onChange(null)
   }
 
+  const hintElementId = `${fieldId(block.id)}-signature-hint`
+
+  // Une signature manuscrite se trace avec un dispositif de pointage : c'est la limite du procédé,
+  // pas un oubli de balisage. Le cadre annonce donc l'état de la signature et la façon de la
+  // donner, et le bloc reste à éviter dans un formulaire devant être rempli au seul clavier.
   return (
-    <div className={compact ? 'mt-2' : 'mt-4'}>
+    <div className={compact ? 'mt-2' : 'mt-4'} role="group" {...groupProps}>
       <canvas
         ref={canvasRef}
         onPointerDown={startStroke}
@@ -2630,6 +2826,10 @@ function SignaturePadInput({
         onPointerUp={endStroke}
         onPointerLeave={endStroke}
         onPointerCancel={endStroke}
+        role="img"
+        tabIndex={0}
+        aria-label={value?.dataUrl ? 'Zone de signature — signature donnée' : 'Zone de signature — vide'}
+        aria-describedby={hintElementId}
         className="w-full cursor-crosshair border-2 bg-white"
         style={{
           height: `${height}px`,
@@ -2639,8 +2839,8 @@ function SignaturePadInput({
         }}
       />
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-xs opacity-60" style={{ color: themeProps.answersColor }}>
-          Signez avec la souris ou le doigt
+        <span id={hintElementId} className="text-xs opacity-60" style={{ color: themeProps.answersColor }}>
+          Signez avec la souris, le doigt ou un stylet
         </span>
         <button
           type="button"
@@ -2648,7 +2848,7 @@ function SignaturePadInput({
           className="text-xs underline transition-opacity hover:opacity-70"
           style={{ color: themeProps.answersColor }}
         >
-          Effacer
+          Effacer<span className="sr-only"> la signature</span>
         </button>
       </div>
     </div>
@@ -2716,7 +2916,7 @@ function CatalogNotice({ block, themeProps }: { block: FormBlock; themeProps: Th
       className="mt-4 text-sm opacity-70 flex items-center gap-2"
       style={{ color: themeProps.answersColor }}
     >
-      {etat === 'loading' && <Loader2 className="w-4 h-4 animate-spin" />}
+      {etat === 'loading' && <Loader2 aria-hidden="true" className="w-4 h-4 animate-spin" />}
       {message}
     </p>
   )
@@ -2743,6 +2943,36 @@ function QuestionBlock({
   onOpenGdprNotice,
 }: QuestionBlockProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+  // Une seule question est affichée à la fois : l'intitulé, la description et l'erreur ne sont
+  // rattachés au contrôle par aucune structure de formulaire, il faut les y relier explicitement.
+  const resolvedLabel = replaceVariables(
+    block.attributes.label || 'Question sans titre',
+    allBlocks,
+    allAnswers,
+    index
+  )
+  const a11y = fieldA11y({
+    blockId: block.id,
+    label: resolvedLabel,
+    hideLabel: block.attributes.hideLabel,
+    required: block.attributes.required,
+    hasDescription: !!block.attributes.description,
+    hasError: !!error,
+  })
+  // Un conteneur `role="group"` porte lui-même l'intitulé : l'identifiant reviendrait deux fois
+  // dans l'arbre d'accessibilité si les boutons qu'il contient le portaient aussi.
+  const { id: _fieldIdUnused, ...groupA11y } = a11y
+
+  const choiceAllowMultiple = !!(block.attributes.allowMultiple || block.attributes.multiple)
+  const choiceValues: string[] =
+    block.type === 'yes-no'
+      ? ['yes', 'no']
+      : (block.attributes.choices || []).map((c: any) => String(c.value))
+  const choiceSelectedIndex = selectedChoiceIndex(choiceValues, answer)
+  const listProps = choiceListProps(choiceAllowMultiple)
+  const optionProps = (i: number, selected: boolean) =>
+    choiceOptionProps(choiceAllowMultiple, i, selected, choiceSelectedIndex)
 
   // Rendu de l'attachment pour welcome-screen (layouts non-split)
   const renderWelcomeAttachment = () => {
@@ -2808,7 +3038,7 @@ function QuestionBlock({
               }}
             >
               {block.attributes.buttonText || 'Commencer'}
-              <ChevronDown className="w-5 h-5 ml-2 rotate-[-90deg]" />
+              <ChevronDown aria-hidden="true" className="w-5 h-5 ml-2 rotate-[-90deg]" />
             </button>
             {onOpenGdprNotice && (
               <GdprNoticeLink block={block} themeProps={themeProps} onOpen={onOpenGdprNotice} />
@@ -2822,6 +3052,7 @@ function QuestionBlock({
       case 'website':
         return (
           <input
+            {...a11y}
             type={block.type === 'email' ? 'email' : block.type === 'number' ? 'number' : 'text'}
             placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
             value={answer || ''}
@@ -2857,6 +3088,7 @@ function QuestionBlock({
         const defaultPlaceholder = phoneFormat === 'international' ? '+33 6 12 34 56 78' : '06 12 34 56 78'
         return (
           <input
+            {...a11y}
             type="tel"
             inputMode="numeric"
             placeholder={block.attributes.placeholder || defaultPlaceholder}
@@ -2892,6 +3124,8 @@ function QuestionBlock({
       case 'address':
         return (
           <AddressAutocomplete
+            a11y={a11y}
+            listId={`${fieldId(block.id)}-list`}
             value={answer || ''}
             onChange={onAnswer}
             onSelect={() => onNext()}
@@ -2912,6 +3146,7 @@ function QuestionBlock({
       case 'long-text':
         return (
           <textarea
+            {...a11y}
             placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
             value={answer || ''}
             onChange={(e) => onAnswer(e.target.value)}
@@ -2949,6 +3184,8 @@ function QuestionBlock({
         // Toujours utiliser le composant avec autocomplétion
         return (
           <DropdownWithAutocomplete
+            a11y={a11y}
+            listId={`${fieldId(block.id)}-list`}
             choices={dropdownChoicesMain}
             value={answer || ''}
             onChange={(value) => onAnswer(value)}
@@ -2981,7 +3218,7 @@ function QuestionBlock({
             : (answer as string).slice(10)
           : ''
         return (
-          <div className="mt-4 space-y-2 sm:space-y-3">
+          <div className="mt-4 space-y-2 sm:space-y-3" {...listProps} {...groupA11y}>
             <CatalogNotice block={block} themeProps={themeProps} />
             {choices.map((choice: any, idx: number) => {
               const isSelected = allowMultiple
@@ -2991,6 +3228,7 @@ function QuestionBlock({
               return (
                 <button
                   key={choice.value}
+                  {...optionProps(idx, isSelected)}
                   onClick={() => {
                     if (allowMultiple) {
                       const current = answer || []
@@ -3014,6 +3252,7 @@ function QuestionBlock({
                 >
                   {showLetters && (
                     <span
+                      aria-hidden="true"
                       className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
                       style={{
                         backgroundColor: isSelected
@@ -3022,7 +3261,7 @@ function QuestionBlock({
                         color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
                       }}
                     >
-                      {isSelected ? <Check className="w-4 h-4" /> : letters[idx]}
+                      {isSelected ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[idx]}
                     </span>
                   )}
                   <span style={{ color: themeProps.answersColor }}>{choice.label}</span>
@@ -3032,6 +3271,7 @@ function QuestionBlock({
             {allowOtherOption && (
               <>
                 <button
+                  {...optionProps(choices.length, !!isOtherSelected)}
                   onClick={() => {
                     if (allowMultiple) {
                       const current = answer || []
@@ -3058,6 +3298,7 @@ function QuestionBlock({
                 >
                   {showLetters && (
                     <span
+                      aria-hidden="true"
                       className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
                       style={{
                         backgroundColor: isOtherSelected
@@ -3066,7 +3307,7 @@ function QuestionBlock({
                         color: isOtherSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
                       }}
                     >
-                      {isOtherSelected ? <Check className="w-4 h-4" /> : letters[choices.length]}
+                      {isOtherSelected ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[choices.length]}
                     </span>
                   )}
                   <span style={{ color: themeProps.answersColor }}>Autre</span>
@@ -3075,6 +3316,7 @@ function QuestionBlock({
                   <input
                     autoFocus
                     type="text"
+                    aria-label={`${resolvedLabel} — précisez votre réponse`}
                     value={otherText}
                     onChange={(e) => {
                       const text = e.target.value
@@ -3124,7 +3366,7 @@ function QuestionBlock({
           <div className="mt-4">
             {imageLayout === 'stacked' ? (
               // Mode superposé (une image par ligne)
-              <div className="space-y-3">
+              <div className="space-y-3" {...listProps} {...groupA11y}>
                 {imageChoices.map((choice: any, idx: number) => {
                   const isSelected = allowMultipleImages
                     ? (answer || []).includes(choice.value)
@@ -3133,6 +3375,8 @@ function QuestionBlock({
                   return (
                     <button
                       key={choice.value}
+                      {...optionProps(idx, isSelected)}
+                      aria-label={choice.label}
                       onClick={() => {
                         if (allowMultipleImages) {
                           const current = answer || []
@@ -3159,7 +3403,7 @@ function QuestionBlock({
                         {choice.imageUrl ? (
                           <img
                             src={choice.imageUrl}
-                            alt={choice.label}
+                            alt=""
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -3173,7 +3417,7 @@ function QuestionBlock({
                             className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center"
                             style={{ backgroundColor: themeProps.buttonsBgColor }}
                           >
-                            <Check className="w-4 h-4" style={{ color: themeProps.buttonsFontColor }} />
+                            <Check aria-hidden="true" className="w-4 h-4" style={{ color: themeProps.buttonsFontColor }} />
                           </div>
                         )}
                       </div>
@@ -3195,7 +3439,11 @@ function QuestionBlock({
               </div>
             ) : (
               // Mode côte à côte (grille)
-              <div className={`grid ${columnClasses[imageColumns as keyof typeof columnClasses]} gap-3 sm:gap-4`}>
+              <div
+                className={`grid ${columnClasses[imageColumns as keyof typeof columnClasses]} gap-3 sm:gap-4`}
+                {...listProps}
+                {...groupA11y}
+              >
                 {imageChoices.map((choice: any, idx: number) => {
                   const isSelected = allowMultipleImages
                     ? (answer || []).includes(choice.value)
@@ -3204,6 +3452,8 @@ function QuestionBlock({
                   return (
                     <button
                       key={choice.value}
+                      {...optionProps(idx, isSelected)}
+                      aria-label={choice.label}
                       onClick={() => {
                         if (allowMultipleImages) {
                           const current = answer || []
@@ -3229,7 +3479,7 @@ function QuestionBlock({
                         {choice.imageUrl ? (
                           <img
                             src={choice.imageUrl}
-                            alt={choice.label}
+                            alt=""
                             className="w-full h-full object-cover"
                           />
                         ) : (
@@ -3248,7 +3498,7 @@ function QuestionBlock({
                               className="w-10 h-10 rounded-full flex items-center justify-center"
                               style={{ backgroundColor: themeProps.buttonsBgColor }}
                             >
-                              <Check className="w-6 h-6" style={{ color: themeProps.buttonsFontColor }} />
+                              <Check aria-hidden="true" className="w-6 h-6" style={{ color: themeProps.buttonsFontColor }} />
                             </div>
                           </div>
                         )}
@@ -3314,7 +3564,7 @@ function QuestionBlock({
         }
 
         return (
-          <div className="mt-6 space-y-4 w-full max-w-md">
+          <div className="mt-6 space-y-4 w-full max-w-md" role="group" {...groupA11y}>
             {choicesToShow.map((choice: any) => {
               // Les réponses "Autre" ont toujours min=1, pas de max
               const itemCfg = choice.isSpecial ? null : qItems.find((it) => it.choiceId === choice.id || it.choiceValue === choice.value)
@@ -3343,13 +3593,15 @@ function QuestionBlock({
                       type="button"
                       onClick={decrement}
                       disabled={qty <= minQty}
+                      aria-label={`Diminuer la quantité pour ${choice.label}`}
                       className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
                       style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
                     >
-                      −
+                      <span aria-hidden="true">−</span>
                     </button>
                     <input
                       type="number"
+                      aria-label={`Quantité pour ${choice.label}`}
                       min={minQty}
                       max={maxQty}
                       value={qty}
@@ -3366,14 +3618,16 @@ function QuestionBlock({
                       type="button"
                       onClick={increment}
                       disabled={maxQty !== undefined && qty >= maxQty}
+                      aria-label={`Augmenter la quantité pour ${choice.label}`}
                       className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
                       style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
                     >
-                      +
+                      <span aria-hidden="true">+</span>
                     </button>
                     {maxQty !== undefined && (
                       <span className="text-xs opacity-50 ml-1" style={{ color: themeProps.answersColor }}>
-                        /{maxQty}
+                        <span aria-hidden="true">/{maxQty}</span>
+                        <span className="sr-only">sur {maxQty} disponibles</span>
                       </span>
                     )}
                   </div>
@@ -3387,6 +3641,7 @@ function QuestionBlock({
       case 'date':
         return (
           <input
+            {...a11y}
             type="date"
             value={answer || ''}
             onChange={(e) => onAnswer(e.target.value)}
@@ -3448,16 +3703,18 @@ function QuestionBlock({
         )
         
         return (
-          <AdvancedDateCalendar
-            value={answer}
-            onChange={onAnswer}
-            minDate={advMinDate}
-            maxDate={advMaxDate}
-            themeProps={themeProps}
-            isDateRange={block.attributes.isDateRange}
-            startDateLabel={block.attributes.startDateLabel}
-            endDateLabel={block.attributes.endDateLabel}
-          />
+          <div role="group" {...groupA11y}>
+            <AdvancedDateCalendar
+              value={answer}
+              onChange={onAnswer}
+              minDate={advMinDate}
+              maxDate={advMaxDate}
+              themeProps={themeProps}
+              isDateRange={block.attributes.isDateRange}
+              startDateLabel={block.attributes.startDateLabel}
+              endDateLabel={block.attributes.endDateLabel}
+            />
+          </div>
         )
 
       case 'time':
@@ -3467,10 +3724,14 @@ function QuestionBlock({
           // Plage horaire avec deux champs - design moderne
           const timeRangeValue = answer || { startTime: '', endTime: '' }
           return (
-            <div className="mt-6 w-full max-w-md space-y-4">
+            <div className="mt-6 w-full max-w-md space-y-4" role="group" {...groupA11y}>
               {/* Heure de début */}
               <div className="space-y-2">
-                <label className="text-sm font-medium" style={{ color: themeProps.answersColor }}>
+                <label
+                  className="text-sm font-medium block"
+                  htmlFor={`${fieldId(block.id)}-start`}
+                  style={{ color: themeProps.answersColor }}
+                >
                   {block.attributes.startTimeLabel || 'Heure de début'}
                 </label>
                 <div 
@@ -3484,13 +3745,20 @@ function QuestionBlock({
                     className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                     style={{ backgroundColor: themeProps.buttonsBgColor + '20' }}
                   >
-                    <svg className="w-5 h-5" style={{ color: themeProps.buttonsBgColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <svg aria-hidden="true" className="w-5 h-5" style={{ color: themeProps.buttonsBgColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="10"/>
                       <path strokeLinecap="round" d="M12 6v6l4 2"/>
                     </svg>
                   </div>
                   <input
                     type="time"
+                    id={`${fieldId(block.id)}-start`}
+                    aria-describedby={describedBy(
+                      block.attributes.description && descId(block.id),
+                      error && errorId(block.id)
+                    )}
+                    aria-invalid={error ? true : undefined}
+                    aria-required={block.attributes.required ? true : undefined}
                     value={timeRangeValue.startTime || ''}
                     onChange={(e) => onAnswer({ ...timeRangeValue, startTime: e.target.value })}
                     className="flex-1 bg-transparent text-2xl font-semibold outline-none"
@@ -3511,7 +3779,11 @@ function QuestionBlock({
               
               {/* Heure de fin */}
               <div className="space-y-2">
-                <label className="text-sm font-medium" style={{ color: themeProps.answersColor }}>
+                <label
+                  className="text-sm font-medium block"
+                  htmlFor={`${fieldId(block.id)}-end`}
+                  style={{ color: themeProps.answersColor }}
+                >
                   {block.attributes.endTimeLabel || 'Heure de fin'}
                 </label>
                 <div 
@@ -3532,6 +3804,13 @@ function QuestionBlock({
                   </div>
                   <input
                     type="time"
+                    id={`${fieldId(block.id)}-end`}
+                    aria-describedby={describedBy(
+                      block.attributes.description && descId(block.id),
+                      error && errorId(block.id)
+                    )}
+                    aria-invalid={error ? true : undefined}
+                    aria-required={block.attributes.required ? true : undefined}
                     value={timeRangeValue.endTime || ''}
                     onChange={(e) => onAnswer({ ...timeRangeValue, endTime: e.target.value })}
                     className="flex-1 bg-transparent text-2xl font-semibold outline-none"
@@ -3557,16 +3836,29 @@ function QuestionBlock({
                 className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
                 style={{ backgroundColor: themeProps.buttonsBgColor + '20' }}
               >
-                <svg className="w-6 h-6" style={{ color: themeProps.buttonsBgColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg aria-hidden="true" className="w-6 h-6" style={{ color: themeProps.buttonsBgColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10"/>
                   <path strokeLinecap="round" d="M12 6v6l4 2"/>
                 </svg>
               </div>
               <div className="flex flex-col">
-                <span className="text-xs font-medium uppercase tracking-wider" style={{ color: themeProps.answersColor + '60' }}>
+                <span
+                  className="text-xs font-medium uppercase tracking-wider"
+                  id={hintId(block.id)}
+                  style={{ color: themeProps.answersColor + '60' }}
+                >
                   Format 24h
                 </span>
                 <input
+                  {...fieldA11y({
+                    blockId: block.id,
+                    label: resolvedLabel,
+                    hideLabel: block.attributes.hideLabel,
+                    required: block.attributes.required,
+                    hasDescription: !!block.attributes.description,
+                    hasError: !!error,
+                    hasHint: true,
+                  })}
                   type="time"
                   value={answer || ''}
                   onChange={(e) => onAnswer(e.target.value)}
@@ -3594,6 +3886,7 @@ function QuestionBlock({
                 color={block.attributes.starColor || DEFAULT_STAR_COLOR}
                 emptyColor={themeProps.answersColor}
                 size={block.attributes.starSize || 'md'}
+                groupProps={groupA11y}
               />
             </div>
           )
@@ -3602,6 +3895,7 @@ function QuestionBlock({
         return (
           <div className="mt-6">
             <input
+              {...a11y}
               type="range"
               min={min}
               max={max}
@@ -3611,7 +3905,11 @@ function QuestionBlock({
               className="w-full"
               style={{ accentColor: themeProps.buttonsBgColor }}
             />
-            <div className="flex justify-between mt-2 text-sm" style={{ color: themeProps.answersColor }}>
+            <div
+              className="flex justify-between mt-2 text-sm"
+              aria-hidden="true"
+              style={{ color: themeProps.answersColor }}
+            >
               <span>{min}</span>
               <span className="font-medium text-lg">{answer || min}</span>
               <span>{max}</span>
@@ -3621,16 +3919,17 @@ function QuestionBlock({
 
       case 'yes-no':
         return (
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex gap-3" {...listProps} {...groupA11y}>
             {[
               { value: 'yes', label: block.attributes.yesLabel || 'Oui' },
               { value: 'no', label: block.attributes.noLabel || 'Non' },
-            ].map(({ value: btnValue, label }) => {
+            ].map(({ value: btnValue, label }, btnIdx) => {
               const isSelected = answer === btnValue
               return (
                 <button
                   key={btnValue}
                   type="button"
+                  {...optionProps(btnIdx, isSelected)}
                   onClick={() => {
                     onAnswer(btnValue)
                     setTimeout(() => onNext(true, btnValue), 300)
@@ -3653,9 +3952,16 @@ function QuestionBlock({
       case 'legal':
         return (
           <div className="mt-4">
-            <label className="flex items-start cursor-pointer">
+            <label className="flex items-start cursor-pointer" htmlFor={fieldId(block.id)}>
               <input
+                id={fieldId(block.id)}
                 type="checkbox"
+                aria-describedby={describedBy(
+                  block.attributes.description && descId(block.id),
+                  error && errorId(block.id)
+                )}
+                aria-invalid={error ? true : undefined}
+                aria-required={block.attributes.required ? true : undefined}
                 checked={answer || false}
                 onChange={(e) => {
                   onAnswer(e.target.checked)
@@ -3697,6 +4003,7 @@ function QuestionBlock({
             onChange={onAnswer}
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius}
+            groupProps={groupA11y}
           />
         )
 
@@ -3708,6 +4015,7 @@ function QuestionBlock({
             onChange={onAnswer}
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius}
+            groupProps={groupA11y}
           />
         )
 
@@ -3779,7 +4087,7 @@ function QuestionBlock({
 
       {/* Question number */}
       {showNumber && block.type !== 'welcome-screen' && block.type !== 'statement' && !block.attributes.hideLabel && (
-        <div className="flex items-center mb-2">
+        <div className="flex items-center mb-2" aria-hidden="true">
           <span
             className="text-sm font-medium px-2 py-1 rounded"
             style={{
@@ -3789,23 +4097,33 @@ function QuestionBlock({
           >
             {index + 1}
           </span>
-          {block.attributes.required && <span className="ml-2 text-red-500 text-sm">*</span>}
+          {block.attributes.required && (
+            <span className="ml-2 text-red-500 text-sm" aria-hidden="true">*</span>
+          )}
         </div>
       )}
 
       {/* Question text */}
       {!block.attributes.hideLabel && (
         <h2
+          id={labelId(block.id)}
           className="text-xl sm:text-2xl md:text-3xl font-medium leading-tight"
           style={{ color: themeProps.questionsColor }}
         >
-          {replaceVariables(block.attributes.label || 'Question sans titre', allBlocks, allAnswers, index)}
+          {resolvedLabel}
+          {/* L'astérisque ne dit rien à un lecteur d'écran : le caractère obligatoire passe par
+              `aria-required` sur le contrôle, et par ce rappel dans l'intitulé. */}
+          {block.attributes.required && <span className="sr-only"> (obligatoire)</span>}
         </h2>
       )}
 
       {/* Description */}
       {block.attributes.description && (
-        <p className="mt-2 text-base sm:text-lg" style={{ color: themeProps.answersColor }}>
+        <p
+          id={descId(block.id)}
+          className="mt-2 text-base sm:text-lg"
+          style={{ color: themeProps.answersColor }}
+        >
           {replaceVariables(block.attributes.description, allBlocks, allAnswers, index)}
         </p>
       )}
@@ -3823,8 +4141,13 @@ function QuestionBlock({
         <div className="mt-4">{renderBlockMedia()}</div>
       )}
 
-      {/* Error message */}
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+      {/* Error message — `role="alert"` pour que la validation soit annoncée sans avoir à
+          retourner lire le champ, et `id` pour que le contrôle la désigne en `aria-describedby`. */}
+      {error && (
+        <p id={errorId(block.id)} role="alert" className="mt-2 text-sm text-red-500">
+          {error}
+        </p>
+      )}
 
       {/* OK/Submit button for text inputs */}
       {['short-text', 'long-text', 'email', 'number', 'website', 'phone', 'address', 'date', 'advanced-date', 'time', 'slider', 'file', 'signature'].includes(
@@ -3843,7 +4166,7 @@ function QuestionBlock({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 aria-hidden="true" className="w-4 h-4 mr-2 animate-spin" />
                 Envoi...
               </>
             ) : (
@@ -3873,7 +4196,7 @@ function QuestionBlock({
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 aria-hidden="true" className="w-4 h-4 mr-2 animate-spin" />
                   Envoi...
                 </>
               ) : (
@@ -4036,6 +4359,32 @@ function GroupBlock({
     const value = answers[innerBlock.id]
     const handleChange = (newValue: any) => onAnswer(newValue, innerBlock.id)
 
+    // Un groupe affiche plusieurs questions côte à côte : chaque contrôle doit désigner son propre
+    // intitulé, la proximité visuelle ne suffit pas à le rattacher.
+    const innerA11y = fieldA11y({
+      blockId: innerBlock.id,
+      label: replaceVariables(
+        innerBlock.attributes.label || 'Question sans titre',
+        allBlocks,
+        answers,
+        index
+      ),
+      hideLabel: innerBlock.attributes.hideLabel,
+      required: innerBlock.attributes.required,
+      hasDescription: !!innerBlock.attributes.description,
+    })
+    const { id: _innerFieldIdUnused, ...innerGroupA11y } = innerA11y
+
+    const innerMultiple = !!(innerBlock.attributes.allowMultiple || innerBlock.attributes.multiple)
+    const innerChoiceValues: string[] =
+      innerBlock.type === 'yes-no'
+        ? ['yes', 'no']
+        : (innerBlock.attributes.choices || []).map((c: any) => String(c.value))
+    const innerSelectedIndex = selectedChoiceIndex(innerChoiceValues, value)
+    const innerListProps = choiceListProps(innerMultiple)
+    const innerOptionProps = (i: number, selected: boolean) =>
+      choiceOptionProps(innerMultiple, i, selected, innerSelectedIndex)
+
     switch (innerBlock.type) {
       case 'short-text':
       case 'email':
@@ -4043,6 +4392,7 @@ function GroupBlock({
       case 'website':
         return (
           <input
+            {...innerA11y}
             type={innerBlock.type === 'email' ? 'email' : innerBlock.type === 'number' ? 'number' : 'text'}
             placeholder={innerBlock.attributes.placeholder || 'Tapez votre réponse ici...'}
             value={value || ''}
@@ -4074,6 +4424,8 @@ function GroupBlock({
       case 'address':
         return (
           <AddressAutocomplete
+            a11y={innerA11y}
+            listId={`${fieldId(innerBlock.id)}-list`}
             value={value || ''}
             onChange={handleChange}
             placeholder={
@@ -4092,6 +4444,7 @@ function GroupBlock({
       case 'long-text':
         return (
           <textarea
+            {...innerA11y}
             placeholder={innerBlock.attributes.placeholder || 'Tapez votre réponse ici...'}
             value={value || ''}
             onChange={(e) => handleChange(e.target.value)}
@@ -4120,7 +4473,7 @@ function GroupBlock({
           : ''
 
         return (
-          <div className="space-y-2">
+          <div className="space-y-2" {...innerListProps} {...innerGroupA11y}>
             <CatalogNotice block={innerBlock} themeProps={themeProps} />
             {choices.map((choice: any, choiceIdx: number) => {
               const isSelected = selectedValues.includes(choice.value)
@@ -4128,6 +4481,7 @@ function GroupBlock({
               return (
                 <button
                   key={choice.id}
+                  {...innerOptionProps(choiceIdx, isSelected)}
                   onClick={() => {
                     if (allowMultiple) {
                       const newValues = isSelected
@@ -4149,6 +4503,7 @@ function GroupBlock({
                 >
                   {showLetters && (
                     <span
+                      aria-hidden="true"
                       className="w-5 h-5 rounded flex items-center justify-center text-xs font-medium mr-2 shrink-0"
                       style={{
                         backgroundColor: isSelected
@@ -4157,7 +4512,7 @@ function GroupBlock({
                         color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
                       }}
                     >
-                      {isSelected ? <Check className="w-3 h-3" /> : letters[choiceIdx]}
+                      {isSelected ? <Check aria-hidden="true" className="w-3 h-3" /> : letters[choiceIdx]}
                     </span>
                   )}
                   <span className="text-sm" style={{ color: themeProps.answersColor }}>{choice.label}</span>
@@ -4167,6 +4522,7 @@ function GroupBlock({
             {allowOtherOptionGroup && (
               <>
                 <button
+                  {...innerOptionProps(choices.length, !!isOtherSelectedGroup)}
                   onClick={() => {
                     if (allowMultiple) {
                       if (isOtherSelectedGroup) {
@@ -4189,6 +4545,7 @@ function GroupBlock({
                 >
                   {showLetters && (
                     <span
+                      aria-hidden="true"
                       className="w-5 h-5 rounded flex items-center justify-center text-xs font-medium mr-2 shrink-0"
                       style={{
                         backgroundColor: isOtherSelectedGroup
@@ -4197,7 +4554,7 @@ function GroupBlock({
                         color: isOtherSelectedGroup ? themeProps.buttonsFontColor : themeProps.answersColor,
                       }}
                     >
-                      {isOtherSelectedGroup ? <Check className="w-3 h-3" /> : letters[choices.length]}
+                      {isOtherSelectedGroup ? <Check aria-hidden="true" className="w-3 h-3" /> : letters[choices.length]}
                     </span>
                   )}
                   <span className="text-sm" style={{ color: themeProps.answersColor }}>Autre</span>
@@ -4206,6 +4563,7 @@ function GroupBlock({
                   <input
                     autoFocus
                     type="text"
+                    aria-label="Précisez votre réponse"
                     value={otherTextGroup}
                     onChange={(e) => {
                       const text = e.target.value
@@ -4251,6 +4609,8 @@ function GroupBlock({
         // Toujours utiliser le composant avec autocomplétion
         return (
           <DropdownWithAutocomplete
+            a11y={innerA11y}
+            listId={`${fieldId(innerBlock.id)}-list`}
             choices={dropdownChoices}
             value={value || ''}
             onChange={handleChange}
@@ -4267,6 +4627,7 @@ function GroupBlock({
       case 'date':
         return (
           <input
+            {...innerA11y}
             type="date"
             value={value || ''}
             onChange={(e) => handleChange(e.target.value)}
@@ -4282,6 +4643,7 @@ function GroupBlock({
       case 'time':
         return (
           <input
+            {...innerA11y}
             type="time"
             value={value || ''}
             onChange={(e) => handleChange(e.target.value)}
@@ -4296,16 +4658,17 @@ function GroupBlock({
 
       case 'yes-no':
         return (
-          <div className="flex gap-2">
+          <div className="flex gap-2" {...innerListProps} {...innerGroupA11y}>
             {[
               { btnValue: 'yes', label: innerBlock.attributes.yesLabel || 'Oui' },
               { btnValue: 'no', label: innerBlock.attributes.noLabel || 'Non' },
-            ].map(({ btnValue, label }) => {
+            ].map(({ btnValue, label }, btnIdx) => {
               const isSelected = value === btnValue
               return (
                 <button
                   key={btnValue}
                   type="button"
+                  {...innerOptionProps(btnIdx, isSelected)}
                   onClick={() => handleChange(btnValue)}
                   className="px-4 py-2 font-medium transition-all border-2 text-sm"
                   style={{
@@ -4324,9 +4687,14 @@ function GroupBlock({
 
       case 'legal':
         return (
-          <label className="flex items-start gap-3 cursor-pointer">
+          <label className="flex items-start gap-3 cursor-pointer" htmlFor={fieldId(innerBlock.id)}>
             <input
+              id={fieldId(innerBlock.id)}
               type="checkbox"
+              aria-describedby={
+                innerBlock.attributes.description ? descId(innerBlock.id) : undefined
+              }
+              aria-required={innerBlock.attributes.required ? true : undefined}
               checked={value || false}
               onChange={(e) => handleChange(e.target.checked)}
               className="mt-1 w-5 h-5 rounded border-2"
@@ -4395,16 +4763,18 @@ function GroupBlock({
         )
         
         return (
-          <AdvancedDateCalendar
-            value={value}
-            onChange={handleChange}
-            minDate={advMinDate}
-            maxDate={advMaxDate}
-            themeProps={themeProps}
-            isDateRange={innerBlock.attributes.isDateRange}
-            startDateLabel={innerBlock.attributes.startDateLabel}
-            endDateLabel={innerBlock.attributes.endDateLabel}
-          />
+          <div role="group" {...innerGroupA11y}>
+            <AdvancedDateCalendar
+              value={value}
+              onChange={handleChange}
+              minDate={advMinDate}
+              maxDate={advMaxDate}
+              themeProps={themeProps}
+              isDateRange={innerBlock.attributes.isDateRange}
+              startDateLabel={innerBlock.attributes.startDateLabel}
+              endDateLabel={innerBlock.attributes.endDateLabel}
+            />
+          </div>
         )
 
       case 'slider':
@@ -4423,6 +4793,7 @@ function GroupBlock({
               color={innerBlock.attributes.starColor || DEFAULT_STAR_COLOR}
               emptyColor={themeProps.answersColor}
               size={innerBlock.attributes.starSize || 'sm'}
+              groupProps={innerGroupA11y}
             />
           )
         }
@@ -4430,6 +4801,7 @@ function GroupBlock({
         return (
           <div className="space-y-2">
             <input
+              {...innerA11y}
               type="range"
               min={min}
               max={max}
@@ -4439,7 +4811,7 @@ function GroupBlock({
               className="w-full"
               style={{ accentColor: themeProps.buttonsBgColor }}
             />
-            <div className="flex justify-between text-sm" style={{ color: themeProps.answersColor }}>
+            <div className="flex justify-between text-sm" aria-hidden="true" style={{ color: themeProps.answersColor }}>
               <span>{min}</span>
               <span className="font-medium">{sliderValue}</span>
               <span>{max}</span>
@@ -4452,6 +4824,7 @@ function GroupBlock({
         const innerDefaultPlaceholder = innerPhoneFormat === 'international' ? '+33 6 12 34 56 78' : '06 12 34 56 78'
         return (
           <input
+            {...innerA11y}
             type="tel"
             inputMode="numeric"
             placeholder={innerBlock.attributes.placeholder || innerDefaultPlaceholder}
@@ -4506,12 +4879,14 @@ function GroupBlock({
         return (
           <div className="mt-2">
             {imgLayout === 'stacked' ? (
-              <div className="space-y-2">
-                {imgChoices.map((choice: any) => {
+              <div className="space-y-2" {...innerListProps} {...innerGroupA11y}>
+                {imgChoices.map((choice: any, imgIdx: number) => {
                   const isSelected = imgSelectedValues.includes(choice.value)
                   return (
                     <button
                       key={choice.id}
+                      {...innerOptionProps(imgIdx, isSelected)}
+                      aria-label={choice.label}
                       onClick={() => {
                         if (imgAllowMultiple) {
                           const newValues = isSelected
@@ -4532,13 +4907,13 @@ function GroupBlock({
                     >
                       <div className={`relative shrink-0 w-16 ${innerSizeClasses[imgSize]} rounded overflow-hidden bg-gray-100`}>
                         {choice.imageUrl ? (
-                          <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                          <img src={choice.imageUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">IMG</div>
                         )}
                         {isSelected && (
                           <div className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
-                            <Check className="w-3 h-3" style={{ color: themeProps.buttonsFontColor }} />
+                            <Check aria-hidden="true" className="w-3 h-3" style={{ color: themeProps.buttonsFontColor }} />
                           </div>
                         )}
                       </div>
@@ -4550,12 +4925,18 @@ function GroupBlock({
                 })}
               </div>
             ) : (
-              <div className={`grid ${innerColumnClasses[imgColumns as keyof typeof innerColumnClasses]} gap-2`}>
-                {imgChoices.map((choice: any) => {
+              <div
+                className={`grid ${innerColumnClasses[imgColumns as keyof typeof innerColumnClasses]} gap-2`}
+                {...innerListProps}
+                {...innerGroupA11y}
+              >
+                {imgChoices.map((choice: any, imgIdx: number) => {
                   const isSelected = imgSelectedValues.includes(choice.value)
                   return (
                     <button
                       key={choice.id}
+                      {...innerOptionProps(imgIdx, isSelected)}
+                      aria-label={choice.label}
                       onClick={() => {
                         if (imgAllowMultiple) {
                           const newValues = isSelected
@@ -4575,14 +4956,14 @@ function GroupBlock({
                     >
                       <div className={`${innerSizeClasses[imgSize]} bg-gray-100`}>
                         {choice.imageUrl ? (
-                          <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                          <img src={choice.imageUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">IMG</div>
                         )}
                         {isSelected && (
                           <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor + '30' }}>
                             <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
-                              <Check className="w-4 h-4" style={{ color: themeProps.buttonsFontColor }} />
+                              <Check aria-hidden="true" className="w-4 h-4" style={{ color: themeProps.buttonsFontColor }} />
                             </div>
                           </div>
                         )}
@@ -4610,6 +4991,7 @@ function GroupBlock({
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius}
             compact
+            groupProps={innerGroupA11y}
           />
         )
 
@@ -4622,6 +5004,7 @@ function GroupBlock({
             themeProps={themeProps}
             inputBorderRadius={inputBorderRadius}
             compact
+            groupProps={innerGroupA11y}
           />
         )
 
@@ -4642,6 +5025,7 @@ function GroupBlock({
           <div className="flex items-baseline">
             {showNumber && (
               <span
+                aria-hidden="true"
                 className="text-sm font-medium px-2 py-1 rounded mr-3"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor + '20',
@@ -4652,6 +5036,7 @@ function GroupBlock({
               </span>
             )}
             <h2
+              id={labelId(block.id)}
               className="text-2xl md:text-3xl font-medium leading-tight"
               style={{ color: themeProps.questionsColor }}
             >
@@ -4659,7 +5044,7 @@ function GroupBlock({
             </h2>
           </div>
           {block.attributes.description && (
-            <p className="mt-2 text-lg" style={{ color: themeProps.answersColor }}>
+            <p id={descId(block.id)} className="mt-2 text-lg" style={{ color: themeProps.answersColor }}>
               {replaceVariables(block.attributes.description, allBlocks, answers, index)}
             </p>
           )}
@@ -4668,43 +5053,66 @@ function GroupBlock({
 
       {/* Questions internes */}
       <div className="space-y-6">
-        {innerBlocks.map((innerBlock, innerIdx) => (
-          <div key={innerBlock.id} className="group">
-            {!innerBlock.attributes.hideLabel && (
-              <div className="flex items-baseline mb-2">
-                {showNumber && (
-                  <span
-                    className="text-xs font-medium px-1.5 py-0.5 rounded mr-2"
-                    style={{
-                      backgroundColor: themeProps.answersColor + '15',
-                      color: themeProps.answersColor + '80',
-                    }}
-                  >
-                    {index + 1}{String.fromCharCode(65 + innerIdx)}
-                  </span>
-                )}
-                <label
-                  className="text-lg font-medium"
-                  style={{ color: themeProps.questionsColor }}
-                >
-                  {replaceVariables(innerBlock.attributes.label || 'Question sans titre', allBlocks, answers, index)}
-                  {innerBlock.attributes.required && (
-                    <span className="text-red-500 ml-1">*</span>
+        {innerBlocks.map((innerBlock, innerIdx) => {
+          // Un `<label for>` ne peut désigner qu'un contrôle de formulaire : les questions rendues
+          // en boutons (choix, note, signature…) reçoivent un `<span>` que leur conteneur
+          // `role="group"` désigne en `aria-labelledby`.
+          const LabelTag = usesNativeLabel(innerBlock.type) ? 'label' : 'span'
+          const labelProps =
+            LabelTag === 'label' ? { htmlFor: fieldId(innerBlock.id) } : {}
+
+          return (
+            <div key={innerBlock.id} className="group">
+              {!innerBlock.attributes.hideLabel && (
+                <div className="flex items-baseline mb-2">
+                  {showNumber && (
+                    <span
+                      className="text-xs font-medium px-1.5 py-0.5 rounded mr-2"
+                      aria-hidden="true"
+                      style={{
+                        backgroundColor: themeProps.answersColor + '15',
+                        color: themeProps.answersColor + '80',
+                      }}
+                    >
+                      {index + 1}{String.fromCharCode(65 + innerIdx)}
+                    </span>
                   )}
-                </label>
-              </div>
-            )}
-            {innerBlock.attributes.description && (
-              <p className="text-sm mb-2" style={{ color: themeProps.answersColor + '80' }}>
-                {replaceVariables(innerBlock.attributes.description, allBlocks, answers, index)}
-              </p>
-            )}
-            {renderInnerInput(innerBlock, innerIdx)}
-          </div>
-        ))}
+                  <LabelTag
+                    id={labelId(innerBlock.id)}
+                    className="text-lg font-medium"
+                    style={{ color: themeProps.questionsColor }}
+                    {...labelProps}
+                  >
+                    {replaceVariables(innerBlock.attributes.label || 'Question sans titre', allBlocks, answers, index)}
+                    {innerBlock.attributes.required && (
+                      <>
+                        <span className="text-red-500 ml-1" aria-hidden="true">*</span>
+                        <span className="sr-only"> (obligatoire)</span>
+                      </>
+                    )}
+                  </LabelTag>
+                </div>
+              )}
+              {innerBlock.attributes.description && (
+                <p
+                  id={descId(innerBlock.id)}
+                  className="text-sm mb-2"
+                  style={{ color: themeProps.answersColor + '80' }}
+                >
+                  {replaceVariables(innerBlock.attributes.description, allBlocks, answers, index)}
+                </p>
+              )}
+              {renderInnerInput(innerBlock, innerIdx)}
+            </div>
+          )
+        })}
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+      {error && (
+        <p id={errorId(block.id)} role="alert" className="mt-4 text-sm text-red-500">
+          {error}
+        </p>
+      )}
 
       {/* Bouton OK/Envoyer */}
       <div className="mt-6">
@@ -4720,7 +5128,7 @@ function GroupBlock({
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 aria-hidden="true" className="w-4 h-4 mr-2 animate-spin" />
               Envoi...
             </>
           ) : (
@@ -4808,7 +5216,7 @@ function RepeaterBlock({
     return (
       <div>
         {showNumber && (
-          <div className="flex items-center mb-2">
+          <div className="flex items-center mb-2" aria-hidden="true">
             <span
               className="text-sm font-medium px-2 py-1 rounded"
               style={{
@@ -4822,6 +5230,7 @@ function RepeaterBlock({
         )}
 
         <h2
+          id={labelId(block.id)}
           className="text-2xl md:text-3xl font-medium leading-tight"
           style={{ color: themeProps.questionsColor }}
         >
@@ -4834,7 +5243,11 @@ function RepeaterBlock({
           </p>
         )}
 
-        <div className="mt-4 space-y-2">
+        <div
+          className="mt-4 space-y-2"
+          {...choiceListProps(false)}
+          aria-labelledby={labelId(block.id)}
+        >
           {[
             { value: 'yes', label: yesLabel },
             { value: 'no', label: noLabel }
@@ -4844,6 +5257,12 @@ function RepeaterBlock({
             return (
               <button
                 key={choice.value}
+                {...choiceOptionProps(
+                  false,
+                  idx,
+                  isSelected,
+                  currentAnswer === 'yes' ? 0 : currentAnswer === 'no' ? 1 : -1
+                )}
                 onClick={() => {
                   onAnswer(choice.value)
                   setTimeout(() => onNext(true, choice.value), 300)
@@ -4859,6 +5278,7 @@ function RepeaterBlock({
               >
                 {showLetters && (
                   <span
+                    aria-hidden="true"
                     className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
                     style={{
                       backgroundColor: isSelected
@@ -4867,7 +5287,7 @@ function RepeaterBlock({
                       color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
                     }}
                   >
-                    {isSelected ? <Check className="w-4 h-4" /> : letters[idx]}
+                    {isSelected ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[idx]}
                   </span>
                 )}
                 <span style={{ color: themeProps.answersColor }}>{choice.label}</span>
@@ -4876,7 +5296,11 @@ function RepeaterBlock({
           })}
         </div>
 
-        {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+        {error && (
+          <p id={errorId(block.id)} role="alert" className="mt-2 text-sm text-red-500">
+            {error}
+          </p>
+        )}
       </div>
     )
   }
@@ -4902,6 +5326,7 @@ function RepeaterBlock({
         </div>
 
         <h2
+          id={labelId(block.id)}
           className="text-2xl md:text-3xl font-medium leading-tight"
           style={{ color: themeProps.questionsColor }}
         >
@@ -4914,7 +5339,11 @@ function RepeaterBlock({
           </p>
         )}
 
-        <div className="mt-4 space-y-2">
+        <div
+          className="mt-4 space-y-2"
+          {...choiceListProps(false)}
+          aria-labelledby={labelId(block.id)}
+        >
           {[
             { value: 'yes', label: yesLabel },
             { value: 'no', label: noLabel }
@@ -4924,6 +5353,12 @@ function RepeaterBlock({
             return (
               <button
                 key={choice.value}
+                {...choiceOptionProps(
+                  false,
+                  idx,
+                  isSelected,
+                  currentAnswer === 'yes' ? 0 : currentAnswer === 'no' ? 1 : -1
+                )}
                 onClick={() => {
                   onAnswer(choice.value)
                   setTimeout(() => onNext(true, choice.value), 300)
@@ -4939,6 +5374,7 @@ function RepeaterBlock({
               >
                 {showLetters && (
                   <span
+                    aria-hidden="true"
                     className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
                     style={{
                       backgroundColor: isSelected
@@ -4947,7 +5383,7 @@ function RepeaterBlock({
                       color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
                     }}
                   >
-                    {isSelected ? <Check className="w-4 h-4" /> : letters[idx]}
+                    {isSelected ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[idx]}
                   </span>
                 )}
                 <span style={{ color: themeProps.answersColor }}>{choice.label}</span>
@@ -4956,7 +5392,11 @@ function RepeaterBlock({
           })}
         </div>
 
-        {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+        {error && (
+          <p id={errorId(block.id)} role="alert" className="mt-2 text-sm text-red-500">
+            {error}
+          </p>
+        )}
       </div>
     )
   }
@@ -4978,6 +5418,7 @@ function RepeaterBlock({
             </span>
             {showNumber && (
               <span
+                aria-hidden="true"
                 className="text-sm font-medium px-2 py-1 rounded"
                 style={{
                   backgroundColor: themeProps.buttonsBgColor + '20',
@@ -4987,21 +5428,29 @@ function RepeaterBlock({
                 {repeaterState.currentInnerIndex + 1} / {innerBlocks.length}
               </span>
             )}
-            {currentInnerBlock.attributes.required && <span className="text-red-500 text-sm">*</span>}
+            {currentInnerBlock.attributes.required && (
+              <span className="text-red-500 text-sm" aria-hidden="true">*</span>
+            )}
           </div>
         )}
 
         {!currentInnerBlock.attributes.hideLabel && (
           <h2
+            id={labelId(currentInnerBlock.id)}
             className="text-2xl md:text-3xl font-medium leading-tight"
             style={{ color: themeProps.questionsColor }}
           >
             {replaceVariables(currentInnerBlock.attributes.label || 'Question sans titre', allBlocks, answers, index, repeaterState.repetitionCount, block.id, repeaterState.currentInnerIndex)}
+            {currentInnerBlock.attributes.required && <span className="sr-only"> (obligatoire)</span>}
           </h2>
         )}
 
         {currentInnerBlock.attributes.description && (
-          <p className="mt-2 text-lg" style={{ color: themeProps.answersColor }}>
+          <p
+            id={descId(currentInnerBlock.id)}
+            className="mt-2 text-lg"
+            style={{ color: themeProps.answersColor }}
+          >
             {replaceVariables(currentInnerBlock.attributes.description, allBlocks, answers, index, repeaterState.repetitionCount, block.id, repeaterState.currentInnerIndex)}
           </p>
         )}
@@ -5036,7 +5485,11 @@ function RepeaterBlock({
           })()}
         />
 
-        {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+        {error && (
+          <p id={errorId(currentInnerBlock.id)} role="alert" className="mt-2 text-sm text-red-500">
+            {error}
+          </p>
+        )}
 
         {/* Bouton OK pour les champs texte et quantité */}
         {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date', 'slider', 'quantity', 'file', 'signature'].includes(
@@ -5177,6 +5630,28 @@ function InnerBlockInput({
 }: InnerBlockInputProps) {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
+  // Le répéteur affiche un bloc interne à la fois, sous le `<h2>` rendu par `RepeaterBlock` :
+  // les identifiants sont ceux du bloc interne, pas ceux du répéteur.
+  const a11y = fieldA11y({
+    blockId: block.id,
+    label: block.attributes.label,
+    hideLabel: block.attributes.hideLabel,
+    required: block.attributes.required,
+    hasDescription: !!block.attributes.description,
+    hasError: !!error,
+  })
+  const { id: _innerIdUnused, ...groupA11y } = a11y
+
+  const innerMultiple = !!(block.attributes.allowMultiple || block.attributes.multiple)
+  const innerChoiceValues: string[] =
+    block.type === 'yes-no'
+      ? ['yes', 'no']
+      : (block.attributes.choices || []).map((c: any) => String(c.value))
+  const innerSelectedIndex = selectedChoiceIndex(innerChoiceValues, answer)
+  const listProps = choiceListProps(innerMultiple)
+  const optionProps = (i: number, selected: boolean) =>
+    choiceOptionProps(innerMultiple, i, selected, innerSelectedIndex)
+
   switch (block.type) {
     case 'short-text':
     case 'email':
@@ -5184,6 +5659,7 @@ function InnerBlockInput({
     case 'website':
       return (
         <input
+          {...a11y}
           type={block.type === 'email' ? 'email' : block.type === 'number' ? 'number' : 'text'}
           placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
           value={answer || ''}
@@ -5201,6 +5677,8 @@ function InnerBlockInput({
     case 'address':
       return (
         <AddressAutocomplete
+          a11y={a11y}
+          listId={`${fieldId(block.id)}-list`}
           value={answer || ''}
           onChange={onAnswer}
           onSelect={() => onNext()}
@@ -5223,6 +5701,7 @@ function InnerBlockInput({
       const innerDefaultPlaceholder2 = innerPhoneFormat2 === 'international' ? '+33 6 12 34 56 78' : '06 12 34 56 78'
       return (
         <input
+          {...a11y}
           type="tel"
           inputMode="numeric"
           placeholder={block.attributes.placeholder || innerDefaultPlaceholder2}
@@ -5257,6 +5736,7 @@ function InnerBlockInput({
     case 'long-text':
       return (
         <textarea
+          {...a11y}
           placeholder={block.attributes.placeholder || 'Tapez votre réponse ici...'}
           value={answer || ''}
           onChange={(e) => onAnswer(e.target.value)}
@@ -5296,6 +5776,8 @@ function InnerBlockInput({
       return (
         <>
           <DropdownWithAutocomplete
+            a11y={a11y}
+            listId={`${fieldId(block.id)}-list`}
             choices={innerDropdownChoices}
             value={answer || ''}
             onChange={(value) => onAnswer(value)}
@@ -5337,7 +5819,7 @@ function InnerBlockInput({
           : (answer as string).slice(10)
         : ''
       return (
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-2" {...listProps} {...groupA11y}>
         <CatalogNotice block={block} themeProps={themeProps} />
           {innerChoices.map((choice: any, idx: number) => {
             const isSelected = innerAllowMultiple
@@ -5347,6 +5829,7 @@ function InnerBlockInput({
             return (
               <button
                 key={choice.value}
+                {...optionProps(idx, isSelected)}
                 onClick={() => {
                   if (innerAllowMultiple) {
                     const current = answer || []
@@ -5371,6 +5854,7 @@ function InnerBlockInput({
               >
                 {showLetters && (
                   <span
+                    aria-hidden="true"
                     className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
                     style={{
                       backgroundColor: isSelected
@@ -5379,7 +5863,7 @@ function InnerBlockInput({
                       color: isSelected ? themeProps.buttonsFontColor : themeProps.answersColor,
                     }}
                   >
-                    {isSelected ? <Check className="w-4 h-4" /> : letters[idx]}
+                    {isSelected ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[idx]}
                   </span>
                 )}
                 <span style={{ color: themeProps.answersColor }}>{choice.label}</span>
@@ -5394,6 +5878,7 @@ function InnerBlockInput({
           {allowOtherOptionInner && (
             <>
               <button
+                {...optionProps(innerChoices.length, !!isOtherSelectedInner)}
                 onClick={() => {
                   if (innerAllowMultiple) {
                     const current = answer || []
@@ -5421,6 +5906,7 @@ function InnerBlockInput({
               >
                 {showLetters && (
                   <span
+                    aria-hidden="true"
                     className="w-6 h-6 rounded flex items-center justify-center text-sm font-medium mr-3"
                     style={{
                       backgroundColor: isOtherSelectedInner
@@ -5429,7 +5915,7 @@ function InnerBlockInput({
                       color: isOtherSelectedInner ? themeProps.buttonsFontColor : themeProps.answersColor,
                     }}
                   >
-                    {isOtherSelectedInner ? <Check className="w-4 h-4" /> : letters[innerChoices.length]}
+                    {isOtherSelectedInner ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[innerChoices.length]}
                   </span>
                 )}
                 <span style={{ color: themeProps.answersColor }}>Autre</span>
@@ -5438,6 +5924,7 @@ function InnerBlockInput({
                 <input
                   autoFocus
                   type="text"
+                  aria-label="Précisez votre réponse"
                   value={otherTextInner}
                   onChange={(e) => {
                     const text = e.target.value
@@ -5464,6 +5951,7 @@ function InnerBlockInput({
     case 'date':
       return (
         <input
+          {...a11y}
           type="date"
           value={answer || ''}
           onChange={(e) => onAnswer(e.target.value)}
@@ -5525,16 +6013,18 @@ function InnerBlockInput({
       )
       
       return (
-        <AdvancedDateCalendar
-          value={answer}
-          onChange={onAnswer}
-          minDate={innerMinDate}
-          maxDate={innerMaxDate}
-          themeProps={themeProps}
-          isDateRange={block.attributes.isDateRange}
-          startDateLabel={block.attributes.startDateLabel}
-          endDateLabel={block.attributes.endDateLabel}
-        />
+        <div role="group" {...groupA11y}>
+          <AdvancedDateCalendar
+            value={answer}
+            onChange={onAnswer}
+            minDate={innerMinDate}
+            maxDate={innerMaxDate}
+            themeProps={themeProps}
+            isDateRange={block.attributes.isDateRange}
+            startDateLabel={block.attributes.startDateLabel}
+            endDateLabel={block.attributes.endDateLabel}
+          />
+        </div>
       )
 
     case 'slider':
@@ -5553,6 +6043,7 @@ function InnerBlockInput({
               color={block.attributes.starColor || DEFAULT_STAR_COLOR}
               emptyColor={themeProps.answersColor}
               size={block.attributes.starSize || 'md'}
+              groupProps={groupA11y}
             />
           </div>
         )
@@ -5561,6 +6052,7 @@ function InnerBlockInput({
       return (
         <div className="mt-6">
           <input
+            {...a11y}
             type="range"
             min={min}
             max={max}
@@ -5570,7 +6062,7 @@ function InnerBlockInput({
             className="w-full"
             style={{ accentColor: themeProps.buttonsBgColor }}
           />
-          <div className="flex justify-between mt-2 text-sm" style={{ color: themeProps.answersColor }}>
+          <div className="flex justify-between mt-2 text-sm" aria-hidden="true" style={{ color: themeProps.answersColor }}>
             <span>{min}</span>
             <span className="font-medium text-lg">{answer || min}</span>
             <span>{max}</span>
@@ -5601,8 +6093,8 @@ function InnerBlockInput({
       return (
         <div className="mt-4">
           {imgSelLayout === 'stacked' ? (
-            <div className="space-y-3">
-              {imgSelChoices.map((choice: any) => {
+            <div className="space-y-3" {...listProps} {...groupA11y}>
+              {imgSelChoices.map((choice: any, imgIdx: number) => {
                 const isSelected = imgSelAllowMultiple
                   ? (answer || []).includes(choice.value)
                   : answer === choice.value
@@ -5610,6 +6102,8 @@ function InnerBlockInput({
                 return (
                   <button
                     key={choice.value}
+                    {...optionProps(imgIdx, isSelected)}
+                    aria-label={choice.label}
                     onClick={() => {
                       if (imgSelAllowMultiple) {
                         const current = answer || []
@@ -5633,13 +6127,13 @@ function InnerBlockInput({
                   >
                     <div className={`relative shrink-0 w-16 sm:w-20 ${innerImgSizeClasses[imgSelSize]} rounded-md overflow-hidden bg-gray-100`}>
                       {choice.imageUrl ? (
-                        <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                        <img src={choice.imageUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Image</div>
                       )}
                       {isSelected && (
                         <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
-                          <Check className="w-3 h-3" style={{ color: themeProps.buttonsFontColor }} />
+                          <Check aria-hidden="true" className="w-3 h-3" style={{ color: themeProps.buttonsFontColor }} />
                         </div>
                       )}
                     </div>
@@ -5651,8 +6145,12 @@ function InnerBlockInput({
               })}
             </div>
           ) : (
-            <div className={`grid ${innerImgColumnClasses[imgSelColumns as keyof typeof innerImgColumnClasses]} gap-3`}>
-              {imgSelChoices.map((choice: any) => {
+            <div
+              className={`grid ${innerImgColumnClasses[imgSelColumns as keyof typeof innerImgColumnClasses]} gap-3`}
+              {...listProps}
+              {...groupA11y}
+            >
+              {imgSelChoices.map((choice: any, imgIdx: number) => {
                 const isSelected = imgSelAllowMultiple
                   ? (answer || []).includes(choice.value)
                   : answer === choice.value
@@ -5660,6 +6158,8 @@ function InnerBlockInput({
                 return (
                   <button
                     key={choice.value}
+                    {...optionProps(imgIdx, isSelected)}
+                    aria-label={choice.label}
                     onClick={() => {
                       if (imgSelAllowMultiple) {
                         const current = answer || []
@@ -5682,14 +6182,14 @@ function InnerBlockInput({
                   >
                     <div className={`${innerImgSizeClasses[imgSelSize]} bg-gray-100`}>
                       {choice.imageUrl ? (
-                        <img src={choice.imageUrl} alt={choice.label} className="w-full h-full object-cover" />
+                        <img src={choice.imageUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">Image</div>
                       )}
                       {isSelected && (
                         <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor + '30' }}>
                           <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: themeProps.buttonsBgColor }}>
-                            <Check className="w-5 h-5" style={{ color: themeProps.buttonsFontColor }} />
+                            <Check aria-hidden="true" className="w-5 h-5" style={{ color: themeProps.buttonsFontColor }} />
                           </div>
                         </div>
                       )}
@@ -5739,7 +6239,7 @@ function InnerBlockInput({
       }
 
       return (
-        <div className="mt-6 space-y-4 w-full max-w-md">
+        <div className="mt-6 space-y-4 w-full max-w-md" role="group" {...groupA11y}>
           {choicesToShow.map((choice: any) => {
             // Réponses "Autre" : min=1, pas de max
             const itemCfg = choice.isSpecial ? null : qItems.find((it: any) => it.choiceId === choice.id || it.choiceValue === choice.value)
@@ -5761,13 +6261,15 @@ function InnerBlockInput({
                     type="button"
                     onClick={() => { if (qty > minQty) onAnswer({ ...currentQtys, [choice.value]: qty - 1 }) }}
                     disabled={qty <= minQty}
+                    aria-label={`Diminuer la quantité pour ${choice.label}`}
                     className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
                     style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
                   >
-                    −
+                    <span aria-hidden="true">−</span>
                   </button>
                   <input
                     type="number"
+                    aria-label={`Quantité pour ${choice.label}`}
                     min={minQty}
                     max={maxQty}
                     value={qty}
@@ -5784,13 +6286,17 @@ function InnerBlockInput({
                     type="button"
                     onClick={() => { if (maxQty === undefined || qty < maxQty) onAnswer({ ...currentQtys, [choice.value]: qty + 1 }) }}
                     disabled={maxQty !== undefined && qty >= maxQty}
+                    aria-label={`Augmenter la quantité pour ${choice.label}`}
                     className="w-9 h-9 rounded-full border-2 flex items-center justify-center text-xl font-bold transition-opacity disabled:opacity-30"
                     style={{ borderColor: themeProps.buttonsBgColor, color: themeProps.buttonsBgColor }}
                   >
-                    +
+                    <span aria-hidden="true">+</span>
                   </button>
                   {maxQty !== undefined && (
-                    <span className="text-xs opacity-50 ml-1" style={{ color: themeProps.answersColor }}>/{maxQty}</span>
+                    <span className="text-xs opacity-50 ml-1" style={{ color: themeProps.answersColor }}>
+                      <span aria-hidden="true">/{maxQty}</span>
+                      <span className="sr-only">sur {maxQty} disponibles</span>
+                    </span>
                   )}
                 </div>
               </div>
@@ -5808,6 +6314,7 @@ function InnerBlockInput({
           value={answer}
           onChange={onAnswer}
           themeProps={themeProps}
+          groupProps={groupA11y}
         />
       )
 
@@ -5818,6 +6325,7 @@ function InnerBlockInput({
           value={answer}
           onChange={onAnswer}
           themeProps={themeProps}
+          groupProps={groupA11y}
         />
       )
 
@@ -6001,6 +6509,12 @@ function AdvancedDateCalendar({
     return days
   }
 
+  // « 12 » ne veut rien dire hors de la grille : le nom accessible d'une case porte la date entière.
+  // `generateCalendarDays` a déjà décalé l'année des mois débordants, seul l'index du mois reste à
+  // ramener dans [0, 11].
+  const formatDayLabel = (year: number, month: number, day: number) =>
+    `${day} ${monthNames[((month % 12) + 12) % 12]} ${year}`
+
   const handleDateClick = (year: number, month: number, day: number) => {
     if (isDateDisabled(year, month, day)) return
     
@@ -6077,20 +6591,23 @@ function AdvancedDateCalendar({
             <button
               type="button"
               onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear() - 1, displayMonth.getMonth(), 1))}
+              aria-label="Année précédente"
               style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: themeProps.answersColor, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             >
-              «
+              <span aria-hidden="true">«</span>
             </button>
             <button
               type="button"
               onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() - 1, 1))}
+              aria-label="Mois précédent"
               style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: themeProps.answersColor, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             >
-              ‹
+              <span aria-hidden="true">‹</span>
             </button>
           </div>
           
-          <span 
+          <span
+            aria-live="polite"
             style={{ fontWeight: 500, fontSize: '18px', color: themeProps.questionsColor }}
           >
             {monthNames[displayMonth.getMonth()]} {displayMonth.getFullYear()}
@@ -6100,16 +6617,18 @@ function AdvancedDateCalendar({
             <button
               type="button"
               onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 1))}
+              aria-label="Mois suivant"
               style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: themeProps.answersColor, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             >
-              ›
+              <span aria-hidden="true">›</span>
             </button>
             <button
               type="button"
               onClick={() => setDisplayMonth(new Date(displayMonth.getFullYear() + 1, displayMonth.getMonth(), 1))}
+              aria-label="Année suivante"
               style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: themeProps.answersColor, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: '4px' }}
             >
-              »
+              <span aria-hidden="true">»</span>
             </button>
           </div>
         </div>
@@ -6144,24 +6663,27 @@ function AdvancedDateCalendar({
                   const todayDate = isToday(d.year, d.month, d.day)
                   const weekend = isWeekend(d.year, d.month, d.day)
                   
+                  // Une case de calendrier est un contrôle : rendue en `<td onClick>`, elle
+                  // n'était atteignable ni au clavier ni par une aide technique.
                   return (
-                    <td
-                      key={dayIdx}
-                      onClick={() => !disabled && handleDateClick(d.year, d.month, d.day)}
-                      style={{
-                        padding: '4px',
-                        textAlign: 'center',
-                        cursor: disabled ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      <div
+                    <td key={dayIdx} style={{ padding: '4px', textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        aria-pressed={selected ? true : undefined}
+                        aria-current={todayDate ? 'date' : undefined}
+                        aria-label={formatDayLabel(d.year, d.month, d.day)}
+                        onClick={() => handleDateClick(d.year, d.month, d.day)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          width: '100%',
                           height: '36px',
                           fontSize: '14px',
+                          border: 'none',
                           borderRadius: '4px',
+                          cursor: disabled ? 'not-allowed' : 'pointer',
                           opacity: !d.isCurrentMonth ? 0.3 : disabled ? 0.3 : 1,
                           fontWeight: todayDate && !selected ? 'bold' : 'normal',
                           backgroundColor: selected 
@@ -6182,7 +6704,7 @@ function AdvancedDateCalendar({
                         }}
                       >
                         {d.day}
-                      </div>
+                      </button>
                     </td>
                   )
                 })}
@@ -6248,7 +6770,7 @@ function ThankYouActions({ block, themeProps, buttonBorderRadius, onRestart, cla
           color: themeProps.buttonsBgColor,
         }}
       >
-        <Check className="w-4 h-4" />
+        <Check aria-hidden="true" className="w-4 h-4" />
         Formulaire terminé
       </div>
       {block?.attributes.showRestartButton && (
@@ -6316,7 +6838,7 @@ function WelcomeScreenContent({ block, themeProps, onNext, buttonBorderRadius, o
             }}
           >
             {block.attributes.buttonText || 'Commencer'}
-            <ChevronDown className="w-5 h-5 ml-2 rotate-[-90deg]" />
+            <ChevronDown aria-hidden="true" className="w-5 h-5 ml-2 rotate-[-90deg]" />
           </button>
         </div>
       )}
@@ -6359,17 +6881,43 @@ interface GdprNoticeModalProps {
 
 // Modale affichant le texte RGPD configuré par l'admin du formulaire (durée de conservation, droits, contact…)
 function GdprNoticeModal({ block, open, onClose }: GdprNoticeModalProps) {
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    closeRef.current?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
   if (!open || !block?.attributes.showGdprNotice || !block.attributes.gdprNoticeText) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fb-gdpr-notice-title"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b">
-          <span className="font-semibold text-sm text-gray-800">
+          <span id="fb-gdpr-notice-title" className="font-semibold text-sm text-gray-800">
             {block.attributes.gdprNoticeLinkText || 'Politique de confidentialité'}
           </span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 text-gray-500">
-            <X className="w-5 h-5" />
+          <button
+            ref={closeRef}
+            onClick={onClose}
+            aria-label="Fermer"
+            className="p-1 rounded hover:bg-gray-100 text-gray-500"
+          >
+            <X aria-hidden="true" className="w-5 h-5" />
           </button>
         </div>
         <div className="flex-1 overflow-auto p-4">

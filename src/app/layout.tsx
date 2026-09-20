@@ -28,11 +28,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+// `maximumScale: 1` / `userScalable: false` bloquaient le zoom : c'est un échec du critère
+// WCAG 1.4.4 (RGAA 10.4), et la raison d'origine — le zoom automatique de iOS à la mise au point
+// d'un champ — est déjà traitée par le `fontSize: 16px` posé sur les champs du formulaire public.
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 }
 
 export default function RootLayout({

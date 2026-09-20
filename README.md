@@ -30,6 +30,7 @@ with no third-party service in the loop.
   - [Responses](#-responses)
   - [Outputs & integrations](#-outputs--integrations)
   - [Administration](#-administration)
+  - [Accessibility](#-accessibility)
 - [Block types](#block-types)
 - [Tech stack](#tech-stack)
 - [Quick start](#quick-start-local-development)
@@ -55,6 +56,7 @@ with no third-party service in the loop.
 | 📊 **PDF reports** | Scheduled, e-mailed statistical summaries with charts and breakdowns |
 | 📈 **On-screen statistics** | The same figures, read directly for any period, without generating a PDF |
 | 🛡️ **Compliance** | GDPR retention & erasure, audit trail, anti-bruteforce, IP allow/deny lists |
+| ♿ **Accessibility** | Public form usable by keyboard and screen reader — ARIA roles, managed focus, announced errors |
 | 🐳 **Self-hosted** | Single Docker image, SQLite, multi-arch (AMD64 + ARM64) |
 
 ---
@@ -165,6 +167,21 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | **SMTP** | Mail server configuration with a test send |
 | **Database** | Backup and restore |
 | **Templates & Nextcloud** | Template library and Nextcloud integration |
+
+### ♿ Accessibility
+
+The public form — the part respondents fill in — is built to be usable **by keyboard alone and with a screen reader**, targeting RGAA 4.1 (WCAG 2.1 AA).
+
+- **Choice controls properly exposed** — single choice, image selection and Yes/No form a `radiogroup` of radio buttons, multiple choice a group of checkboxes; every option announces its state, and the group carries the question's heading along with whether it is required.
+- **Full keyboard journey** — a choice group is a single tab stop and is traversed with the arrow keys; Enter and Space check an option. The *Advanced date* calendar's days are proper buttons, named with the full date.
+- **Focus moved on every question change**, never taken from an input that already holds it; the thank-you screen is announced the same way.
+- **Validation errors announced** (`role="alert"`) and tied to the field concerned.
+- **Labels tied to their fields** — `<label for>` for native controls, `aria-labelledby` for button-based sets, in plain questions as well as in groups and repeaters.
+- **Zoom left unhindered**, and modals handled as `dialog`s (focus taken, Escape closes).
+
+**Known limitation**: the *Signature* block requires a pointing device (mouse, finger or stylus). That is the nature of the thing, not a markup shortfall — avoid it on a form that must be completable by keyboard alone. The frame announces the signature's state and how to provide it.
+
+> If you deploy this application for a French local authority or public body, publishing an **accessibility statement** remains your responsibility: it depends on an audit of your own instance, theme and content included.
 
 ---
 
@@ -346,7 +363,7 @@ formbuilder-standalone/
 │   │   ├── builder/         # Builder UI (blocks, logic, theme, webhooks, QR…)
 │   │   ├── forms/           # Options, report, document and e-mail modals
 │   │   └── ui/              # Generic UI components (Button, Dialog, Input…)
-│   ├── lib/                 # Auth, Prisma, e-mail, docx, PDF, security, GDPR, audit log
+│   ├── lib/                 # Auth, Prisma, e-mail, docx, PDF, security, GDPR, audit log, accessibility
 │   ├── hooks/               # Custom React hooks
 │   ├── stores/              # Zustand global state
 │   └── types/               # TypeScript type definitions

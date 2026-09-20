@@ -108,9 +108,37 @@ Un nouveau type de bloc ne demande rien ici : le catalogue est dérivé des bloc
 2. Ajouter les attributs par défaut dans `src/stores/form-builder.ts` (initialiseur de bloc)
 3. Créer le panneau de paramètres dans `src/components/builder/block-editor.tsx`
 4. Créer le composant d'aperçu dans `src/components/builder/block-preview.tsx`
-5. Créer le composant du formulaire public dans `src/app/[slug]/public-form-client.tsx`
+5. Créer le composant du formulaire public dans `src/app/[slug]/public-form-client.tsx` — dans les **trois** rendus (`QuestionBlock`, `GroupBlock.renderInnerInput`, `InnerBlockInput`), et avec les attributs d'accessibilité décrits ci-dessous
 6. Gérer la réponse dans le visualiseur de réponses (`src/app/forms/[id]/responses/responses-client.tsx`)
 7. Gérer le bloc dans la sérialisation du payload webhook (route API)
+
+---
+
+## Accessibilité
+
+Le formulaire public vise le **RGAA 4.1 (WCAG 2.1 AA)**. Pour les organismes publics français, c'est une obligation légale : une contribution qui ajoute un contrôle inaccessible fait régresser la conformité de tout le monde.
+
+### Ce qu'un nouveau champ doit porter
+
+- **Les attributs viennent de `fieldA11y()`** (`src/lib/a11y.ts`), à étaler sur le contrôle : `id`, `aria-labelledby` (ou `aria-label` quand `hideLabel` retire l'intitulé du document), `aria-describedby`, `aria-invalid`, `aria-required`. N'écrivez pas ces identifiants à la main — `labelId()`, `descId()`, `errorId()` en sont la seule source, faute de quoi un `aria-describedby` finit par désigner un élément que personne ne rend.
+- **Un contrôle composé de plusieurs boutons** (choix, note, quantité, signature, fichier, plage de dates) va dans un conteneur `role="group"` portant `groupA11y` — le même objet sans `id`. Un `<h2>` ne peut pas être un `<label for>`.
+- **Une liste de choix** prend `choiceListProps()` sur le conteneur et `choiceOptionProps()` sur chaque option (`src/lib/choice-list.ts`) : rôle `radio` ou `checkbox`, `aria-checked`, et une seule tabulation pour le groupe entier.
+- **Les trois rendus comptent.** Un bloc câblé dans `QuestionBlock` seulement est accessible sur une question isolée et muet dans un groupe ou un bloc répétable.
+- **Décoratif veut dire `aria-hidden`** — pastilles de lettres, icône de coche, numéros de question. Un bouton sans texte visible (icône seule) veut au contraire un `aria-label` explicite.
+
+### Ce qu'il ne faut pas défaire
+
+- Le garde-fou de l'écouteur global d'`Entrée` dans `public-form-client.tsx` : sans lui, `preventDefault()` empêche le navigateur d'actionner le bouton ou l'option qui a le focus, et **plus rien n'est cochable au clavier seul**.
+- Le déplacement du focus au changement de question, et sa réserve « sauf si un champ a déjà pris le focus » : la retirer empêcherait de taper dans les champs texte.
+- `maximumScale` / `userScalable` dans `src/app/layout.tsx` : les rétablir bloquerait le zoom, échec direct du critère WCAG 1.4.4.
+
+### Vérifier
+
+`npm run build` ne dit rien de l'accessibilité. Au minimum, avant d'ouvrir une PR touchant au rendu public :
+
+1. Parcourir le formulaire **au clavier seul** (Tab, flèches, Entrée, Espace) sans jamais utiliser la souris.
+2. Ouvrir l'onglet *Accessibility* des outils de développement et vérifier le **nom accessible** et l'**état** de chaque contrôle ajouté.
+3. Contrôler qu'aucun `aria-labelledby` / `aria-describedby` ne désigne un identifiant absent du document.
 
 ---
 

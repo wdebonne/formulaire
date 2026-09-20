@@ -30,6 +30,7 @@ serveur, sans aucun service tiers dans la boucle.
   - [Réponses](#-réponses)
   - [Sorties & intégrations](#-sorties--intégrations)
   - [Administration](#-administration)
+  - [Accessibilité](#-accessibilité)
 - [Types de blocs](#types-de-blocs)
 - [Stack technique](#stack-technique)
 - [Démarrage rapide](#démarrage-rapide-développement-local)
@@ -55,6 +56,7 @@ serveur, sans aucun service tiers dans la boucle.
 | 📊 **Rapports PDF** | Synthèses statistiques planifiées et envoyées par e-mail, avec graphiques et répartitions |
 | 📈 **Statistiques à l'écran** | Les mêmes chiffres consultables directement, sans générer de PDF, sur la période de votre choix |
 | 🛡️ **Conformité** | Conservation et effacement RGPD, journal d'activité, anti-bruteforce, listes blanche/noire d'IP |
+| ♿ **Accessibilité** | Formulaire public utilisable au clavier et au lecteur d'écran — rôles ARIA, focus suivi, erreurs annoncées |
 | 🐳 **Auto-hébergé** | Une seule image Docker, SQLite, multi-architecture (AMD64 + ARM64) |
 
 ---
@@ -165,6 +167,21 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | **SMTP** | Configuration du serveur de mail avec envoi de test |
 | **Base de données** | Sauvegarde et restauration |
 | **Modèles & Nextcloud** | Bibliothèque de modèles et intégration Nextcloud |
+
+### ♿ Accessibilité
+
+Le formulaire public — la partie que remplissent les répondants — est conçu pour être utilisable **au clavier seul et avec un lecteur d'écran**, en visant le RGAA 4.1 (WCAG 2.1 AA).
+
+- **Contrôles de choix correctement exposés** — choix unique, sélection d'images et Oui/Non forment un `radiogroup` de boutons radio, choix multiple un groupe de cases à cocher ; chaque option annonce son état, et le groupe reprend l'intitulé de la question ainsi que son caractère obligatoire.
+- **Parcours clavier complet** — un groupe de choix compte une seule tabulation et se parcourt aux flèches ; Entrée et Espace cochent. Les jours du calendrier du bloc *Date avancée* sont des boutons à part entière, avec la date complète pour nom.
+- **Focus déplacé à chaque changement de question**, sans jamais le prendre à un champ de saisie déjà actif ; l'écran de remerciement est annoncé de la même façon.
+- **Erreurs de validation annoncées** (`role="alert"`) et rattachées au champ concerné.
+- **Intitulés rattachés aux champs** — `<label for>` pour les contrôles natifs, `aria-labelledby` pour les ensembles de boutons, dans les questions simples comme dans les groupes et les blocs répétables.
+- **Zoom non entravé** et fenêtres modales gérées comme des `dialog` (focus pris, fermeture par Échap).
+
+**Limite connue** : le bloc *Signature* exige un dispositif de pointage (souris, doigt ou stylet). C'est la nature du procédé, pas un défaut de balisage — à éviter sur un formulaire devant être rempli au seul clavier. Le cadre annonce l'état de la signature et la façon de la donner.
+
+> Si vous déployez cette application pour une collectivité ou un organisme public français, la publication d'une **déclaration d'accessibilité** reste de votre ressort : elle dépend d'un audit de votre instance, thème et contenus compris.
 
 ---
 
@@ -346,7 +363,7 @@ formbuilder-standalone/
 │   │   ├── builder/         # Interface du builder (blocs, logique, thème, webhooks, QR…)
 │   │   ├── forms/           # Modales Options, Rapports, Modèle de document et E-mail
 │   │   └── ui/              # Composants UI génériques (Button, Dialog, Input…)
-│   ├── lib/                 # Auth, Prisma, e-mail, docx, PDF, sécurité, RGPD, journal d'activité
+│   ├── lib/                 # Auth, Prisma, e-mail, docx, PDF, sécurité, RGPD, journal d'activité, accessibilité
 │   ├── hooks/               # Hooks React personnalisés
 │   ├── stores/              # État global Zustand
 │   └── types/               # Définitions TypeScript

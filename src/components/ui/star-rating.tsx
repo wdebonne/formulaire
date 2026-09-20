@@ -45,6 +45,9 @@ interface StarRatingProps {
   readOnly?: boolean
   showValue?: boolean
   className?: string
+  // Attributs ARIA du groupe (intitulé de la question, description, état d'erreur) : une note
+  // est un ensemble de boutons, l'intitulé ne peut pas être un `<label for>`.
+  groupProps?: React.HTMLAttributes<HTMLDivElement>
 }
 
 export function StarRating({
@@ -58,6 +61,7 @@ export function StarRating({
   readOnly = false,
   showValue = true,
   className,
+  groupProps,
 }: StarRatingProps) {
   const [hovered, setHovered] = useState<number | null>(null)
 
@@ -74,6 +78,8 @@ export function StarRating({
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div
+        role={interactive ? 'group' : undefined}
+        {...groupProps}
         className={cn('flex flex-wrap items-center', GAP_CLASSES[size])}
         onMouseLeave={() => setHovered(null)}
       >
@@ -98,6 +104,7 @@ export function StarRating({
               )}
             >
               <Icon
+                aria-hidden="true"
                 className={cn(SIZE_CLASSES[size], 'transition-colors')}
                 style={{
                   color: filled ? color : emptyColor || color,

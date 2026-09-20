@@ -30,9 +30,15 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
 
+    // `lastAutoPurgeAt` n'appartient pas au formulaire : il est écrit par la minuterie et
+    // doit survivre à un enregistrement depuis l'écran d'administration.
+    const current = await getGdprSettings()
+
     const settings: Required<GdprSettings> = {
       retentionEnabled: body.retentionEnabled !== false,
       retentionMonths: clampPositiveInt(body.retentionMonths, DEFAULT_GDPR_SETTINGS.retentionMonths),
+      autoPurgeEnabled: body.autoPurgeEnabled === true,
+      lastAutoPurgeAt: current.lastAutoPurgeAt,
     }
 
     await prisma.systemSettings.upsert({

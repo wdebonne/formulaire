@@ -8,11 +8,17 @@ export { ACTION_LABELS, ACTION_CATEGORIES, actionLabel } from '@/lib/audit-actio
 export interface LogSettings {
   retentionEnabled: boolean
   retentionDays: number
+  autoPurgeEnabled: boolean
+  lastAutoPurgeAt: string | null
 }
 
+// Même prudence que pour le RGPD : la purge automatique ne s'active que sur décision explicite,
+// jamais par le simple fait d'avoir mis l'application à jour.
 export const DEFAULT_LOG_SETTINGS: LogSettings = {
   retentionEnabled: true,
   retentionDays: 365,
+  autoPurgeEnabled: false,
+  lastAutoPurgeAt: null,
 }
 
 export async function getLogSettings(): Promise<LogSettings> {

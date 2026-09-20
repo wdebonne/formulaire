@@ -149,9 +149,9 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | Panel | What it does |
 |-------|--------------|
 | **Users** | Create, edit and delete accounts; deleting an account moves its forms to the trash rather than destroying them |
-| **GDPR** (`/admin/gdpr`) | Configurable retention (default 36 months) with manual purge; cross-form search for a person's responses with a **review-then-act** export (Excel portability sheet or nominative PDF) and right-to-erasure deletion; optional GDPR notice on welcome/thank-you screens |
+| **GDPR** (`/admin/gdpr`) | Configurable retention (default 36 months) with a manual **or daily automatic** purge; cross-form search for a person's responses with a **review-then-act** export (Excel portability sheet or nominative PDF) and right-to-erasure deletion; optional GDPR notice on welcome/thank-you screens |
 | **Security** (`/admin/security`) | Anti-bruteforce login protection (max attempts, time window, block duration), IP whitelist/blacklist, live list of blocked addresses, e-mail alert on repeated failed logins |
-| **Activity log** (`/admin/logs`) | Searchable, filterable, paginated audit trail of logins, form lifecycle and user management; Excel export matching the current filters; configurable retention with manual purge |
+| **Activity log** (`/admin/logs`) | Searchable, filterable, paginated audit trail of logins, form lifecycle and user management; Excel export matching the current filters; configurable retention with a manual **or daily automatic** purge |
 | **Trash** (`/admin/trash`) | Soft-deleted forms with restore and permanent delete; orphaned forms (deleted owner) carry an amber badge and require owner reassignment before restoration |
 | **Customization** | Site name, logo and favicon applied globally; login page background (solid, gradient or blurred image) and link visibility, with a pixel-identical live preview |
 | **Documents** (`/admin/documents`) | Pick the PDF conversion engine — the configured NextCloud's office server, or a Gotenberg container — with a **connection test** and a **conversion test** that converts a witness document, names the path that answered and hands back the produced PDF; PDF output only becomes selectable once a test succeeds |
@@ -310,8 +310,8 @@ For Portainer and production deployment, see **[DEPLOY-PORTAINER.en.md](DEPLOY-P
 | `TRUSTED_PROXY_IPS` | Comma-separated IPs of trusted reverse proxies. When set, `X-Forwarded-For` is only honoured for connections coming from these addresses — leave empty when the app is exposed directly | *(empty)* |
 | `DOCUMENT_STORAGE_DIR` | Private directory holding the uploaded `.docx` templates | `<project>/storage/templates` |
 | `RESPONSE_UPLOAD_DIR` | Private directory holding the files uploaded by respondents | `<project>/storage/response-files` |
-| `REPORT_SCHEDULER` | In-process report scheduler; `0` disables it (drive `/api/internal/reports/run` from your own cron instead) | `1` |
-| `REPORT_SCHEDULER_INTERVAL_MINUTES` | How often due reports are checked, 1–60 | `5` |
+| `SCHEDULER` | In-process timer (periodic reports **and** retention purges); `0` disables it — drive `/api/internal/reports/run` and `/api/internal/retention/run` from your own cron instead. `REPORT_SCHEDULER`, the historical name, is still honoured | `1` |
+| `SCHEDULER_INTERVAL_MINUTES` | How often due work is checked, 1–60. `REPORT_SCHEDULER_INTERVAL_MINUTES` is still honoured | `5` |
 | `MIGRATION_AUTO_REPAIR` | Automatic one-shot recovery of a blocked migration at container start-up; `0` opts out | `1` |
 | `CATALOG_API_URL` | Address of the equipment-management application. **Fallback only**: the wiring is set in Admin → Catalog, which takes precedence | *(empty)* |
 | `CATALOG_API_TOKEN` | Read-only API token for the catalog, same caveat | *(empty)* |
@@ -383,7 +383,7 @@ formbuilder-standalone/
 - **Reverse-proxy aware** — `X-Forwarded-For` is only trusted from the addresses listed in `TRUSTED_PROXY_IPS`, so a client cannot spoof its IP to escape a blacklist.
 - **Word templates stored outside `public/`** and reachable only through authenticated routes; filled documents are regenerated on demand rather than written to disk, so no file full of personal data accumulates.
 - **Form access passwords** stored as bcrypt hashes and never returned to the browser; the unlock cookie derives from the hash, so changing the password revokes every access already granted.
-- **GDPR by design** — retention purges and data-subject exports/deletions only ever act on entries the administrator has explicitly reviewed, and personal values never leak into the activity log.
+- **GDPR by design** — data-subject exports and deletions only ever act on entries the administrator has explicitly reviewed. Retention purges, manual or automatic, always recompute their cutoff server-side and leave an audit entry; automatic deletion stays a switch you turn on, never a behaviour an upgrade imposes. Personal values never leak into the activity log.
 
 See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for the detailed audit.
 

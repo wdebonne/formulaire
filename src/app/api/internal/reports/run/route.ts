@@ -3,10 +3,11 @@ import { runDueReports } from '@/lib/report-scheduler'
 
 // POST /api/internal/reports/run — déclenche la vérification des échéances de rapport.
 //
-// Le planificateur en processus (src/instrumentation.ts) suffit dans le cas courant ; cette
+// La minuterie en processus (src/lib/maintenance-scheduler.ts) suffit dans le cas courant ; cette
 // route existe pour les déploiements qui préfèrent un cron externe, ou pour forcer un passage
 // sans redémarrer le conteneur. Même authentification par secret partagé que
-// /api/internal/ip-lists, et exclusion du filtrage IP par le middleware.
+// /api/internal/ip-lists, et exclusion du filtrage IP par le middleware. Les purges de
+// conservation ont leur propre route, /api/internal/retention/run.
 export async function POST(request: NextRequest) {
   try {
     const secret = request.headers.get('x-internal-secret')

@@ -149,9 +149,9 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | Panneau | Rôle |
 |---------|------|
 | **Utilisateurs** | Créer, modifier et supprimer des comptes ; supprimer un compte déplace ses formulaires en corbeille au lieu de les détruire |
-| **RGPD** (`/admin/gdpr`) | Durée de conservation configurable (36 mois par défaut) avec purge manuelle ; recherche des réponses d'une personne tous formulaires confondus, avec **revue avant action** (export Excel de portabilité ou PDF nominatif) et suppression au titre du droit à l'effacement ; mention RGPD optionnelle sur les écrans d'accueil et de fin |
+| **RGPD** (`/admin/gdpr`) | Durée de conservation configurable (36 mois par défaut) avec purge manuelle **ou automatique quotidienne** ; recherche des réponses d'une personne tous formulaires confondus, avec **revue avant action** (export Excel de portabilité ou PDF nominatif) et suppression au titre du droit à l'effacement ; mention RGPD optionnelle sur les écrans d'accueil et de fin |
 | **Sécurité** (`/admin/security`) | Protection anti-bruteforce (tentatives max, fenêtre de temps, durée de blocage), listes blanche/noire d'IP, vue en direct des adresses bloquées, alerte e-mail en cas d'échecs répétés |
-| **Journal d'activité** (`/admin/logs`) | Historique consultable, filtrable et paginé des connexions, du cycle de vie des formulaires et de la gestion des utilisateurs ; export Excel correspondant exactement aux filtres actifs ; conservation configurable avec purge manuelle |
+| **Journal d'activité** (`/admin/logs`) | Historique consultable, filtrable et paginé des connexions, du cycle de vie des formulaires et de la gestion des utilisateurs ; export Excel correspondant exactement aux filtres actifs ; conservation configurable avec purge manuelle **ou automatique quotidienne** |
 | **Corbeille** (`/admin/trash`) | Formulaires supprimés avec restauration et suppression définitive ; les formulaires orphelins (propriétaire supprimé) portent un badge ambre et exigent une réassignation de propriétaire avant restauration |
 | **Personnalisation** | Nom du site, logo et favicon appliqués globalement ; fond de la page de connexion (uni, dégradé ou image floutée) et visibilité des liens, avec aperçu strictement identique au rendu réel |
 | **Documents** (`/admin/documents`) | Choisir le moteur de conversion PDF — le serveur bureautique du NextCloud configuré, ou un conteneur Gotenberg — avec un **test de connexion** et un **test de conversion** qui convertit un document témoin, nomme le chemin qui a répondu et rend le PDF produit ; la sortie PDF ne devient sélectionnable qu'après un test réussi |
@@ -310,8 +310,8 @@ Pour le déploiement sur Portainer et en production, consultez **[DEPLOY-PORTAIN
 | `TRUSTED_PROXY_IPS` | IP des reverse proxies de confiance, séparées par des virgules. Quand elle est définie, `X-Forwarded-For` n'est pris en compte que pour les connexions venant de ces adresses — à laisser vide si l'application est exposée directement | *(vide)* |
 | `DOCUMENT_STORAGE_DIR` | Dossier privé contenant les modèles `.docx` importés | `<projet>/storage/templates` |
 | `RESPONSE_UPLOAD_DIR` | Dossier privé contenant les pièces jointes déposées par les répondants | `<projet>/storage/response-files` |
-| `REPORT_SCHEDULER` | Minuterie interne des rapports ; `0` la désactive (pilotez alors `/api/internal/reports/run` depuis votre propre cron) | `1` |
-| `REPORT_SCHEDULER_INTERVAL_MINUTES` | Fréquence de vérification des échéances, 1 à 60 | `5` |
+| `SCHEDULER` | Minuterie interne (rapports périodiques **et** purges de conservation) ; `0` la désactive — pilotez alors `/api/internal/reports/run` et `/api/internal/retention/run` depuis votre propre cron. `REPORT_SCHEDULER`, le nom historique, reste accepté | `1` |
+| `SCHEDULER_INTERVAL_MINUTES` | Fréquence de vérification des échéances, 1 à 60. `REPORT_SCHEDULER_INTERVAL_MINUTES` reste accepté | `5` |
 | `MIGRATION_AUTO_REPAIR` | Réparation automatique, en une seule tentative, d'une migration bloquée au démarrage du conteneur ; `0` pour s'en passer | `1` |
 | `CATALOG_API_URL` | Adresse de l'application de gestion du matériel. **Secours uniquement** : le raccordement se règle dans Administration → Catalogue, qui prend le dessus | *(vide)* |
 | `CATALOG_API_TOKEN` | Jeton d'API en lecture seule du catalogue, même remarque | *(vide)* |
@@ -383,7 +383,7 @@ formbuilder-standalone/
 - **Prise en compte des reverse proxies** — `X-Forwarded-For` n'est accepté que depuis les adresses listées dans `TRUSTED_PROXY_IPS`, afin qu'un client ne puisse pas usurper son IP pour échapper à une liste noire.
 - **Modèles Word stockés hors de `public/`** et accessibles uniquement via des routes authentifiées ; les documents remplis sont régénérés à la demande plutôt qu'écrits sur disque, aucun fichier contenant des données personnelles ne s'accumule.
 - **Mots de passe d'accès aux formulaires** stockés sous forme de condensats bcrypt et jamais renvoyés au navigateur ; le cookie de déverrouillage dérive du condensat, si bien que changer le mot de passe révoque tous les accès déjà accordés.
-- **RGPD par conception** — les purges de conservation et les exports/suppressions au titre des droits des personnes n'agissent que sur les entrées explicitement revues par l'administrateur, et aucune valeur personnelle ne fuit dans le journal d'activité.
+- **RGPD par conception** — les exports et suppressions au titre des droits des personnes n'agissent que sur les entrées explicitement revues par l'administrateur. Les purges de conservation, manuelles ou automatiques, recalculent toujours leur date de coupure côté serveur et laissent une entrée au journal ; la suppression automatique reste un interrupteur à activer, jamais un comportement imposé par une mise à jour. Aucune valeur personnelle ne fuit dans le journal d'activité.
 
 Consultez [SECURITY_AUDIT.md](SECURITY_AUDIT.md) pour l'audit détaillé.
 

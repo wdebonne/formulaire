@@ -520,6 +520,8 @@ export type GradientDirection = 'to-right' | 'to-left' | 'to-bottom' | 'to-top' 
 export interface GdprSettings {
   retentionEnabled?: boolean
   retentionMonths?: number // durée légale par défaut : 36 mois
+  autoPurgeEnabled?: boolean // purge quotidienne par la minuterie interne
+  lastAutoPurgeAt?: string | null // horodatage du dernier passage automatique
 }
 
 // Personnalisation de la page de connexion (SystemSettings.loginPageSettings)

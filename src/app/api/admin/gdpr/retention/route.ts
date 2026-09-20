@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
-import { deleteFilesOfResponses } from '@/lib/response-uploads'
+import { getClientIp } from '@/lib/security'
 import { getGdprSettings, getRetentionCutoffDate } from '@/lib/gdpr'
+import { purgeExpiredResponses } from '@/lib/retention-purge'
 
 // GET nombre de réponses dépassant la durée de conservation configurée (admin uniquement)
 export async function GET() {
@@ -42,8 +43,10 @@ export async function GET() {
   }
 }
 
-// DELETE purge des réponses dépassant la durée de conservation configurée (admin uniquement)
-export async function DELETE() {
+// DELETE purge des réponses dépassant la durée de conservation configurée (admin uniquement).
+// Même code que la purge automatique — la coupure est recalculée côté serveur, jamais reçue
+// du client, et l'opération laisse une entrée au journal d'activité.
+export async function DELETE(request: NextRequest) {
   try {
     const session = await requireAdmin()
     if (!session) {
@@ -51,22 +54,14 @@ export async function DELETE() {
     }
 
     const settings = await getGdprSettings()
-    // La date de coupure est toujours recalculée côté serveur — jamais transmise par le client
-    const cutoff = getRetentionCutoffDate(settings)
-
-    const doomed = await prisma.response.findMany({
-      where: { createdAt: { lt: cutoff } },
-      select: { formId: true, data: true },
-    })
-    // Les pièces jointes vivent sur le disque, hors de la base : les laisser derrière
-    // ferait survivre le fichier à la réponse qui le référençait.
-    await deleteFilesOfResponses(doomed)
-
-    const result = await prisma.response.deleteMany({
-      where: { createdAt: { lt: cutoff } },
+    const result = await purgeExpiredResponses(settings, {
+      trigger: 'manual',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
     })
 
-    return NextResponse.json({ success: true, deleted: result.count })
+    return NextResponse.json({ success: true, deleted: result.deleted })
   } catch (error) {
     console.error('Purge expired GDPR responses error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

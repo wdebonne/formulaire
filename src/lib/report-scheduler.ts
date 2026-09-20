@@ -1,9 +1,8 @@
-// Planificateur des rapports périodiques.
+// Échéances des rapports périodiques.
 //
-// L'application est distribuée comme un conteneur unique (`node server.js`) : plutôt que
-// d'exiger la configuration d'un cron externe, une minuterie en processus vérifie
-// régulièrement les échéances. Le même travail est exposé sur /api/internal/reports/run pour
-// qui préfère piloter l'envoi depuis un cron système.
+// La minuterie qui appelle ce passage vit dans `maintenance-scheduler.ts`, où elle est
+// partagée avec les purges de conservation. Le même travail est exposé sur
+// /api/internal/reports/run pour qui préfère piloter l'envoi depuis un cron système.
 //
 // Rien n'est envoyé « en retard de plusieurs échéances » : seule la dernière échéance passée
 // est comparée à `schedule.lastRunAt`, donc un conteneur arrêté une semaine envoie un rapport
@@ -13,8 +12,6 @@ import { prisma } from './prisma'
 import { sendReportForForm, type ReportFormRecord } from './report-delivery'
 import { isScheduleDue, parseFormReportSettings } from './report-settings'
 import type { FormReportSettings } from '@/types/form'
-
-const DEFAULT_INTERVAL_MINUTES = 5
 
 export interface ReportRunSummary {
   checked: number
@@ -95,55 +92,4 @@ export async function runDueReports(now: Date = new Date()): Promise<ReportRunSu
   }
 
   return summary
-}
-
-let timer: NodeJS.Timeout | null = null
-let running = false
-
-async function tick(): Promise<void> {
-  // Un passage plus long que l'intervalle ne doit pas se superposer au suivant : les envois
-  // seraient dupliqués avant que `lastRunAt` ne soit écrit.
-  if (running) return
-  running = true
-  try {
-    const summary = await runDueReports()
-    if (summary.sent > 0 || summary.failed > 0) {
-      console.log(
-        `📊 Rapports — ${summary.sent} envoyé(s), ${summary.failed} en échec sur ${summary.checked} formulaire(s)`
-      )
-    }
-  } catch (error) {
-    console.error('Planificateur de rapports — erreur inattendue:', error)
-  } finally {
-    running = false
-  }
-}
-
-/**
- * Démarre la minuterie, au plus une fois par processus.
- *
- * Appelée depuis le layout racine plutôt que depuis `instrumentation.ts` : ce dernier est aussi
- * compilé pour le runtime Edge (le middleware en dépend), où `fs`, `path` et nodemailer ne se
- * résolvent pas — la compilation échoue même avec un import dynamique gardé par NEXT_RUNTIME.
- * Le layout, lui, ne s'exécute qu'en Node. Conséquence assumée : le planificateur démarre à la
- * première page servie, pas à l'instant du démarrage du conteneur.
- */
-export function startReportScheduler(): void {
-  if (timer) return
-  if (process.env.REPORT_SCHEDULER === '0') return
-
-  const minutes = Number(process.env.REPORT_SCHEDULER_INTERVAL_MINUTES)
-  const intervalMinutes =
-    Number.isFinite(minutes) && minutes >= 1 ? Math.min(minutes, 60) : DEFAULT_INTERVAL_MINUTES
-
-  timer = setInterval(tick, intervalMinutes * 60 * 1000)
-  // Le processus ne doit pas rester en vie uniquement pour cette minuterie.
-  timer.unref?.()
-
-  console.log(`📊 Planificateur de rapports actif (vérification toutes les ${intervalMinutes} min)`)
-
-  // Premier passage différé : au démarrage, la base peut encore être en cours de migration.
-  setTimeout(() => {
-    void tick()
-  }, 30_000).unref?.()
 }

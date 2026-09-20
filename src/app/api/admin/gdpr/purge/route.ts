@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import { deleteFilesOfResponses } from '@/lib/response-uploads'
+import { getClientIp } from '@/lib/security'
+import { logEvent } from '@/lib/audit-log'
 
 // POST suppression ciblée de réponses (droit à l'effacement RGPD), à partir d'une liste d'IDs
 // explicitement revus par l'admin dans l'écran de recherche — jamais d'une requête de recherche
@@ -30,6 +32,18 @@ export async function POST(request: NextRequest) {
 
     const result = await prisma.response.deleteMany({
       where: { id: { in: responseIds } },
+    })
+
+    // Le journal retient le nombre et l'auteur, jamais le terme recherché ni une valeur de
+    // réponse : il ne doit pas devenir une seconde copie des données qu'on vient d'effacer.
+    await logEvent({
+      action: 'gdpr.erasure',
+      userId: session.userId,
+      userEmail: session.email,
+      ipAddress: getClientIp(request),
+      targetType: 'response',
+      targetLabel: `${result.count} réponse(s)`,
+      metadata: { deleted: result.count, requested: responseIds.length },
     })
 
     return NextResponse.json({ success: true, deleted: result.count })

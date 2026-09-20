@@ -1,9 +1,14 @@
 import { prisma } from '@/lib/prisma'
 import type { GdprSettings } from '@/types/form'
 
+// `autoPurgeEnabled` est volontairement à `false` par défaut : activer la suppression
+// automatique à la faveur d'une mise à jour effacerait, au premier redémarrage, des réponses
+// qu'aucun administrateur n'a consenti à perdre. L'écran /admin/gdpr expose l'interrupteur.
 export const DEFAULT_GDPR_SETTINGS: Required<GdprSettings> = {
   retentionEnabled: true,
   retentionMonths: 36,
+  autoPurgeEnabled: false,
+  lastAutoPurgeAt: null,
 }
 
 export async function getGdprSettings(): Promise<Required<GdprSettings>> {

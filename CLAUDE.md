@@ -88,7 +88,9 @@ Context for Claude Code when working on this project.
 | `src/lib/report-pdf.ts` | Server-only pdfkit renderer — `buildReportPdf()`; charts drawn by hand, no charting dependency |
 | `src/lib/pdf-text.ts` | `pdfSafeText()` — WinAnsi sanitizer shared by every pdfkit renderer; strips emoji, transposes symbols with a readable equivalent |
 | `src/lib/report-delivery.ts` | Server-only — `generateReportForForm()`, `sendReportForForm()`, `recordReportStatus()` |
-| `src/lib/report-scheduler.ts` | Server-only — `runDueReports()`, `startReportScheduler()` (in-process timer) |
+| `src/lib/report-scheduler.ts` | Server-only — `runDueReports()` (report due-dates only; the timer lives elsewhere) |
+| `src/lib/maintenance-scheduler.ts` | Server-only — the single in-process timer: `startMaintenanceScheduler()`, `runMaintenancePass()` (reports **and** retention purges) |
+| `src/lib/retention-purge.ts` | Server-only — `purgeExpiredResponses()`, `purgeExpiredAuditLogs()`, `runDueRetentionPurges()`; one implementation shared by the admin buttons and the timer |
 | `src/components/forms/report-modal.tsx` | "Rapports" modal — Période / Contenu / Envoi tabs, live preview bar, PDF download, send-now |
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
 | `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — routes, conditions, recipients, subject, body, optional attachment |
@@ -161,9 +163,9 @@ base64 signature would have landed whole in an Excel cell.
 - `Font` model stores Google Fonts added by admins
 - `FormSettings` (JSON stored in `Form.settings`) includes `showLogo`, `logoPosition` (`top`|`bottom`), `logoAlignment` (`left`|`center`|`right`) — the logo URL itself comes from `SystemSettings.siteLogo`, fetched server-side in `src/app/[slug]/page.tsx`
 - `SystemSettings.loginPageSettings` (JSON stored as string, same convention as `Form.settings`) — typed as `LoginPageSettings` in `src/types/form.ts`; controls the login page's "forgot password" link visibility and background (solid/gradient/image + blur)
-- `SystemSettings.gdprSettings` (JSON stored as string) — typed as `GdprSettings` in `src/types/form.ts`; holds `retentionEnabled`/`retentionMonths` (default legal retention: 36 months), read via `getGdprSettings()` in `src/lib/gdpr.ts`
+- `SystemSettings.gdprSettings` (JSON stored as string) — typed as `GdprSettings` in `src/types/form.ts`; holds `retentionEnabled`/`retentionMonths` (default legal retention: 36 months), plus `autoPurgeEnabled`/`lastAutoPurgeAt` for the daily automatic purge, read via `getGdprSettings()` in `src/lib/gdpr.ts`
 - `AuditLog` model — append-only activity log: `action`, `status` (`success`|`failure`), `userId`/`userEmail` (email copied at write time so it survives user deletion), `ipAddress`, `targetType`/`targetId`/`targetLabel` (label copied at write time, e.g. form title), `metadata` (JSON-as-string), `createdAt`; indexed on `action`, `userId`, `createdAt`
-- `SystemSettings.logSettings` (JSON stored as string) — typed as `LogSettings` in `src/lib/audit-log.ts`; holds `retentionEnabled`/`retentionDays` (default: 365 days), read via `getLogSettings()`/`getLogRetentionCutoffDate()`
+- `SystemSettings.logSettings` (JSON stored as string) — typed as `LogSettings` in `src/lib/audit-log.ts`; holds `retentionEnabled`/`retentionDays` (default: 365 days), plus `autoPurgeEnabled`/`lastAutoPurgeAt`, read via `getLogSettings()`/`getLogRetentionCutoffDate()`
 - `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
 - `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, anti-spam settings (`honeypotEnabled`, `minFillTimeEnabled`/`minFillSeconds`, `rateLimitEnabled`/`rateLimitMax`/`rateLimitWindowMinutes`), `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
@@ -294,7 +296,11 @@ The center panel (`CenterBlockPreview`) is driven entirely by the Zustand store.
 `src/middleware.ts` runs in the Edge Runtime and **cannot** use Prisma/SQLite directly, so blacklist/whitelist enforcement there works differently: it keeps an in-memory `Set`-based cache refreshed at most every 60s by fetching `src/app/api/internal/ip-lists/route.ts` (authenticated via a shared `x-internal-secret` header derived from `JWT_SECRET`). The internal route is excluded from the IP filter itself to avoid self-blocking, and a fetch failure leaves the existing cache in place ("fail open") so a transient DB/network issue never locks everyone out. Only the blacklist/whitelist check happens at the edge — failed-attempt counting and temporary blocks are evaluated in the login route itself (`checkIpAccess()` / `recordFailedLogin()`), where Prisma is available.
 
 ### GDPR / RGPD — Retention, Search, Export & Erasure
-`SystemSettings.gdprSettings` (JSON-as-string, same convention as `securitySettings`/`loginPageSettings`) holds `retentionEnabled`/`retentionMonths` (default legal retention: **36 months**), read via `getGdprSettings()` / `getRetentionCutoffDate()` in `src/lib/gdpr.ts`. Purging expired responses (`/api/admin/gdpr/retention` DELETE) is **manual only** — no cron — and always recomputes the cutoff server-side rather than trusting a client-supplied date.
+`SystemSettings.gdprSettings` (JSON-as-string, same convention as `securitySettings`/`loginPageSettings`) holds `retentionEnabled`/`retentionMonths` (default legal retention: **36 months**), read via `getGdprSettings()` / `getRetentionCutoffDate()` in `src/lib/gdpr.ts`. The cutoff is **always recomputed server-side**, never taken from a client-supplied date, whichever trigger fires the purge.
+
+Purging expired responses runs from two triggers and **one implementation** (`purgeExpiredResponses()` in `src/lib/retention-purge.ts`): the admin button (`/api/admin/gdpr/retention` DELETE) and the daily pass of the in-process timer. Both delete the attachments with the rows and both write an audit entry, so a purge is never invisible.
+
+**`autoPurgeEnabled` defaults to `false`, and that is deliberate.** `retentionEnabled` only ever meant "track and let me purge"; flipping an upgrade into automatic deletion would erase, at the first restart, responses nobody consented to lose. The switch lives next to the expired count in `/admin/gdpr`, where the admin sees what enabling it will remove. Don't "helpfully" default it on.
 
 The person-search/export/erasure flow (`/admin/gdpr` Card B) is intentionally **review-then-act**: `POST /api/admin/gdpr/search` returns candidate matches across *all* forms, but the export (`/api/admin/gdpr/export`) and purge (`/api/admin/gdpr/purge`) routes only ever operate on the explicit `responseIds` the admin has ticked — they never re-run the search server-side. This guarantees that what gets exported to (or deleted for) a data subject exactly matches what the admin visually verified, with no risk of an unreviewed false-positive slipping through.
 
@@ -311,7 +317,9 @@ The audit-log code is split across two files specifically to respect the server/
 
 `GET /api/admin/logs` (paginated list) and `POST /api/admin/logs/export` (Excel) share `parseLogFilters()`/`buildAuditLogWhere()` so the exported workbook always matches exactly what the admin sees on screen — same convention as the GDPR export matching the admin-reviewed `responseIds`. The export is capped at 50,000 rows.
 
-Retention mirrors the GDPR pattern exactly: `SystemSettings.logSettings` (`retentionEnabled`/`retentionDays`, default 365 days) is read via `getLogSettings()`, purging (`/api/admin/logs/retention` DELETE) is **manual only** with the cutoff date always recomputed server-side from `getLogRetentionCutoffDate()`, never trusting a client-supplied date.
+Retention mirrors the GDPR pattern exactly: `SystemSettings.logSettings` (`retentionEnabled`/`retentionDays`, default 365 days, plus `autoPurgeEnabled`/`lastAutoPurgeAt`) is read via `getLogSettings()`, purging (`purgeExpiredAuditLogs()`, reached from `/api/admin/logs/retention` DELETE and from the timer) always recomputes the cutoff server-side from `getLogRetentionCutoffDate()`, never trusting a client-supplied date, and `autoPurgeEnabled` likewise defaults to `false`.
+
+The entry reporting a log purge is written **after** the deletion, so it dates from now and does not erase itself. A purge that deleted nothing writes nothing — otherwise the daily pass would produce 365 entries a year saying so.
 
 The failed-login email alert (config lives in `SystemSettings.securitySettings`: `notifyOnFailedLogin`/`notifyThreshold`/`notifyEmail`, set in `/admin/security` next to `maxFailedAttempts`) fires from `recordFailedLogin()` in `src/lib/security.ts` on **strict equality** — `failedAttempts === settings.notifyThreshold` — not `>=`. Since the counter resets to zero on a successful login or a new time window, this guarantees exactly one alert email per failure cycle rather than one per attempt past the threshold.
 
@@ -538,15 +546,25 @@ an emoji in the form title surfaces percent-escaped in `Content-Disposition`.
 - Manual drawing (`rect`, `roundedRect`) never moves `doc.y`, so anything hand-drawn must call
   `ensureSpace()` before and set `doc.y` after.
 
-**Scheduling runs in-process, not by cron.** `startReportScheduler()` arms a `setInterval`
-(5 min default, `REPORT_SCHEDULER_INTERVAL_MINUTES`, off with `REPORT_SCHEDULER=0`) and is called
-from `src/app/layout.tsx` — **not** from `instrumentation.ts`. Next compiles `instrumentation.ts`
-for the Edge runtime too (the middleware forces it), where `fs`, `path` and nodemailer don't
-resolve; the build fails even with the documented `NEXT_RUNTIME === 'nodejs'` guard around a
-dynamic import. The layout only ever runs in Node. Trade-off: the scheduler starts on the first
-page served rather than at container boot. `POST /api/internal/reports/run` (shared secret, same
-pattern as `/api/internal/ip-lists`) triggers the same pass for deployments preferring a system
+**Scheduling runs in-process, not by cron.** `startMaintenanceScheduler()`
+(`src/lib/maintenance-scheduler.ts`) arms a `setInterval` (5 min default,
+`SCHEDULER_INTERVAL_MINUTES` or the legacy `REPORT_SCHEDULER_INTERVAL_MINUTES`, off with
+`SCHEDULER=0` / `REPORT_SCHEDULER=0`) and is called from `src/app/layout.tsx` — **not** from
+`instrumentation.ts`. Next compiles `instrumentation.ts` for the Edge runtime too (the middleware
+forces it), where `fs`, `path` and nodemailer don't resolve; the build fails even with the
+documented `NEXT_RUNTIME === 'nodejs'` guard around a dynamic import. The layout only ever runs in
+Node. Trade-off: the scheduler starts on the first page served rather than at container boot.
+`POST /api/internal/reports/run` and `POST /api/internal/retention/run` (shared secret, same
+pattern as `/api/internal/ip-lists`) trigger the same passes for deployments preferring a system
 cron.
+
+**One timer, two jobs.** The same tick runs `runDueReports()` and then `runDueRetentionPurges()`.
+They are independent: a failed report pass must not skip the purges, and neither throws out of
+`runMaintenancePass()`. The old env-var names are still read because deployments already set them;
+`SCHEDULER*` is the name that matches what the timer now does. Retention purges are due **once a
+day** (`PURGE_INTERVAL_MS`), not every tick — the cutoff moves by 24 h, not by five minutes — and
+`lastAutoPurgeAt` is stamped in a `finally`, including after a failure, for the same reason
+`lastRunAt` is: an unavailable database would otherwise retry the same purge every five minutes.
 
 Due-detection compares only the **last** past occurrence to `schedule.lastRunAt`, so a container
 down for a week sends one report on restart, not seven. `lastRunAt` is stamped — without sending —

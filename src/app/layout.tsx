@@ -3,13 +3,14 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { prisma } from '@/lib/prisma'
-import { startReportScheduler } from '@/lib/report-scheduler'
+import { startMaintenanceScheduler } from '@/lib/maintenance-scheduler'
 
 const inter = Inter({ subsets: ['latin'] })
 
-// Le layout racine est le seul point d'entrée garanti côté Node : la minuterie des rapports
-// périodiques y est armée (une seule fois par processus, l'appel est idempotent).
-startReportScheduler()
+// Le layout racine est le seul point d'entrée garanti côté Node : la minuterie de maintenance
+// y est armée (rapports périodiques et purges de conservation, une seule fois par processus —
+// l'appel est idempotent).
+startMaintenanceScheduler()
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await prisma.systemSettings.findUnique({

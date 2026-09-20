@@ -43,6 +43,8 @@ interface LogFilters {
 interface LogSettings {
   retentionEnabled: boolean
   retentionDays: number
+  autoPurgeEnabled: boolean
+  lastAutoPurgeAt: string | null
 }
 
 interface RetentionInfo {
@@ -56,6 +58,8 @@ const EMPTY_FILTERS: LogFilters = { action: '', status: '', q: '', from: '', to:
 const DEFAULT_SETTINGS: LogSettings = {
   retentionEnabled: true,
   retentionDays: 365,
+  autoPurgeEnabled: false,
+  lastAutoPurgeAt: null,
 }
 
 const PAGE_SIZE = 25
@@ -426,7 +430,8 @@ export function LogsClient() {
             <CardTitle>Conservation du journal</CardTitle>
             <CardDescription>
               Définit la durée maximale pendant laquelle les entrées du journal d&apos;activité sont conservées.
-              Les entrées plus anciennes peuvent être purgées manuellement pour maîtriser le volume de données.
+              Les entrées plus anciennes sont purgées à la main ou par la minuterie interne, pour maîtriser le
+              volume de données.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -434,7 +439,7 @@ export function LogsClient() {
               <div>
                 <p className="font-medium">Limiter la durée de conservation</p>
                 <p className="text-sm text-gray-500">
-                  Permet de suivre et de purger manuellement les entrées qui dépassent la durée définie.
+                  Permet de suivre et de purger les entrées qui dépassent la durée définie.
                 </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -447,6 +452,42 @@ export function LogsClient() {
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
               </label>
             </div>
+
+            <div
+              className={`flex items-center justify-between p-4 border rounded-lg ${
+                settings.retentionEnabled ? '' : 'opacity-50'
+              }`}
+            >
+              <div>
+                <p className="font-medium">Purge automatique quotidienne</p>
+                <p className="text-sm text-gray-500">
+                  La minuterie interne supprime chaque jour les entrées expirées, sans intervention.
+                </p>
+                {settings.lastAutoPurgeAt && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Dernier passage automatique :{' '}
+                    {format(new Date(settings.lastAutoPurgeAt), 'dd/MM/yyyy à HH:mm', { locale: fr })}
+                  </p>
+                )}
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.autoPurgeEnabled}
+                  disabled={!settings.retentionEnabled}
+                  onChange={(e) => setSettings({ ...settings, autoPurgeEnabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 peer-disabled:cursor-not-allowed"></div>
+              </label>
+            </div>
+
+            {settings.autoPurgeEnabled && settings.retentionEnabled && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                Suppression définitive et irréversible. Le premier passage a lieu dans les minutes qui suivent
+                l&apos;enregistrement, puis une fois par jour. Chaque purge laisse une entrée dans ce journal.
+              </p>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:items-end gap-4">
               <div className="space-y-2">

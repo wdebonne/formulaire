@@ -24,6 +24,9 @@ export type AuditAction =
   | 'user.create'
   | 'user.update'
   | 'user.delete'
+  | 'gdpr.retention_purge'
+  | 'gdpr.erasure'
+  | 'logs.retention_purge'
 
 export const ACTION_LABELS: Record<AuditAction, string> = {
   'auth.login_success': 'Connexion réussie',
@@ -48,6 +51,9 @@ export const ACTION_LABELS: Record<AuditAction, string> = {
   'user.create': 'Création d\'utilisateur',
   'user.update': 'Modification d\'utilisateur',
   'user.delete': 'Suppression d\'utilisateur',
+  'gdpr.retention_purge': 'Purge des réponses expirées',
+  'gdpr.erasure': 'Effacement de données personnelles',
+  'logs.retention_purge': 'Purge du journal d\'activité',
 }
 
 export const ACTION_CATEGORIES: { label: string; actions: AuditAction[] }[] = [
@@ -86,6 +92,10 @@ export const ACTION_CATEGORIES: { label: string; actions: AuditAction[] }[] = [
   {
     label: 'Utilisateurs',
     actions: ['user.create', 'user.update', 'user.delete'],
+  },
+  {
+    label: 'Conformité',
+    actions: ['gdpr.retention_purge', 'gdpr.erasure', 'logs.retention_purge'],
   },
 ]
 

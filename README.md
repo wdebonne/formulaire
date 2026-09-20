@@ -53,6 +53,7 @@ with no third-party service in the loop.
 | 📄 **Word documents** | `.docx` templates filled with the answers and mailed to the right service |
 | ✉️ **E-mails on response** | Acknowledgement to the respondent, notification to the team, conditional routing — with or without an attachment |
 | 📊 **PDF reports** | Scheduled, e-mailed statistical summaries with charts and breakdowns |
+| 📈 **On-screen statistics** | The same figures, read directly for any period, without generating a PDF |
 | 🛡️ **Compliance** | GDPR retention & erasure, audit trail, anti-bruteforce, IP allow/deny lists |
 | 🐳 **Self-hosted** | Single Docker image, SQLite, multi-arch (AMD64 + ARM64) |
 
@@ -115,8 +116,9 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 
 - Response table with a **column selector** (choose which questions to display), pagination, and a detail modal.
 - **Correct a recorded response** — the detail modal's *Modifier* button re-opens the answers in proper editable controls (checkboxes, dates, dropdowns, group and repeater fields) and stores the correction exactly as a respondent's answer would have been stored. The change is written to the activity log with the **list of edited fields, never their values**.
-- **CSV export** (UTF-8 with BOM, opens straight in Excel), including group inner fields and repeater iterations as separate columns.
-- **Attachments and signatures** — a file uploaded by the respondent downloads from the response detail, a signature is displayed there; both appear in the CSV export and in generated documents. Deleting a response deletes its files.
+- **On-screen statistics** (`/forms/{id}/stats`) — choice breakdowns, ratings, per-question completion rates, response volume over time and recent verbatims, for the period of your choice. These are **exactly the PDF report's figures**, computed by the same function: reading a question's completion rate no longer requires generating a document.
+- **Excel and CSV export, with a period filter** — the *Exporter* modal produces an `.xlsx` workbook (columns sized to their content) or a CSV (UTF-8 with BOM, opens straight in Excel), and restricts the export to a period — everything, last N days, current or previous month, a date range — instead of all or nothing. Both formats hold the same table: one row per response, one column per question, with group inner fields and repeater iterations expanded into separate columns. The modal states the row and column count before the download.
+- **Attachments and signatures** — a file uploaded by the respondent downloads from the response detail, a signature is displayed there; both appear in the exports and in generated documents. Deleting a response deletes its files.
 - **Webhook status indicator** per response (green / orange / red / grey) with one-click replay.
 - **Document status per routing circuit** — accepted by the server / failed / not concerned / never sent — showing date and recipients, with one-click replay and a direct download of the filled document.
 

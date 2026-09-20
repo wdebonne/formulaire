@@ -41,6 +41,12 @@ Context for Claude Code when working on this project.
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
+| `src/app/forms/[id]/stats/stats-client.tsx` | On-screen statistics page (`/forms/[id]/stats`) — period picker + every section of the PDF report, rendered from `computeReportStats()` |
+| `src/lib/response-export.ts` | Pure/client-safe export table — `buildExportColumns()`/`buildExportTable()`, `formatExportCell()`, `toCsv()`, `filterResponsesByRange()`, `exportFileName()`; no Prisma, no `xlsx` |
+| `src/lib/manual-period.ts` | Pure/client-safe period vocabulary shared by the export and the stats page — `MANUAL_PERIOD_OPTIONS`, `DEFAULT_MANUAL_PERIOD`, `parseManualPeriod()` |
+| `src/components/forms/period-picker.tsx` | Period selector used by both the export modal and the stats page |
+| `src/components/forms/export-modal.tsx` | "Exporter" modal — format (xlsx/CSV), period, live row/column count |
+| `src/app/api/forms/[id]/responses/export/route.ts` | Responses export API — CSV or Excel, period resolved server-side, `getAccessibleForm()` |
 | `src/components/forms/response-edit-fields.tsx` | Champs éditables du modal « Détail de la réponse » (bouton *Modifier*) — un contrôle par type de bloc, groupes et répéteurs inclus |
 | `src/app/api/forms/[id]/versions/route.ts` | Versions API — GET list, POST create manual version |
 | `src/app/api/forms/[id]/versions/[versionId]/route.ts` | Versions API — DELETE a specific version |
@@ -128,14 +134,15 @@ When adding a new block type, update **all** of these:
 3. `src/components/builder/block-editor.tsx` — settings panel
 4. `src/components/builder/block-preview.tsx` — builder preview
 5. `src/app/[slug]/public-form-client.tsx` — public form renderer
-6. `src/app/forms/[id]/responses/responses-client.tsx` — response display and export
-7. API webhook route — payload serialization
+6. `src/app/forms/[id]/responses/responses-client.tsx` — response display
+7. `src/lib/response-export.ts` — `formatExportCell()`, shared by the CSV and Excel exports
+8. API webhook route — payload serialization
 
 If the block stores anything other than a string, a number or a string array, also check every
 place that turns a value into text: `answerToText()`/`isStructuredAnswer()` in
 `src/lib/response-format.ts`, `toText()` in `src/lib/docx-template.ts` and `src/lib/report-stats.ts`,
-`flatten()` in `src/lib/condition-eval.ts`, `stringifyValue()` in the GDPR export and `valueToText()`
-in the GDPR search. Each of them used to unfold an unknown object key by key — which is how a
+`flatten()` in `src/lib/condition-eval.ts`, `formatExportCell()` in `src/lib/response-export.ts`,
+`stringifyValue()` in the GDPR export and `valueToText()` in the GDPR search. Each of them used to unfold an unknown object key by key — which is how a
 base64 signature would have landed whole in an Excel cell.
 
 ---
@@ -471,6 +478,38 @@ writes `Response.documentStatus` (`DocumentSendStatus`) with one `DocumentRouteS
 UI must keep showing it in grey rather than red. The status records nodemailer's `accepted` /
 `rejected` addresses: that attests to hand-off to the sending server only. Never label it
 "delivered" — detecting a downstream rejection would require bounce processing.
+
+### On-Screen Statistics & Response Export
+
+`/forms/[id]/stats` renders **the PDF report's figures**, not a second computation: the page
+builds a `FormReportSettings` from `DEFAULT_REPORT_SETTINGS` (only the period comes from the
+screen) and calls `resolveReportRange()` + `computeReportStats()` — the same pure functions the
+report modal and `buildReportPdf()` use. Don't fork the maths into the component; a fix to
+`report-stats.ts` must reach the screen and the PDF at once. The form's `reportSettings.closingDate`
+is read server-side and passed down, so the screen honours the same corpus cap as the PDF.
+
+Charts are plain Tailwind divs, single-hue (`bg-indigo-500`, matching `report-pdf.ts`'s `bar`
+colour). **The hue encodes the measure, never the rank** — repainting the top option would read as
+a ranking where there is only a count — and every bar carries its value and percentage as text, so
+nothing is conveyed by colour alone.
+
+**Export: one table, two encodings.** `src/lib/response-export.ts` builds the columns and rows once;
+CSV and `.xlsx` differ only in encoding. It is pure, so `export-modal.tsx` announces the exact row
+and column counts the file will hold without a round-trip, and `POST /api/forms/[id]/responses/export`
+produces it. The old client-side `handleExportCSV()` in `responses-client.tsx` is gone — it
+duplicated this logic and recomputed each repeater's width once per response.
+
+- **The period is resolved server-side** by `resolveReportRange()`, from a mode validated against
+  `parseManualPeriod()`'s allow-list. The browser picks a mode; it never hands the route a range of
+  rows. `since_last_report` is deliberately excluded — it means nothing outside a scheduled send.
+- **A repeater iteration counts as soon as *any* inner field carries a value.** Keying it on the
+  first inner block (what the old CSV did) dropped whole iterations whenever that field was optional
+  and left blank.
+- **An empty answer exports as an empty cell, not `-`.** This differs from the on-screen table on
+  purpose: a spreadsheet cell holding a dash cannot be counted, filtered or summed.
+- **SheetJS (community edition) does not write freeze panes.** `sheet['!cols']` is honoured and
+  written as `<cols>`; a `sheet['!freeze']` assignment is silently dropped, so don't promise frozen
+  headers in the UI. Verified by unzipping the produced workbook.
 
 ### Periodic PDF Reports
 A form can carry a report configuration (`Form.reportSettings`, typed `FormReportSettings`) that

@@ -53,6 +53,7 @@ serveur, sans aucun service tiers dans la boucle.
 | 📄 **Documents Word** | Modèles `.docx` remplis avec les réponses et envoyés au bon service |
 | ✉️ **E-mails sur réponse** | Accusé de réception au répondant, notification à l'équipe, circuits conditionnels — avec ou sans pièce jointe |
 | 📊 **Rapports PDF** | Synthèses statistiques planifiées et envoyées par e-mail, avec graphiques et répartitions |
+| 📈 **Statistiques à l'écran** | Les mêmes chiffres consultables directement, sans générer de PDF, sur la période de votre choix |
 | 🛡️ **Conformité** | Conservation et effacement RGPD, journal d'activité, anti-bruteforce, listes blanche/noire d'IP |
 | 🐳 **Auto-hébergé** | Une seule image Docker, SQLite, multi-architecture (AMD64 + ARM64) |
 
@@ -115,8 +116,9 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 
 - Tableau des réponses avec **sélecteur de colonnes** (choix des questions affichées), pagination et modal de détail.
 - **Correction d'une réponse enregistrée** — le bouton *Modifier* du modal de détail rouvre les réponses dans de vrais champs éditables (cases à cocher, dates, listes, champs de groupes et de blocs répétables) et enregistre la correction exactement comme si le répondant l'avait saisie. La modification est journalisée avec la **liste des champs modifiés, jamais leurs valeurs**.
-- **Export CSV** (UTF-8 avec BOM, s'ouvre directement dans Excel), incluant les champs internes des groupes et les itérations des blocs répétables en colonnes distinctes.
-- **Pièces jointes et signatures** — un fichier déposé par le répondant se télécharge depuis le détail de la réponse, une signature s'y affiche ; l'un et l'autre figurent dans l'export CSV et dans les documents générés. Supprimer une réponse supprime ses fichiers.
+- **Statistiques à l'écran** (`/forms/{id}/stats`) — répartition des choix, notes, taux de remplissage par question, évolution dans le temps et verbatims récents, sur la période de votre choix. Ce sont **exactement les chiffres du rapport PDF**, calculés par la même fonction : consulter le taux de réponse d'une question ne demande plus de générer un document.
+- **Export Excel et CSV, avec filtrage par période** — la modale *Exporter* propose un classeur `.xlsx` (colonnes dimensionnées sur leur contenu) ou un CSV (UTF-8 avec BOM, s'ouvre directement dans Excel), et restreint l'export à une période — tout, N derniers jours, mois en cours ou précédent, plage de dates — au lieu de tout exporter ou rien. Les deux formats contiennent le même tableau : une ligne par réponse, une colonne par question, champs internes des groupes et itérations des blocs répétables dépliés en colonnes distinctes. La modale annonce le nombre de lignes et de colonnes avant le téléchargement.
+- **Pièces jointes et signatures** — un fichier déposé par le répondant se télécharge depuis le détail de la réponse, une signature s'y affiche ; l'un et l'autre figurent dans les exports et dans les documents générés. Supprimer une réponse supprime ses fichiers.
 - **Indicateur de statut webhook** par réponse (vert / orange / rouge / gris) avec relance en un clic.
 - **Statut du document par circuit d'envoi** — accepté par le serveur / en échec / non concerné / jamais envoyé — avec date et destinataires, relance en un clic et téléchargement direct du document rempli.
 

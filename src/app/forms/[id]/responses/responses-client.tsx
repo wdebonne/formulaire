@@ -29,6 +29,7 @@ import {
   MailCheck,
   MinusCircle,
   BarChart3,
+  TrendingUp,
   Pencil,
   Save,
   Paperclip,
@@ -38,6 +39,7 @@ import { ResponseEditFields } from '@/components/forms/response-edit-fields'
 import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
 import { DocumentEmailModal } from '@/components/forms/document-email-modal'
 import { ReportModal } from '@/components/forms/report-modal'
+import { ExportModal } from '@/components/forms/export-modal'
 import type { DocumentSendStatus } from '@/types/form'
 
 interface Webhook {
@@ -104,6 +106,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const [templateModalOpen, setTemplateModalOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
   const [hasTemplate, setHasTemplate] = useState(form.hasDocumentTemplate ?? false)
   // Le bouton d'envoi ne dépend pas du modèle : un circuit sans pièce jointe (accusé de
   // réception, notification d'équipe) s'envoie sans qu'aucun .docx existe.
@@ -277,103 +280,6 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     } finally {
       setSavingEdit(false)
     }
-  }
-
-  const handleExportCSV = () => {
-    // Construire les headers, en développant les repeaters et groupes
-    const headers: string[] = ['Date']
-    questionBlocks.forEach((b) => {
-      if (b.type === 'repeater' && b.innerBlocks && b.innerBlocks.length > 0) {
-        // Trouver le nombre max de répétitions pour ce repeater
-        let maxRep = 0
-        responses.forEach((r) => {
-          let rep = 1
-          while (r.data[`${b.id}_${rep}_${b.innerBlocks![0].id}`] !== undefined) {
-            rep++
-          }
-          maxRep = Math.max(maxRep, rep - 1)
-        })
-        
-        // Ajouter les headers pour chaque répétition
-        for (let i = 1; i <= maxRep; i++) {
-          b.innerBlocks.forEach((inner) => {
-            headers.push(`${b.attributes.label || b.id} #${i} - ${inner.attributes.label || inner.id}`)
-          })
-        }
-        
-        // Si aucune répétition, ajouter au moins une colonne
-        if (maxRep === 0) {
-          headers.push(b.attributes.label || b.id)
-        }
-      } else if (b.type === 'group' && b.innerBlocks && b.innerBlocks.length > 0) {
-        // Pour les groupes, ajouter une colonne par bloc interne
-        b.innerBlocks.forEach((inner) => {
-          headers.push(`${b.attributes.label || b.id} - ${inner.attributes.label || inner.id}`)
-        })
-      } else {
-        headers.push(b.attributes.label || b.id)
-      }
-    })
-    
-    const rows = responses.map((r) => {
-      const row: string[] = [format(new Date(r.createdAt), 'dd/MM/yyyy HH:mm', { locale: fr })]
-      
-      questionBlocks.forEach((b) => {
-        if (b.type === 'repeater' && b.innerBlocks && b.innerBlocks.length > 0) {
-          // Trouver le nombre max de répétitions pour ce repeater
-          let maxRep = 0
-          responses.forEach((resp) => {
-            let rep = 1
-            while (resp.data[`${b.id}_${rep}_${b.innerBlocks![0].id}`] !== undefined) {
-              rep++
-            }
-            maxRep = Math.max(maxRep, rep - 1)
-          })
-          
-          // Ajouter les valeurs pour chaque répétition
-          for (let i = 1; i <= maxRep; i++) {
-            b.innerBlocks.forEach((inner) => {
-              const value = r.data[`${b.id}_${i}_${inner.id}`]
-              row.push(formatValueWithChoices(value, inner.attributes.choices))
-            })
-          }
-
-          // Si aucune répétition, ajouter une cellule vide
-          if (maxRep === 0) {
-            row.push('')
-          }
-        } else if (b.type === 'group' && b.innerBlocks && b.innerBlocks.length > 0) {
-          // Pour les groupes, ajouter une valeur par bloc interne
-          b.innerBlocks.forEach((inner) => {
-            const value = r.data[inner.id]
-            row.push(formatValueWithChoices(value, inner.attributes.choices))
-          })
-        } else {
-          const value = r.data[b.id]
-          row.push(formatValueWithChoices(value, b.attributes.choices))
-        }
-      })
-      
-      return row
-    })
-
-    const csvContent = [headers, ...rows]
-      .map((row) =>
-        row
-          .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
-          .join(',')
-      )
-      .join('\n')
-
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${form.title || 'formulaire'}-reponses.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-
-    toast({ title: 'Export CSV téléchargé' })
   }
 
   const handleDeleteAll = async () => {
@@ -779,9 +685,24 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
             </div>
 
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={handleExportCSV} className="hover:bg-green-50 hover:border-green-300 hover:text-green-700">
+              <Link href={`/forms/${form.id}/stats`}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700"
+                >
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Statistiques
+                </Button>
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setExportModalOpen(true)}
+                className="hover:bg-green-50 hover:border-green-300 hover:text-green-700"
+              >
                 <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Exporter CSV
+                Exporter
               </Button>
               <Button
                 variant="outline"
@@ -1478,6 +1399,14 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         onSaved={(settings) =>
           setHasRoutes((settings.email.routes ?? []).some((route) => route.enabled))
         }
+      />
+
+      <ExportModal
+        formId={form.id}
+        blocks={form.blocks}
+        responses={responses}
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
       />
 
       <ReportModal

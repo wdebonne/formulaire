@@ -170,7 +170,22 @@ Un formulaire peut porter un modèle Word dont les jetons sont remplacés par le
 
 ### Activer la sortie PDF (optionnel)
 
-Aucun convertisseur `.docx` → PDF fidèle n'existe en JavaScript pur : conserver l'en-tête, les tableaux et les polices d'un modèle Word suppose LibreOffice. Plutôt que d'alourdir l'image applicative de plusieurs centaines de Mo, la conversion est déléguée à un conteneur dédié.
+Aucun convertisseur `.docx` → PDF fidèle n'existe en JavaScript pur : conserver l'en-tête, les tableaux et les polices d'un modèle Word suppose un moteur bureautique. Plutôt que d'alourdir l'image applicative de plusieurs centaines de Mo, la conversion est déléguée à un service extérieur. **Admin → Documents** (`/admin/documents`) en propose deux.
+
+#### Option A — le serveur bureautique de votre NextCloud (recommandé si vous en avez un)
+
+Si votre NextCloud porte déjà **Euro-Office**, **ONLYOFFICE** ou **Nextcloud Office**, il n'y a aucun conteneur à ajouter : le moteur est installé, authentifié et sauvegardé avec le reste.
+
+1. Renseignez d'abord l'instance dans **Admin → NextCloud** : adresse, compte et **mot de passe d'application** (pas le mot de passe du compte).
+2. Dans **Admin → Documents**, choisissez le moteur **NextCloud**, puis **Enregistrer**.
+3. Cliquez sur **Tester la connexion** — joignabilité, identifiants et version de l'instance.
+4. Cliquez sur **Tester la conversion** — un document témoin est réellement converti ; le test nomme le chemin qui a répondu et vous rend le PDF produit en téléchargement.
+
+Le document rempli est déposé dans un sous-dossier `.formbuilder-conversion` du dossier configuré, converti, rapatrié, puis retiré — y compris en cas d'échec. Trois chemins sont essayés dans l'ordre : connecteur `eurooffice`, connecteur `onlyoffice`, puis l'API de conversion de NextCloud (qui sert Nextcloud Office). Euro-Office étant un fork d'ONLYOFFICE Docs avec son propre identifiant d'application, les deux connecteurs sont tentés : un connecteur absent ne coûte qu'un 404.
+
+> Pour ce moteur, **seul le test de conversion ouvre l'option PDF** : une instance NextCloud peut parfaitement répondre sans qu'aucun serveur bureautique ne lui soit branché.
+
+#### Option B — un conteneur Gotenberg dédié
 
 Ajoutez le service à votre `docker-compose.yml` :
 
@@ -181,13 +196,16 @@ Ajoutez le service à votre `docker-compose.yml` :
     restart: unless-stopped
 ```
 
-Puis, dans **Admin → Documents** (`/admin/documents`), renseignez l'adresse `http://gotenberg:3000` et cliquez sur **Tester la connexion**.
-
-- L'option PDF n'apparaît dans les formulaires **qu'après un test réussi**
-- Modifier l'adresse invalide la vérification : il faut la retester
-- Le serveur revérifie la disponibilité à chaque enregistrement, si bien qu'un réglage PDF resté en base ne peut pas s'appliquer après le retrait du convertisseur
+Puis, dans **Admin → Documents**, choisissez le moteur **Gotenberg**, renseignez l'adresse `http://gotenberg:3000` et cliquez sur **Tester la connexion**.
 
 > N'exposez pas le port de Gotenberg publiquement : le service ne dispose d'aucune authentification. Les deux conteneurs partageant le réseau Compose, ils communiquent par leur nom de service sans publication de port.
+
+#### Dans les deux cas
+
+- L'option PDF n'apparaît dans les formulaires **qu'après un test réussi**
+- Changer de moteur, ou modifier l'adresse Gotenberg, invalide la vérification : il faut retester
+- Le serveur revérifie la disponibilité à chaque enregistrement, si bien qu'un réglage PDF resté en base ne peut pas s'appliquer après le retrait du convertisseur
+- Si la conversion échoue au moment d'un envoi réel, le **`.docx` rempli part à la place du PDF** et la réponse conserve la raison de l'échec (mention ambre sur le détail de la réponse) : un moteur en panne ne fait perdre aucun envoi
 
 ---
 

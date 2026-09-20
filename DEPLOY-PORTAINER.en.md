@@ -188,7 +188,22 @@ A form can carry a Word template whose tokens are replaced by the answers, the f
 
 ### Enabling PDF output (optional)
 
-No faithful `.docx` → PDF converter exists in pure JavaScript: preserving a Word template's header, tables and corporate fonts requires LibreOffice. Rather than inflating the application image by several hundred megabytes, conversion is delegated to a dedicated container.
+No faithful `.docx` → PDF converter exists in pure JavaScript: preserving a Word template's header, tables and corporate fonts requires an office engine. Rather than inflating the application image by several hundred megabytes, conversion is delegated to an outside service. **Admin → Documents** (`/admin/documents`) offers two.
+
+#### Option A — your NextCloud's office server (recommended if you run one)
+
+If your NextCloud already carries **Euro-Office**, **ONLYOFFICE** or **Nextcloud Office**, there is no container to add: the engine is installed, authenticated and backed up along with everything else.
+
+1. Declare the instance in **Admin → NextCloud** first: address, account and **app password** (not the account password).
+2. In **Admin → Documents**, pick the **NextCloud** engine, then **Save**.
+3. Click **Test connection** — reachability, credentials and the instance version.
+4. Click **Test conversion** — a witness document is actually converted; the test names the path that answered and hands back the produced PDF as a download.
+
+The filled document is deposited in a `.formbuilder-conversion` subfolder of the configured folder, converted, fetched back, then removed — including after a failure. Three paths are tried in order: the `eurooffice` connector, the `onlyoffice` connector, then NextCloud's own conversion API (which serves Nextcloud Office). Euro-Office being a fork of ONLYOFFICE Docs with its own application id, both connectors are attempted: a missing one only costs a 404.
+
+> For this engine, **only the conversion test opens the PDF option**: a NextCloud instance can answer perfectly well with no office server attached to it.
+
+#### Option B — a dedicated Gotenberg container
 
 Add the service to your `docker-compose.yml`:
 
@@ -199,13 +214,16 @@ Add the service to your `docker-compose.yml`:
     restart: unless-stopped
 ```
 
-Then, in **Admin → Documents** (`/admin/documents`), enter `http://gotenberg:3000` and click **Test connection**.
-
-- The PDF option only appears in forms **after a successful test**
-- Changing the address invalidates the verification — test it again
-- The server re-checks availability on every save, so a PDF setting left in the database cannot take effect once the converter is removed
+Then, in **Admin → Documents**, pick the **Gotenberg** engine, enter `http://gotenberg:3000` and click **Test connection**.
 
 > Don't publish Gotenberg's port: the service has no authentication. Both containers share the Compose network, so they reach each other by service name without any port mapping.
+
+#### Either way
+
+- The PDF option only appears in forms **after a successful test**
+- Switching engine, or changing the Gotenberg address, invalidates the verification — test it again
+- The server re-checks availability on every save, so a PDF setting left in the database cannot take effect once the converter is removed
+- Should the conversion fail during a real send, the **filled `.docx` goes out in place of the PDF** and the response keeps the reason (amber note on the response detail): a broken engine loses no delivery
 
 ---
 

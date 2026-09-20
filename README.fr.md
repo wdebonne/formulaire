@@ -125,7 +125,7 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 - **Génération de documents Word** — associez un modèle `.docx` dont les jetons sont remplacés par les réponses, puis envoyez le document rempli en pièce jointe. Tableau visuel des champs disponibles (jeton copiable, réponses possibles, présence effective du jeton dans le modèle), jetons de boucle pour les blocs répétables, jetons de case à cocher `{case_…}` rendant ☒/☐ pour qu'un modèle imprimé vierge reste remplissable à la main, et avertissement sur les jetons inconnus. **Les jetons restent stables après renommage d'une question ou d'une option.**
 - **Envoi conditionnel par circuits** — un circuit par service, avec ses propres conditions, destinataires, objet et corps, pour que seules les personnes concernées reçoivent le mail. Les conditions réutilisent les opérateurs de la logique du formulaire et sont repliées par défaut.
 - **Rapports PDF périodiques** — la modale *Rapports* transforme les réponses en PDF formaté et l'envoie selon une planification.
-- **Sortie PDF optionnelle** — via un conteneur [Gotenberg](https://gotenberg.dev/) externe déclaré dans le panneau d'administration.
+- **Sortie PDF optionnelle** — par le serveur bureautique de votre **NextCloud** (Euro-Office, ONLYOFFICE, Nextcloud Office : rien de plus à installer) ou par un conteneur [Gotenberg](https://gotenberg.dev/) dédié, au choix dans le panneau d'administration. Si la conversion échoue au moment d'un envoi, le `.docx` rempli part à la place du PDF plutôt que de ne rien envoyer.
 - **Import / export JSON** des formulaires, et duplication.
 
 <details>
@@ -151,7 +151,7 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | **Journal d'activité** (`/admin/logs`) | Historique consultable, filtrable et paginé des connexions, du cycle de vie des formulaires et de la gestion des utilisateurs ; export Excel correspondant exactement aux filtres actifs ; conservation configurable avec purge manuelle |
 | **Corbeille** (`/admin/trash`) | Formulaires supprimés avec restauration et suppression définitive ; les formulaires orphelins (propriétaire supprimé) portent un badge ambre et exigent une réassignation de propriétaire avant restauration |
 | **Personnalisation** | Nom du site, logo et favicon appliqués globalement ; fond de la page de connexion (uni, dégradé ou image floutée) et visibilité des liens, avec aperçu strictement identique au rendu réel |
-| **Documents** (`/admin/documents`) | Déclarer le convertisseur PDF externe avec test de connexion ; la sortie PDF ne devient sélectionnable qu'après un test réussi |
+| **Documents** (`/admin/documents`) | Choisir le moteur de conversion PDF — le serveur bureautique du NextCloud configuré, ou un conteneur Gotenberg — avec un **test de connexion** et un **test de conversion** qui convertit un document témoin, nomme le chemin qui a répondu et rend le PDF produit ; la sortie PDF ne devient sélectionnable qu'après un test réussi |
 | **Catalogue** (`/admin/catalog`) | Raccorder l'application de gestion du matériel (adresse et jeton), tester la connexion et visualiser ce qu'elle répond, filtré par service, nature, catégorie et période. Le jeton reste sur le serveur : l'écran sait seulement qu'il existe |
 | **Polices** | Ajouter et retirer des Google Fonts, disponibles dans l'éditeur de thèmes |
 | **SMTP** | Configuration du serveur de mail avec envoi de test |
@@ -205,7 +205,7 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | Email | [Nodemailer](https://nodemailer.com/) |
 | Modèles Word | [docxtemplater](https://docxtemplater.com/) + [PizZip](https://github.com/open-xml-templating/pizzip) (MIT) |
 | Génération PDF | [PDFKit](https://pdfkit.org/) |
-| Conversion PDF | Conteneur [Gotenberg](https://gotenberg.dev/) externe et optionnel |
+| Conversion PDF | Serveur bureautique NextCloud (Euro-Office / ONLYOFFICE / Nextcloud Office) ou conteneur [Gotenberg](https://gotenberg.dev/) — optionnel |
 | Tableurs | [SheetJS](https://sheetjs.com/) (`xlsx`) |
 | Animations | [Framer Motion](https://www.framer.com/motion/) |
 | Déploiement | Docker (multi-stage, multi-arch AMD64 + ARM64) |

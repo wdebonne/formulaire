@@ -111,7 +111,7 @@ export function AdminSettingsClient({ user }: AdminSettingsClientProps) {
     },
     {
       title: 'Documents',
-      description: 'Convertisseur PDF externe pour les modèles Word remplis avec les réponses',
+      description: 'Conversion en PDF des modèles Word remplis : moteur, test de connexion et de conversion',
       icon: FileType2,
       href: '/admin/documents',
       color: 'bg-blue-600',

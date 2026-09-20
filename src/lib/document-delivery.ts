@@ -46,6 +46,8 @@ export interface GeneratedDocument {
   contentType: string
   data: Record<string, any>
   settings: FormDocumentSettings
+  /** Renseigné quand le PDF demandé n'a pas pu être produit et que le .docx part à sa place. */
+  conversionError?: string
 }
 
 export function hasDocumentTemplate(documentSettings: string): boolean {
@@ -90,13 +92,29 @@ export async function generateDocumentForResponse(
     form.title || 'document'
   )
 
+  // Un serveur bureautique en panne ne doit pas priver le destinataire de son document : le
+  // .docx rempli part alors à la place du PDF, et l'échec est rapporté sur la réponse plutôt
+  // qu'échangé contre un envoi manquant.
+  let conversionError: string | undefined
   if (!options.forceDocx && template.outputFormat === 'pdf' && (await isPdfConversionAvailable())) {
-    buffer = await convertDocxToPdf(buffer, `${baseName}.docx`)
-    contentType = PDF_MIME
-    extension = 'pdf'
+    try {
+      buffer = await convertDocxToPdf(buffer, `${baseName}.docx`)
+      contentType = PDF_MIME
+      extension = 'pdf'
+    } catch (error: any) {
+      conversionError = error?.message || 'Conversion PDF indisponible'
+      console.error('Conversion PDF échouée, repli sur le .docx:', error)
+    }
   }
 
-  return { buffer, fileName: `${baseName}.${extension}`, contentType, data, settings }
+  return {
+    buffer,
+    fileName: `${baseName}.${extension}`,
+    contentType,
+    data,
+    settings,
+    ...(conversionError && { conversionError }),
+  }
 }
 
 // Destinataires d'un circuit = adresses fixes + valeurs des champs e-mail désignés, dédupliquées.
@@ -200,6 +218,7 @@ export async function sendDocumentForResponse(
       lastSent: new Date().toISOString(),
       fileName: generated.fileName,
       routes: results,
+      ...(generated.conversionError && { conversionFallback: generated.conversionError }),
       ...(routes.length === 0 && { error: 'Aucun circuit d’envoi actif' }),
       ...(routes.length > 0 &&
         triggered.length === 0 && { error: 'Aucun circuit ne correspond à cette réponse' }),

@@ -69,7 +69,8 @@ Context for Claude Code when working on this project.
 | `src/lib/docx-template.ts` | Server-only docxtemplater engine — `buildDocumentData()`, `renderDocx()`, `inspectDocxTags()`, `applyTags()`, `parseFormDocumentSettings()` |
 | `src/lib/document-storage.ts` | Private .docx storage outside `public/` — `saveTemplateFile()`, `readTemplateFile()`, `looksLikeDocx()` |
 | `src/lib/document-delivery.ts` | Generates the document for a response and mails it — `generateDocumentForResponse()`, `sendDocumentForResponse()`, `resolveRecipients()` |
-| `src/lib/pdf-convert.ts` | External Gotenberg converter — `testPdfConverter()`, `convertDocxToPdf()`, `isPdfConversionAvailable()` |
+| `src/lib/pdf-convert.ts` | PDF conversion, either engine — `resolveProvider()`, `testGotenberg()`, `convertDocxToPdf()`, `isPdfConversionAvailable()`, `buildProbeDocx()`, `testPdfConversion()` |
+| `src/lib/nextcloud-convert.ts` | Server-only NextCloud engine — WebDAV deposit, `convertWithNextcloud()` (Euro-Office → ONLYOFFICE → Nextcloud conversion API), `probeNextcloud()` |
 | `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
 | `src/lib/form-options.ts` | Pure/client-safe access options — `FormAccessSettings` defaults, `parseFormAccessSettings()`, `accessMessage()`, `accessSummary()`, `scheduleState()`; no Prisma import |
 | `src/lib/form-gate.ts` | Server-only enforcement — `resolveFormGate()`, access/submitted cookie names, `signAccessToken()`, `hashFormPassword()` |
@@ -86,7 +87,7 @@ Context for Claude Code when working on this project.
 | `src/components/forms/report-modal.tsx` | "Rapports" modal — Période / Contenu / Envoi tabs, live preview bar, PDF download, send-now |
 | `src/components/forms/document-template-modal.tsx` | "Modèle de document" modal — .docx import, visual field/token table, output settings |
 | `src/components/forms/document-email-modal.tsx` | "E-mail d'envoi" modal — recipients, subject, body |
-| `src/app/admin/documents/documents-client.tsx` | Admin UI for the external PDF converter (URL + connection test + verified state) |
+| `src/app/admin/documents/documents-client.tsx` | Admin UI for PDF conversion — engine choice (NextCloud / Gotenberg), connection test, conversion test with the produced PDF downloadable, verified state |
 | `src/lib/catalog.ts` | Pure/client-safe catalog logic — `isCatalogBlock()`, `catalogPeriod()`, `resolveCatalogBlocks()`, `catalogItemsFromStock()`, `catalogFilterParams()`; no Prisma import |
 | `src/lib/catalog-config.ts` | Server-only catalog wiring — `getCatalogConfig()`, `catalogCall()`, `fetchCatalogFacets()`, `testCatalogConnection()`, `catalogSettingsView()`; holds the API token |
 | `src/lib/use-catalog-blocks.ts` | Public-form hook — one request per block and per period, re-issued only when the answered date changes |
@@ -154,7 +155,7 @@ When adding a new block type, update **all** of these:
 - `Form.documentSettings` (JSON stored as string) — typed as `FormDocumentSettings` in `src/types/form.ts`; holds the `.docx` template reference (`storedName` in the private storage), the persisted `tag → blockId` mappings, and the e-mail settings (recipients, subject, body)
 - `Form.accessSettings` (JSON stored as string) — typed as `FormAccessSettings`; availability window, bcrypt password hash, response quota, participation restrictions, `noIndex`. Deliberately **not** copied by `/duplicate`, **not** included in `/export`, and **not** snapshotted in `FormVersion` — it is operational configuration, not form content, and exporting it would leak the password hash
 - `Response.documentStatus` (JSON stored as string, nullable) — typed as `DocumentSendStatus`; last send result, same role as `webhookStatus`
-- `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; external PDF converter URL and its verification state
+- `SystemSettings.documentSettings` (JSON stored as string) — typed as `SystemDocumentSettings`; which PDF engine is used (`pdfConverterProvider`: `gotenberg` | `nextcloud`, absent = `gotenberg`), the Gotenberg URL, and the verification state (`pdfConverterVerified`, plus `pdfConversionVerifiedAt`/`pdfConversionMethod` recording the last conversion actually exercised)
 - `SystemSettings.catalogSettings` (JSON stored as string) — typed as `SystemCatalogSettings`; external catalog URL, API token and verification state. The token is stored in clear, like the NextCloud credentials, and is **never** returned to the browser — `catalogSettingsView()` exposes only `hasToken`
 - `Form.reportSettings` (JSON stored as string) — typed as `FormReportSettings`; report period, closing date, included sections, schedule (`ReportSchedule` with `lastRunAt`), recipients, subject/body, and `lastStatus` (`ReportSendStatus`)
 - `SystemSettings.securitySettings` also carries the failed-login alert config: `notifyOnFailedLogin`/`notifyThreshold`/`notifyEmail` — set in `/admin/security` alongside `maxFailedAttempts`, no separate column needed
@@ -307,12 +308,51 @@ through authenticated routes gated by `getAccessibleForm()`. Filled documents ar
 disk — they are regenerated on each download/send, so no file full of personal data accumulates.
 
 **PDF output is gated on a verified converter**: `SystemSettings.documentSettings` holds
-`pdfConverterUrl` / `pdfConverterVerified`. Only `POST /api/admin/documents/test` can set
-`pdfConverterVerified = true`, and saving a *different* URL resets it to false. The PUT on
+`pdfConverterProvider` / `pdfConverterUrl` / `pdfConverterVerified`. Only the two test routes
+(`POST /api/admin/documents/test`, `POST /api/admin/documents/test-conversion`) can set
+`pdfConverterVerified = true`, and saving a *different* engine or URL resets it to false. The PUT on
 `/api/forms/[id]/document` re-checks `isPdfConversionAvailable()` server-side and forces `docx`
 otherwise, so a stale `outputFormat: 'pdf'` left in the DB can never take effect after the
-converter is removed. `convertDocxToPdf()` targets Gotenberg's
-`/forms/libreoffice/convert` and has **not** been exercised against a live instance.
+converter is removed.
+
+**Two engines, one contract.** `convertDocxToPdf()` dispatches on `pdfConverterProvider`: Gotenberg's
+`/forms/libreoffice/convert` (not exercised against a live instance), or the office server already
+attached to the configured NextCloud (`src/lib/nextcloud-convert.ts`), which needs no extra container
+and reuses the Administration › NextCloud credentials. Adding an engine means touching
+`resolveProvider()`, `convertDocxToPdf()`, `isPdfConversionAvailable()` and `testPdfConversion()` —
+nothing else.
+
+**What each test proves is not the same, and the gating follows.** Gotenberg exposes a single
+conversion endpoint, so its `/health` answering is conclusive and keeps opening the PDF option as it
+always did. A NextCloud can answer perfectly with no office server attached, so `probeNextcloud()`
+(WebDAV `PROPFIND` + `ocs/v2.php/cloud/capabilities`) **never** opens the PDF option on its own — only
+a real conversion does. Verification never carries across a change of engine or URL: a proof obtained
+on Gotenberg would otherwise open PDF output for a NextCloud that has converted nothing.
+`testPdfConversion()` converts a witness document built by `buildProbeDocx()` (four OOXML parts, no
+template involved — otherwise the test would be measuring someone's `.docx` too) and returns the
+produced PDF as base64 so the admin can open it: a conversion can "succeed" and render a blank page.
+
+**Three conversion paths, tried in order, and the order matters.** No office connector registers a
+provider with NextCloud's generic conversion API, so that API answers and then fails for lack of a
+provider — unless Nextcloud Office sits alongside. The connectors' own routes do the work:
+`GET /index.php/apps/{app}/downloadas?fileId=N&toExtension=pdf`, which hands the file to the document
+server and returns the PDF bytes. It is not an OCS route, but a `Basic` request without a cookie
+passes NextCloud's CSRF check — which is exactly what an app password is. Euro-Office is a fork of
+ONLYOFFICE Docs whose NextCloud connector is a **separate application** (`eurooffice`, not
+`onlyoffice`), identical routes aside from the app id, so both are tried: a missing connector costs
+one 404. `/ocs/v2.php/apps/files/api/v1/convert` comes last, and writes its output into the account
+rather than returning it — hence the read-back and the delete. A refusal arrives as JSON under HTTP
+200, so every path sniffs the `%PDF-` magic bytes rather than trusting the status or `Content-Type`.
+
+The document is deposited in `{nextcloudBasePath}/.formbuilder-conversion/` (leading dot: what
+transits there is nobody's business in the Files screen) and removed in a `finally`, including after a
+failure — otherwise one witness per failed attempt would pile up in a folder nobody thinks to open.
+
+**A broken office server loses no document.** `generateDocumentForResponse()` catches a conversion
+failure and sends the filled `.docx` instead of the PDF, recording the reason in
+`DocumentSendStatus.conversionFallback` (shown in amber on the response detail). Same reasoning as
+`sendDocumentForResponse()` never throwing: the respondent has already submitted, and the recipient
+would rather have a `.docx` than nothing.
 
 **Checkbox tokens**: a mapping carrying `choiceValue` renders `☒` when that specific option is
 selected and `☐` otherwise (or `þ`/`¨` with `checkboxStyle: 'wingdings'`). The empty state is a real

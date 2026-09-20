@@ -125,7 +125,7 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 - **Word document generation** — attach a `.docx` template whose tokens are replaced by the answers, then e-mail the filled document as an attachment. Visual table of available fields (copyable token, possible answers, whether the token is actually present in the template), loop tokens for repeaters, `{case_…}` checkbox tokens rendering ☒/☐ so a blank printed template stays fillable by hand, and a warning for unknown tokens. **Tokens stay stable when a question or an option is renamed.**
 - **Conditional e-mail routing** — one circuit per service, each with its own conditions, recipients, subject and body, so only the people concerned are notified. Conditions reuse the form-logic operators and are collapsed by default.
 - **Periodic PDF reports** — a *Rapports* modal turns responses into a formatted PDF and mails it on a schedule.
-- **Optional PDF output** — through an external [Gotenberg](https://gotenberg.dev/) container declared in the admin panel.
+- **Optional PDF output** — through the office server of your **NextCloud** (Euro-Office, ONLYOFFICE, Nextcloud Office: nothing more to install) or a dedicated [Gotenberg](https://gotenberg.dev/) container, whichever you pick in the admin panel. Should the conversion fail at send time, the filled `.docx` goes out in place of the PDF rather than nothing at all.
 - **JSON import / export** of forms, and form duplication.
 
 <details>
@@ -151,7 +151,7 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | **Activity log** (`/admin/logs`) | Searchable, filterable, paginated audit trail of logins, form lifecycle and user management; Excel export matching the current filters; configurable retention with manual purge |
 | **Trash** (`/admin/trash`) | Soft-deleted forms with restore and permanent delete; orphaned forms (deleted owner) carry an amber badge and require owner reassignment before restoration |
 | **Customization** | Site name, logo and favicon applied globally; login page background (solid, gradient or blurred image) and link visibility, with a pixel-identical live preview |
-| **Documents** (`/admin/documents`) | Declare the external PDF converter with a connection test; PDF output only becomes selectable once a test succeeds |
+| **Documents** (`/admin/documents`) | Pick the PDF conversion engine — the configured NextCloud's office server, or a Gotenberg container — with a **connection test** and a **conversion test** that converts a witness document, names the path that answered and hands back the produced PDF; PDF output only becomes selectable once a test succeeds |
 | **Catalog** (`/admin/catalog`) | Wire the equipment-management application (URL and token), test the connection and preview what it answers, filtered by service, kind, category and period. The token stays on the server: the screen only ever learns that one is set |
 | **Fonts** | Add and remove Google Fonts, available in the theme editor |
 | **SMTP** | Mail server configuration with a test send |
@@ -205,7 +205,7 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | Email | [Nodemailer](https://nodemailer.com/) |
 | Word templating | [docxtemplater](https://docxtemplater.com/) + [PizZip](https://github.com/open-xml-templating/pizzip) (MIT) |
 | PDF generation | [PDFKit](https://pdfkit.org/) |
-| PDF conversion | Optional external [Gotenberg](https://gotenberg.dev/) container |
+| PDF conversion | NextCloud office server (Euro-Office / ONLYOFFICE / Nextcloud Office) or a [Gotenberg](https://gotenberg.dev/) container — optional |
 | Spreadsheets | [SheetJS](https://sheetjs.com/) (`xlsx`) |
 | Animations | [Framer Motion](https://www.framer.com/motion/) |
 | Deployment | Docker (multi-stage, multi-arch AMD64 + ARM64) |

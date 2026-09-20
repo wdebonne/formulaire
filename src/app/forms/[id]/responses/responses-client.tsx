@@ -684,6 +684,10 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     if (!status) return 'Envoyer le document par e-mail'
     const when = format(new Date(status.lastSent), 'dd/MM/yyyy HH:mm', { locale: fr })
 
+    const fallback = status.conversionFallback
+      ? `\nPDF indisponible — .docx envoyé à la place : ${status.conversionFallback}`
+      : ''
+
     const routes = status.routes ?? []
     if (routes.length > 0) {
       const lines = routes.map((r) => {
@@ -691,7 +695,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         if (r.success) return `• ${r.routeName} : envoyé à ${(r.recipients ?? []).join(', ')}`
         return `• ${r.routeName} : échec${r.error ? ` — ${r.error}` : ''}`
       })
-      return `Dernière évaluation le ${when}\n${lines.join('\n')}\n\nCliquer pour relancer`
+      return `Dernière évaluation le ${when}\n${lines.join('\n')}${fallback}\n\nCliquer pour relancer`
     }
 
     if (status.success) {
@@ -1174,6 +1178,14 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                       locale: fr,
                     })}
                   </p>
+                  {selectedResponse.documentStatus!.conversionFallback && (
+                    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-xs text-amber-800">
+                        <span className="font-medium">PDF indisponible</span> — le .docx rempli a
+                        été envoyé à la place : {selectedResponse.documentStatus!.conversionFallback}
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {selectedResponse.documentStatus!.routes!.map((route) => (
                       <div

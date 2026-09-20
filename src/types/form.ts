@@ -307,11 +307,19 @@ export interface SystemCatalogSettings {
   verifiedItemCount?: number
 }
 
+// Deux moteurs possibles pour la conversion en PDF : un conteneur Gotenberg dédié, ou le serveur
+// bureautique déjà branché au NextCloud configuré (Euro-Office, ONLYOFFICE, Nextcloud Office).
+export type PdfConverterProvider = 'gotenberg' | 'nextcloud'
+
 export interface SystemDocumentSettings {
-  pdfConverterUrl?: string
-  pdfConverterVerified?: boolean // passe à false dès que l'URL change
+  pdfConverterProvider?: PdfConverterProvider // absent = 'gotenberg' (installations antérieures)
+  pdfConverterUrl?: string // Gotenberg uniquement ; NextCloud a ses propres réglages
+  pdfConverterVerified?: boolean // passe à false dès que l'URL ou le moteur change
   pdfConverterVerifiedAt?: string
   pdfConverterVersion?: string
+  // Dernière conversion réellement éprouvée, et chemin qui y a abouti.
+  pdfConversionVerifiedAt?: string
+  pdfConversionMethod?: string
 }
 
 // Résultat d'un circuit pour une réponse donnée.
@@ -334,6 +342,8 @@ export interface DocumentSendStatus {
   lastSent: string
   fileName?: string
   routes?: DocumentRouteStatus[]
+  // Le formulaire demandait un PDF, la conversion a échoué, le .docx est parti à la place.
+  conversionFallback?: string
   // Ancienne forme à circuit unique, encore présente sur les réponses antérieures
   recipients?: string[]
   error?: string

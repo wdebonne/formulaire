@@ -67,6 +67,10 @@ Context for Claude Code when working on this project.
 | `src/app/admin/trash/trash-client.tsx` | Admin trash UI — lists trashed forms; orphaned forms (deleted owner) show an amber "Compte supprimé" badge; restoration requires mandatory owner reassignment for orphans |
 | `src/lib/document-fields.ts` | Pure/client-safe field catalog for .docx templates — `buildFieldCatalog()`, `slugifyTag()`, `catalogToMappings()`; no Prisma import |
 | `src/lib/docx-template.ts` | Server-only docxtemplater engine — `buildDocumentData()`, `renderDocx()`, `inspectDocxTags()`, `applyTags()`, `parseFormDocumentSettings()` |
+| `src/lib/upload-types.ts` | Pure/client-safe upload allow-list — `ALLOWED_UPLOAD_TYPES`, `MAX_RESPONSE_FILE_SIZE`, `resolveUploadType()`; imported by the block editor so the builder offers exactly what the server accepts |
+| `src/lib/response-uploads.ts` | Private storage for respondent attachments — `saveResponseFile()`, `readResponseFile()`, `deleteFormFiles()`, `collectStoredNames()`, `deleteFilesOfResponses()` |
+| `src/app/api/forms/[id]/upload/route.ts` | Public (gated) attachment upload + removal before submission |
+| `src/app/api/forms/[id]/files/[name]/route.ts` | Authenticated attachment download, gated by `getAccessibleForm()` |
 | `src/lib/document-storage.ts` | Private .docx storage outside `public/` — `saveTemplateFile()`, `readTemplateFile()`, `looksLikeDocx()` |
 | `src/lib/document-delivery.ts` | Generates the document for a response and mails it — `generateDocumentForResponse()`, `sendDocumentForResponse()`, `resolveRecipients()` |
 | `src/lib/pdf-convert.ts` | PDF conversion, either engine — `resolveProvider()`, `testGotenberg()`, `convertDocxToPdf()`, `isPdfConversionAvailable()`, `buildProbeDocx()`, `testPdfConversion()` |
@@ -123,6 +127,13 @@ When adding a new block type, update **all** of these:
 5. `src/app/[slug]/public-form-client.tsx` — public form renderer
 6. `src/app/forms/[id]/responses/responses-client.tsx` — response display and export
 7. API webhook route — payload serialization
+
+If the block stores anything other than a string, a number or a string array, also check every
+place that turns a value into text: `answerToText()`/`isStructuredAnswer()` in
+`src/lib/response-format.ts`, `toText()` in `src/lib/docx-template.ts` and `src/lib/report-stats.ts`,
+`flatten()` in `src/lib/condition-eval.ts`, `stringifyValue()` in the GDPR export and `valueToText()`
+in the GDPR search. Each of them used to unfold an unknown object key by key — which is how a
+base64 signature would have landed whole in an Excel cell.
 
 ---
 
@@ -199,8 +210,51 @@ Blocks with choices (`dropdown`, `multiple-choice`, `image-selection`) store `ch
 L'action est journalisée (`response.update`) avec la **liste des champs** modifiés, jamais leurs
 valeurs — le journal d'activité ne doit pas devenir une seconde copie des données personnelles.
 
+### Respondent Attachments & Signatures
+`file` and `signature` store **structured values** in `Response.data`, typed `UploadedFileValue`
+/ `SignatureValue` in `src/types/form.ts` and marked by a `kind` field. `formatBlockValue()`
+returns them **untouched** — reducing an attachment to its name would strip `storedName`, and with
+it the file. Text contexts call `answerToText()` instead (`"contrat.pdf (1,2 Mo)"`,
+`"Signé le 20/09/2026"`).
+
+**An attachment never goes into `public/uploads`.** `/api/uploads/[filename]` serves that folder
+with no authentication at all, which suits a logo and not a proof of identity. Respondent files
+live in `storage/response-files/{formId}/` (`RESPONSE_UPLOAD_DIR`), written by
+`POST /api/forms/[id]/upload` and readable only through `GET /api/forms/[id]/files/[name]`, gated
+by `getAccessibleForm()`. That download route resolves the original name and MIME type **from the
+response that references the file**, so a guessed filename returns nothing until some response
+points at it.
+
+The upload route repeats the submission's access checks (`resolveFormGate()`, published status)
+rather than trusting the page that rendered the field — same reasoning as the double
+`resolveFormGate()` call: the page only decides what to render, and a forged POST bypasses it. It
+also verifies that `blockId` names an actual `file` block of that form, otherwise the route would
+be an open file drop for anyone guessing its address. The block's `allowedFileExtensions` can only
+**narrow** `ALLOWED_UPLOAD_TYPES`, never widen it, and `MAX_RESPONSE_FILE_SIZE` (25 MB) caps
+whatever `maxFileSizeMb` asks for.
+
+**Deleting a response must delete its files.** `deleteFilesOfResponses()` is called from the four
+response-deletion paths (single, delete-all, GDPR purge, retention purge) and `deleteFormFiles()`
+from the permanent form deletion — otherwise an erasure request would leave the document on disk
+after the row disappeared from the database. Known gap: a respondent who uploads and then abandons
+the form leaves an orphan file (the *Retirer* button deletes it, but closing the tab does not);
+`DELETE /api/forms/[id]/upload` refuses to remove a file already referenced by a stored response,
+so it can never be used to erase someone else's attachment.
+
+A signature is a PNG data URL kept **inside** the response (a few KB), not a stored file: nothing
+to clean up when a form is abandoned, and the response carries its own evidence. The pad paints a
+white background and scales the canvas by `devicePixelRatio`, without which the stroke drifts from
+the cursor on a high-density screen.
+
 ### Webhooks Payload
 Webhooks serialize block values using human-readable labels (not raw values/slugs). Dates are locale-formatted. Use `findBlockDeep()` for nested field resolution.
+
+**`triggerOn` has exactly one real value.** The editor used to offer `partial` and `save`
+alongside `submission`; no sending path ever honoured them, so a webhook set that way was silently
+inert. The options are gone and the submit route now fires **every enabled webhook**, so a legacy
+`partial`/`save` row starts delivering — the editor flags it on the webhook rather than rewriting
+it quietly. There is no partial-submission path in the product; `Response.status` is always
+`completed`.
 
 A webhook carrying a `secret` is signed: `applyWebhookSignature()` (`src/lib/webhook-signature.ts`) adds an `X-Webhook-Signature` header holding `sha256=<HMAC-SHA256 of the body>`. **The signature is computed over the exact string sent** — re-serializing the object before signing would produce a digest the receiver cannot reproduce, since two equivalent JSON documents written differently do not share their bytes. All three senders sign (submission, the editor's test, manual replay), a GET carries none (no body to sign, and signing the empty string authenticates nothing), and `/api/forms/[id]/export` strips `secret` from the exported webhooks.
 

@@ -15,6 +15,7 @@ import {
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen, Star, Heart, ThumbsUp } from 'lucide-react'
+import { ALLOWED_UPLOAD_TYPES, DEFAULT_MAX_FILE_SIZE_MB, MAX_RESPONSE_FILE_SIZE } from '@/lib/upload-types'
 import { DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 
 const innerBlockTypes: { type: BlockType; label: string; icon: React.ReactNode }[] = [
@@ -850,6 +851,119 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Téléchargement */}
+      {block.type === 'file' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="maxFileSizeMb">Taille maximale (Mo)</Label>
+            <Input
+              id="maxFileSizeMb"
+              type="number"
+              min={1}
+              max={MAX_RESPONSE_FILE_SIZE / (1024 * 1024)}
+              value={block.attributes.maxFileSizeMb ?? DEFAULT_MAX_FILE_SIZE_MB}
+              onChange={(e) =>
+                updateAttribute(
+                  'maxFileSizeMb',
+                  Math.min(
+                    Math.max(1, Number(e.target.value) || DEFAULT_MAX_FILE_SIZE_MB),
+                    MAX_RESPONSE_FILE_SIZE / (1024 * 1024)
+                  )
+                )
+              }
+            />
+            <p className="text-xs text-gray-500">
+              Le serveur refuse de toute façon au-delà de {MAX_RESPONSE_FILE_SIZE / (1024 * 1024)} Mo.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Formats acceptés</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.keys(ALLOWED_UPLOAD_TYPES).map((ext) => {
+                const selected = (block.attributes.allowedFileExtensions || []).includes(ext)
+                return (
+                  <button
+                    key={ext}
+                    type="button"
+                    onClick={() => {
+                      const current = block.attributes.allowedFileExtensions || []
+                      updateAttribute(
+                        'allowedFileExtensions',
+                        selected ? current.filter((e) => e !== ext) : [...current, ext]
+                      )
+                    }}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      selected
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {ext}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-xs text-gray-500">
+              Aucun format sélectionné : tous ceux de la liste sont acceptés. Les exécutables et
+              les SVG ne sont jamais acceptés.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+            <p className="text-xs text-blue-800">
+              Les fichiers déposés sont stockés hors du dossier public et ne sont téléchargeables
+              que depuis la page des réponses, par les personnes ayant accès au formulaire.
+              Supprimer une réponse supprime aussi ses pièces jointes.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Signature */}
+      {block.type === 'signature' && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="signatureHeight">Hauteur de la zone (px)</Label>
+            <Input
+              id="signatureHeight"
+              type="number"
+              min={100}
+              max={400}
+              value={block.attributes.signatureHeight ?? 180}
+              onChange={(e) =>
+                updateAttribute('signatureHeight', Math.min(400, Math.max(100, Number(e.target.value) || 180)))
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="signaturePenColor">Couleur du tracé</Label>
+            <div className="flex items-center gap-2">
+              <input
+                id="signaturePenColor"
+                type="color"
+                value={block.attributes.signaturePenColor || '#111827'}
+                onChange={(e) => updateAttribute('signaturePenColor', e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border"
+              />
+              <Input
+                value={block.attributes.signaturePenColor || '#111827'}
+                onChange={(e) => updateAttribute('signaturePenColor', e.target.value)}
+                placeholder="#111827"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+            <p className="text-xs text-blue-800">
+              La signature est enregistrée en image PNG dans la réponse. Elle s'affiche dans le
+              détail de la réponse et reste en lecture seule à la correction.
+            </p>
+          </div>
         </div>
       )}
 

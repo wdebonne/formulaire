@@ -1,5 +1,6 @@
 'use client'
 
+import { answerToText, isStructuredAnswer } from '@/lib/response-format'
 import type { ReactNode } from 'react'
 
 // Édition des valeurs d'une réponse déjà enregistrée (modal « Détail de la réponse »).
@@ -104,6 +105,7 @@ function toDateInput(value: any, format = 'DD/MM/YYYY'): string {
 
 function toText(value: any): string {
   if (value === null || value === undefined) return ''
+  if (isStructuredAnswer(value)) return answerToText(value)
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }

@@ -36,6 +36,11 @@ export function formatBlockValue(block: any, rawValue: any): any {
   if (rawValue === undefined || rawValue === null) return rawValue
   if (!block) return rawValue // bloc introuvable → valeur brute inchangée
 
+  // ── Valeurs structurées (pièce jointe, signature) ──────────────────────────
+  // Recopiées intactes : une pièce jointe réduite à son nom perdrait `storedName`, donc le
+  // fichier lui-même. La mise en forme lisible se fait à l'affichage, via answerToText().
+  if (isStructuredAnswer(rawValue)) return rawValue
+
   // ── Dates ──────────────────────────────────────────────────────────────────
   if (block.type === 'date' && typeof rawValue === 'string') {
     const fmt = block.attributes?.format || 'DD/MM/YYYY'
@@ -88,6 +93,35 @@ export function formatBlockValue(block: any, rawValue: any): any {
   if (Array.isArray(rawValue)) return rawValue.map((v: any) => typeof v === 'string' ? stripOther(v) : v).join(', ')
 
   return rawValue
+}
+
+// ── Valeurs structurées ──────────────────────────────────────────────────────
+
+export function isStructuredAnswer(value: any): boolean {
+  return !!value && typeof value === 'object' && (value.kind === 'file' || value.kind === 'signature')
+}
+
+function formatSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`
+}
+
+// Rendu texte d'une valeur, pour les contextes qui ne savent afficher qu'une chaîne :
+// export CSV, tableau des réponses, jetons d'un modèle .docx.
+export function answerToText(value: any): string {
+  if (value === null || value === undefined) return ''
+  if (value.kind === 'file') {
+    const size = formatSize(value.size)
+    return size ? `${value.name} (${size})` : String(value.name ?? '')
+  }
+  if (value.kind === 'signature') {
+    const signed = typeof value.signedAt === 'string' ? value.signedAt.slice(0, 10) : ''
+    const m = signed.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    return m ? `Signé le ${m[3]}/${m[2]}/${m[1]}` : 'Signé'
+  }
+  return String(value)
 }
 
 // Résout les valeurs brutes (slugs de choix, dates) en valeurs lisibles pour tous les champs soumis.

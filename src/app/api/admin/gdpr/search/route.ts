@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
-import { findBlockDeep, formatBlockValue } from '@/lib/response-format'
+import { answerToText, findBlockDeep, formatBlockValue, isStructuredAnswer } from '@/lib/response-format'
 
 const MAX_RESULTS = 500
 
@@ -29,25 +29,49 @@ export async function POST(request: NextRequest) {
     })
 
     const truncated = matches.length > MAX_RESULTS
-    const results = matches.slice(0, MAX_RESULTS).map((r) => {
-      const data = JSON.parse(r.data) as Record<string, any>
-      const blocks = JSON.parse(r.form.blocks) as any[]
-      const snippet = findMatchingSnippet(data, blocks, term)
+    const results = matches
+      .slice(0, MAX_RESULTS)
+      .filter((r) => matchesOutsideBlobs(r.data, term))
+      .map((r) => {
+        const data = JSON.parse(r.data) as Record<string, any>
+        const blocks = JSON.parse(r.form.blocks) as any[]
+        const snippet = findMatchingSnippet(data, blocks, term)
 
-      return {
-        id: r.id,
-        formId: r.formId,
-        formTitle: r.form.title,
-        createdAt: r.createdAt,
-        snippet,
-      }
-    })
+        return {
+          id: r.id,
+          formId: r.formId,
+          formTitle: r.form.title,
+          createdAt: r.createdAt,
+          snippet,
+        }
+      })
 
     return NextResponse.json({ results, truncated })
   } catch (error) {
     console.error('GDPR search error:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+// La recherche SQL porte sur le JSON brut de la réponse, où figure aussi la signature : une
+// data-URL base64 est une longue suite de lettres dans laquelle n'importe quel nom court finit
+// par apparaître. On écarte donc les correspondances tombées **uniquement** dans un tel blob.
+// Le reste est conservé tel quel, y compris une correspondance sur une valeur que l'extrait ne
+// sait pas reproduire (un slug enregistré avant resolveDataLabels doit rester trouvable) :
+// pour un droit à l'effacement, manquer une réponse serait plus grave qu'en proposer une de trop.
+function matchesOutsideBlobs(rawData: string, term: string): boolean {
+  let data: unknown
+  try {
+    data = JSON.parse(rawData || '{}')
+  } catch {
+    return true
+  }
+  const withoutBlobs = JSON.stringify(data, (_key, value) =>
+    value && typeof value === 'object' && value.kind === 'signature'
+      ? { ...value, dataUrl: undefined }
+      : value
+  )
+  return (withoutBlobs || '').toLowerCase().includes(term.toLowerCase())
 }
 
 // Trouve le premier champ de la réponse dont la valeur (résolue en libellé lisible) contient le terme,
@@ -70,6 +94,9 @@ function findMatchingSnippet(data: Record<string, any>, blocks: any[], term: str
 
 function valueToText(value: any): string {
   if (value === null || value === undefined) return ''
+  // Pièce jointe / signature : leur structure ne se déplie pas en texte utile — et déverser
+  // une signature (data-URL base64) dans une cellule ou un jeton la rendrait illisible.
+  if (isStructuredAnswer(value)) return answerToText(value)
   if (Array.isArray(value)) return value.map(valueToText).join(', ')
   if (typeof value === 'object') return Object.values(value).map(valueToText).join(', ')
   return String(value)

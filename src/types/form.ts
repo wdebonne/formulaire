@@ -140,6 +140,12 @@ export interface BlockAttributes {
   starIcon?: 'star' | 'heart' | 'thumb' // Icône utilisée en mode notation
   starColor?: string // Couleur des icônes (vide = jaune par défaut)
   starSize?: 'sm' | 'md' | 'lg' // Taille des icônes
+  // Attributs pour le bloc Téléchargement
+  maxFileSizeMb?: number // Taille maximale acceptée, en Mo (défaut 10, plafonné par le serveur)
+  allowedFileExtensions?: string[] // Extensions acceptées (sans le point) ; vide = toutes celles autorisées par le serveur
+  // Attributs pour le bloc Signature
+  signaturePenColor?: string // Couleur du tracé (défaut : noir)
+  signatureHeight?: number // Hauteur de la zone de signature en pixels (défaut 180)
   // Masquage conditionnel (blocs internes d'un répéteur)
   visibilitySourceBlockId?: string // ID du bloc frère source dont la réponse détermine la visibilité
   visibilityValues?: string[] // Valeurs du bloc source qui affichent ce bloc (vide = toujours visible)
@@ -152,6 +158,26 @@ export interface BlockAttributes {
     excelAllowExpand?: boolean
     excelAllowDownload?: boolean
   }
+}
+
+// Valeurs structurées stockées telles quelles dans Response.data.
+//
+// `kind` sert de marqueur : les consommateurs (webhooks, documents, exports) doivent pouvoir
+// distinguer ces valeurs d'un objet Quantité sans connaître le type du bloc, et
+// `resolveDataLabels()` doit les recopier intactes — réduire un fichier à son nom rendrait la
+// pièce jointe définitivement introuvable.
+export interface UploadedFileValue {
+  kind: 'file'
+  name: string // nom d'origine, tel que choisi par le répondant
+  size: number
+  mime: string
+  storedName: string // uuid.ext dans le stockage privé du formulaire
+}
+
+export interface SignatureValue {
+  kind: 'signature'
+  dataUrl: string // image/png encodée en base64
+  signedAt: string // ISO
 }
 
 export interface FormBlock {
@@ -214,7 +240,9 @@ export interface Webhook {
   bodyFormat: 'JSON' | 'FORM'
   fieldMappings: WebhookFieldMapping[]
   enabled: boolean
-  triggerOn: 'submission' | 'partial' | 'save'
+  // Seul déclencheur existant : la soumission d'une réponse. Les valeurs 'partial' et 'save'
+  // proposées jadis par l'éditeur ne correspondaient à aucun chemin d'envoi.
+  triggerOn: 'submission'
   // Secret partagé avec le destinataire : renseigné, chaque envoi porte l'en-tête
   // X-Webhook-Signature. Laissé vide, le webhook part non signé, comme avant.
   secret?: string
@@ -591,7 +619,7 @@ export interface FormResponse {
   id: string
   formId: string
   answers: ResponseAnswer[]
-  status: 'completed' | 'partial'
+  status: 'completed'
   metadata: {
     ip?: string
     userAgent?: string

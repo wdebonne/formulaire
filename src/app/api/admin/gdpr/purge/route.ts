@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
+import { deleteFilesOfResponses } from '@/lib/response-uploads'
 
 // POST suppression ciblée de réponses (droit à l'effacement RGPD), à partir d'une liste d'IDs
 // explicitement revus par l'admin dans l'écran de recherche — jamais d'une requête de recherche
@@ -18,6 +19,14 @@ export async function POST(request: NextRequest) {
     if (responseIds.length === 0) {
       return NextResponse.json({ error: 'Aucune réponse sélectionnée' }, { status: 400 })
     }
+
+    const doomed = await prisma.response.findMany({
+      where: { id: { in: responseIds } },
+      select: { formId: true, data: true },
+    })
+    // Les pièces jointes vivent sur le disque, hors de la base : les laisser derrière
+    // ferait survivre le fichier à la réponse qui le référençait.
+    await deleteFilesOfResponses(doomed)
 
     const result = await prisma.response.deleteMany({
       where: { id: { in: responseIds } },

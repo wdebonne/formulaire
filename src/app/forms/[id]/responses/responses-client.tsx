@@ -31,7 +31,9 @@ import {
   BarChart3,
   Pencil,
   Save,
+  Paperclip,
 } from 'lucide-react'
+import { answerToText, isStructuredAnswer } from '@/lib/response-format'
 import { ResponseEditFields } from '@/components/forms/response-edit-fields'
 import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
 import { DocumentEmailModal } from '@/components/forms/document-email-modal'
@@ -186,7 +188,9 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     if (!searchTerm) return true
     const searchLower = searchTerm.toLowerCase()
     return Object.values(response.data).some((value) =>
-      String(value).toLowerCase().includes(searchLower)
+      (isStructuredAnswer(value) ? answerToText(value) : String(value))
+        .toLowerCase()
+        .includes(searchLower)
     )
   })
 
@@ -410,6 +414,8 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
   const formatValueWithChoices = (value: any, choices?: { label: string; value: string }[]): string => {
     if (value === null || value === undefined) return '-'
     if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
+    // Pièce jointe et signature : un nom de fichier lisible plutôt que la structure stockée.
+    if (isStructuredAnswer(value)) return answerToText(value)
     if (choices && choices.length > 0) {
       if (Array.isArray(value)) {
         return value.map((v) => resolveChoiceLabel(choices, String(v))).join(', ')
@@ -419,6 +425,35 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
     if (Array.isArray(value)) return value.join(', ')
     if (typeof value === 'object') return JSON.stringify(value)
     return String(value)
+  }
+
+  // Pièce jointe et signature n'ont pas de représentation textuelle utile dans le détail :
+  // la première se télécharge (route authentifiée, le fichier vit hors du dossier public),
+  // la seconde s'affiche telle qu'elle a été tracée.
+  const renderAnswerValue = (value: any, choices?: { label: string; value: string }[]) => {
+    if (value && value.kind === 'file') {
+      return (
+        <a
+          href={`/api/forms/${form.id}/files/${value.storedName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-blue-600 hover:underline"
+        >
+          <Paperclip className="w-4 h-4" />
+          {value.name}
+        </a>
+      )
+    }
+    if (value && value.kind === 'signature') {
+      return (
+        <img
+          src={value.dataUrl}
+          alt="Signature"
+          className="mt-1 h-20 rounded border border-gray-200 bg-white object-contain"
+        />
+      )
+    }
+    return <>{formatValueWithChoices(value, choices)}</>
   }
 
   // Fonction pour obtenir la valeur d'un bloc (gère les groupes et repeaters)
@@ -507,7 +542,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                       <p className="text-xs text-gray-500">
                         {innerBlock.attributes.label || innerBlock.id}
                       </p>
-                      <p className="text-sm text-gray-900">{formatValueWithChoices(value, innerBlock.attributes.choices)}</p>
+                      <div className="text-sm text-gray-900">{renderAnswerValue(value, innerBlock.attributes.choices)}</div>
                     </div>
                   ))}
                 </div>
@@ -547,7 +582,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 <p className="text-xs text-gray-500">
                   {innerBlock.attributes.label || innerBlock.id}
                 </p>
-                <p className="text-sm text-gray-900">{formatValueWithChoices(value, innerBlock.attributes.choices)}</p>
+                <div className="text-sm text-gray-900">{renderAnswerValue(value, innerBlock.attributes.choices)}</div>
               </div>
             ))}
           </div>
@@ -561,7 +596,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         <p className="text-sm font-medium text-gray-500 mb-1">
           {block.attributes.label || block.id}
         </p>
-        <p className="text-gray-900">{formatValueWithChoices(data[block.id], block.attributes.choices)}</p>
+        <div className="text-gray-900">{renderAnswerValue(data[block.id], block.attributes.choices)}</div>
       </div>
     )
   }

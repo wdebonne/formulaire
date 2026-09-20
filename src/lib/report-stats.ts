@@ -10,6 +10,7 @@
 // joints par « , » depuis. Comme dans condition-eval.ts, les deux sont normalisées avant
 // comptage, sans quoi une même option serait comptée deux fois.
 
+import { answerToText, isStructuredAnswer } from './response-format'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { FormReportSettings } from '@/types/form'
@@ -389,6 +390,9 @@ function displayValue(block: ReportBlockInput, value: any): string {
 function toText(value: any): string {
   if (value === undefined || value === null) return ''
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
+  // Une pièce jointe ou une signature n'a pas d'écriture textuelle : déplier la structure
+  // enverrait une data-URL base64 entière dans une cellule du tableau.
+  if (isStructuredAnswer(value)) return answerToText(value)
   if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(', ')
   if (typeof value === 'object') {
     return Object.entries(value)

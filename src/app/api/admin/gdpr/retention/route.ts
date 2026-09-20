@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
+import { deleteFilesOfResponses } from '@/lib/response-uploads'
 import { getGdprSettings, getRetentionCutoffDate } from '@/lib/gdpr'
 
 // GET nombre de réponses dépassant la durée de conservation configurée (admin uniquement)
@@ -52,6 +53,14 @@ export async function DELETE() {
     const settings = await getGdprSettings()
     // La date de coupure est toujours recalculée côté serveur — jamais transmise par le client
     const cutoff = getRetentionCutoffDate(settings)
+
+    const doomed = await prisma.response.findMany({
+      where: { createdAt: { lt: cutoff } },
+      select: { formId: true, data: true },
+    })
+    // Les pièces jointes vivent sur le disque, hors de la base : les laisser derrière
+    // ferait survivre le fichier à la réponse qui le référençait.
+    await deleteFilesOfResponses(doomed)
 
     const result = await prisma.response.deleteMany({
       where: { createdAt: { lt: cutoff } },

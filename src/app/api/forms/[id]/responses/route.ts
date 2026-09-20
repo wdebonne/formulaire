@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
+import { deleteFormFiles } from '@/lib/response-uploads'
 
 // Fonction utilitaire pour vérifier les permissions d'accès au formulaire
 async function checkFormAccess(formId: string, userId: string, requiredPermissions: string[] = ['view', 'edit', 'admin']) {
@@ -94,6 +95,10 @@ export async function DELETE(
     if (!hasAccess || (permission !== 'owner' && permission !== 'admin')) {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
+
+    // Les pièces jointes vivent sur le disque, hors de la base : les laisser derrière
+    // ferait survivre le fichier à la réponse qui le référençait.
+    await deleteFormFiles(id)
 
     await prisma.response.deleteMany({
       where: {

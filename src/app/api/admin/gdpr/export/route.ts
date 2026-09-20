@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
-import { resolveDataLabels } from '@/lib/response-format'
+import { answerToText, isStructuredAnswer, resolveDataLabels } from '@/lib/response-format'
 import { pdfSafeText } from '@/lib/pdf-text'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -180,6 +180,9 @@ function describeField(key: string, blocks: any[]): string {
 function stringifyValue(value: any): string {
   if (value === null || value === undefined) return ''
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
+  // Pièce jointe / signature : leur structure ne se déplie pas en texte utile — et déverser
+  // une signature (data-URL base64) dans une cellule ou un jeton la rendrait illisible.
+  if (isStructuredAnswer(value)) return answerToText(value)
   if (Array.isArray(value)) return value.map(stringifyValue).join(', ')
   if (typeof value === 'object') return Object.values(value).map(stringifyValue).join(', ')
   return String(value)

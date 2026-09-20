@@ -1,8 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { FormBlock, BlockLogic, LogicRule, Webhook, ThemeProperties } from '@/types/form'
-import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X } from 'lucide-react'
+import type {
+  FormBlock,
+  BlockLogic,
+  LogicRule,
+  Webhook,
+  ThemeProperties,
+  UploadedFileValue,
+  SignatureValue,
+} from '@/types/form'
+import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X, Paperclip } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 import { useCatalogBlocks } from '@/lib/use-catalog-blocks'
@@ -1986,6 +1994,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
         >
           {currentBlock && currentBlock.type === 'repeater' ? (
             <RepeaterBlock
+              formId={form.id}
               block={currentBlock}
               repeaterState={repeaterStates[currentBlock.id]}
               index={currentIndex}
@@ -2004,6 +2013,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
             />
           ) : currentBlock && currentBlock.type === 'group' ? (
             <GroupBlock
+              formId={form.id}
               block={currentBlock}
               index={currentIndex}
               showNumber={form.settings.showQuestionNumbers !== false}
@@ -2023,6 +2033,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
             />
           ) : currentBlock ? (
             <QuestionBlock
+              formId={form.id}
               block={currentBlock}
               index={currentIndex}
               showNumber={form.settings.showQuestionNumbers !== false}
@@ -2084,6 +2095,7 @@ export function PublicFormClient({ form, theme, siteLogo }: PublicFormClientProp
 }
 
 interface QuestionBlockProps {
+  formId: string
   block: FormBlock
   index: number
   showNumber: boolean
@@ -2101,6 +2113,321 @@ interface QuestionBlockProps {
   buttonBorderRadius?: string
   inputBorderRadius?: string
   onOpenGdprNotice?: () => void
+}
+
+// ── Bloc Téléchargement ──────────────────────────────────────────────────────
+// Le fichier part vers le stockage privé dès qu'il est choisi : la réponse ne transporte
+// ensuite qu'une référence (nom d'origine, taille, nom stocké). Faire transiter le document
+// entier dans le JSON de soumission le rendrait tributaire d'un formulaire mené à son terme,
+// et ferait grossir la base d'autant.
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`
+}
+
+interface FileUploadInputProps {
+  formId: string
+  block: FormBlock
+  value: UploadedFileValue | null | undefined
+  onChange: (value: UploadedFileValue | null) => void
+  themeProps: ThemeProperties
+  inputBorderRadius?: string
+  compact?: boolean
+}
+
+function FileUploadInput({
+  formId,
+  block,
+  value,
+  onChange,
+  themeProps,
+  inputBorderRadius = '8px',
+  compact = false,
+}: FileUploadInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+
+  const extensions = (block.attributes.allowedFileExtensions || [])
+    .map((e) => String(e).toLowerCase().replace('.', ''))
+    .filter(Boolean)
+  const maxMb = block.attributes.maxFileSizeMb || 10
+  const accept = extensions.length > 0 ? extensions.map((e) => `.${e}`).join(',') : undefined
+
+  const sendFile = async (file: File) => {
+    setUploadError(null)
+    setUploading(true)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      body.append('blockId', block.id)
+      const res = await fetch(`/api/forms/${formId}/upload`, { method: 'POST', body })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Envoi impossible')
+      onChange(data.value as UploadedFileValue)
+    } catch (err: any) {
+      setUploadError(err.message || 'Envoi impossible')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  const removeFile = async () => {
+    const current = value
+    onChange(null)
+    setUploadError(null)
+    if (!current?.storedName) return
+    // Le fichier n'est encore rattaché à aucune réponse : on le retire du disque plutôt que de
+    // laisser un dépôt abandonné derrière chaque hésitation.
+    try {
+      await fetch(`/api/forms/${formId}/upload?name=${encodeURIComponent(current.storedName)}`, {
+        method: 'DELETE',
+      })
+    } catch {
+      // Sans conséquence pour le répondant : la réponse ne référence plus ce fichier.
+    }
+  }
+
+  if (value) {
+    return (
+      <div
+        className={`${compact ? 'mt-2' : 'mt-4'} flex items-center gap-3 border-2 px-4 py-3`}
+        style={{ borderColor: themeProps.buttonsBgColor + '60', borderRadius: inputBorderRadius }}
+      >
+        <Paperclip className="w-5 h-5 shrink-0" style={{ color: themeProps.buttonsBgColor }} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base" style={{ color: themeProps.answersColor }}>
+            {value.name}
+          </p>
+          {formatBytes(value.size) && (
+            <p className="text-xs opacity-60" style={{ color: themeProps.answersColor }}>
+              {formatBytes(value.size)}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={removeFile}
+          className="shrink-0 rounded-md p-1.5 transition-colors hover:bg-black/5"
+          style={{ color: themeProps.answersColor }}
+          aria-label="Retirer le fichier"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={compact ? 'mt-2' : 'mt-4'}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) sendFile(file)
+        }}
+      />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault()
+          setDragging(false)
+          const file = e.dataTransfer.files?.[0]
+          if (file) sendFile(file)
+        }}
+        className={`w-full border-2 border-dashed text-center transition-colors disabled:opacity-60 ${
+          compact ? 'px-4 py-4' : 'px-6 py-8'
+        }`}
+        style={{
+          borderColor: dragging ? themeProps.buttonsBgColor : themeProps.buttonsBgColor + '60',
+          backgroundColor: dragging ? themeProps.buttonsBgColor + '10' : 'transparent',
+          borderRadius: inputBorderRadius,
+        }}
+      >
+        {uploading ? (
+          <span className="flex items-center justify-center text-base" style={{ color: themeProps.answersColor }}>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Envoi du fichier…
+          </span>
+        ) : (
+          <>
+            <Paperclip className="mx-auto mb-2 h-6 w-6" style={{ color: themeProps.buttonsBgColor }} />
+            <span className="block text-base" style={{ color: themeProps.answersColor }}>
+              Glissez un fichier ici ou cliquez pour parcourir
+            </span>
+            <span className="mt-1 block text-xs opacity-60" style={{ color: themeProps.answersColor }}>
+              {extensions.length > 0 ? `${extensions.join(', ')} — ` : ''}
+              {maxMb} Mo maximum
+            </span>
+          </>
+        )}
+      </button>
+      {uploadError && <p className="mt-2 text-sm text-red-500">{uploadError}</p>}
+    </div>
+  )
+}
+
+// ── Bloc Signature ───────────────────────────────────────────────────────────
+// Le tracé est enregistré en PNG dans la réponse elle-même : quelques kilo-octets, et rien à
+// nettoyer si le formulaire est abandonné.
+interface SignaturePadInputProps {
+  block: FormBlock
+  value: SignatureValue | null | undefined
+  onChange: (value: SignatureValue | null) => void
+  themeProps: ThemeProperties
+  inputBorderRadius?: string
+  compact?: boolean
+}
+
+function SignaturePadInput({
+  block,
+  value,
+  onChange,
+  themeProps,
+  inputBorderRadius = '8px',
+  compact = false,
+}: SignaturePadInputProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawingRef = useRef(false)
+  const strokedRef = useRef(false)
+  const height = block.attributes.signatureHeight || (compact ? 140 : 180)
+  const penColor = block.attributes.signaturePenColor || '#111827'
+
+  const context = () => canvasRef.current?.getContext('2d') || null
+
+  // Le canvas est dimensionné en pixels physiques puis remis à l'échelle : sans cela le trait
+  // se décale du curseur sur un écran à forte densité. Le fond est peint en blanc pour que
+  // l'image exportée reste lisible partout, y compris dans un document ou un export.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ratio = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
+    canvas.width = Math.max(1, Math.round(rect.width * ratio))
+    canvas.height = Math.max(1, Math.round(rect.height * ratio))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.scale(ratio, ratio)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, rect.width, rect.height)
+    ctx.lineWidth = 2.2
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = penColor
+
+    // Retour en arrière sur la question : on restitue la signature déjà donnée.
+    if (value?.dataUrl) {
+      const img = new Image()
+      img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height)
+      img.src = value.dataUrl
+      strokedRef.current = true
+    }
+    // Montage uniquement : redessiner à chaque changement de `value` effacerait le trait en cours.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const pointerPosition = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+
+  const startStroke = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const ctx = context()
+    if (!ctx) return
+    // La capture échoue sur certains pointeurs (stylet relâché entre-temps, événement synthétique) :
+    // elle confortera le tracé quand elle fonctionne, elle ne doit pas l'empêcher sinon.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // Sans capture, le tracé s'arrête simplement en sortant du cadre.
+    }
+    const { x, y } = pointerPosition(e)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    drawingRef.current = true
+  }
+
+  const continueStroke = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawingRef.current) return
+    const ctx = context()
+    if (!ctx) return
+    const { x, y } = pointerPosition(e)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+    strokedRef.current = true
+  }
+
+  const endStroke = () => {
+    if (!drawingRef.current) return
+    drawingRef.current = false
+    const canvas = canvasRef.current
+    if (!canvas || !strokedRef.current) return
+    onChange({
+      kind: 'signature',
+      dataUrl: canvas.toDataURL('image/png'),
+      signedAt: new Date().toISOString(),
+    })
+  }
+
+  const clear = () => {
+    const canvas = canvasRef.current
+    const ctx = context()
+    if (canvas && ctx) {
+      const rect = canvas.getBoundingClientRect()
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, rect.width, rect.height)
+      ctx.strokeStyle = penColor
+    }
+    strokedRef.current = false
+    onChange(null)
+  }
+
+  return (
+    <div className={compact ? 'mt-2' : 'mt-4'}>
+      <canvas
+        ref={canvasRef}
+        onPointerDown={startStroke}
+        onPointerMove={continueStroke}
+        onPointerUp={endStroke}
+        onPointerLeave={endStroke}
+        onPointerCancel={endStroke}
+        className="w-full cursor-crosshair border-2 bg-white"
+        style={{
+          height: `${height}px`,
+          touchAction: 'none',
+          borderColor: themeProps.buttonsBgColor + '60',
+          borderRadius: inputBorderRadius,
+        }}
+      />
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-xs opacity-60" style={{ color: themeProps.answersColor }}>
+          Signez avec la souris ou le doigt
+        </span>
+        <button
+          type="button"
+          onClick={clear}
+          className="text-xs underline transition-opacity hover:opacity-70"
+          style={{ color: themeProps.answersColor }}
+        >
+          Effacer
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // Helper : construit la liste des items à afficher pour un bloc Quantité.
@@ -2171,6 +2498,7 @@ function CatalogNotice({ block, themeProps }: { block: FormBlock; themeProps: Th
 }
 
 function QuestionBlock({
+  formId,
   block,
   index,
   showNumber,
@@ -3135,6 +3463,29 @@ function QuestionBlock({
           </div>
         )
 
+      case 'file':
+        return (
+          <FileUploadInput
+            formId={formId}
+            block={block}
+            value={answer}
+            onChange={onAnswer}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+          />
+        )
+
+      case 'signature':
+        return (
+          <SignaturePadInput
+            block={block}
+            value={answer}
+            onChange={onAnswer}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+          />
+        )
+
       default:
         return null
     }
@@ -3251,7 +3602,7 @@ function QuestionBlock({
       {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
       {/* OK/Submit button for text inputs */}
-      {['short-text', 'long-text', 'email', 'number', 'website', 'phone', 'address', 'date', 'advanced-date', 'time', 'slider'].includes(
+      {['short-text', 'long-text', 'email', 'number', 'website', 'phone', 'address', 'date', 'advanced-date', 'time', 'slider', 'file', 'signature'].includes(
         block.type
       ) && (
         <div className="mt-4 sm:mt-6">
@@ -3326,6 +3677,7 @@ function QuestionBlock({
 
 // Composant pour les blocs groupe (affichage conversationnel)
 interface GroupBlockProps {
+  formId: string
   block: FormBlock
   index: number
   showNumber: boolean
@@ -3345,6 +3697,7 @@ interface GroupBlockProps {
 }
 
 function GroupBlock({
+  formId,
   block,
   index,
   showNumber,
@@ -4022,6 +4375,31 @@ function GroupBlock({
           </div>
         )
 
+      case 'file':
+        return (
+          <FileUploadInput
+            formId={formId}
+            block={innerBlock}
+            value={value}
+            onChange={handleChange}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+            compact
+          />
+        )
+
+      case 'signature':
+        return (
+          <SignaturePadInput
+            block={innerBlock}
+            value={value}
+            onChange={handleChange}
+            themeProps={themeProps}
+            inputBorderRadius={inputBorderRadius}
+            compact
+          />
+        )
+
       default:
         return (
           <p className="text-sm" style={{ color: themeProps.answersColor + '60' }}>
@@ -4134,6 +4512,7 @@ function GroupBlock({
 
 // Composant pour les blocs répétables
 interface RepeaterBlockProps {
+  formId: string
   block: FormBlock
   repeaterState?: RepeaterState
   index: number
@@ -4152,6 +4531,7 @@ interface RepeaterBlockProps {
 }
 
 function RepeaterBlock({
+  formId,
   block,
   repeaterState,
   index,
@@ -4404,6 +4784,7 @@ function RepeaterBlock({
         {/* Input du bloc interne — key force un remontage propre à chaque changement de répéteur ou de répétition */}
         <InnerBlockInput
           key={`${block.id}-${repeaterState.repetitionCount}-${currentInnerBlock.id}`}
+          formId={formId}
           block={currentInnerBlock}
           showLetters={showLetters}
           themeProps={themeProps}
@@ -4433,7 +4814,7 @@ function RepeaterBlock({
         {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
 
         {/* Bouton OK pour les champs texte et quantité */}
-        {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date', 'slider', 'quantity'].includes(
+        {['short-text', 'long-text', 'email', 'number', 'website', 'address', 'date', 'advanced-date', 'slider', 'quantity', 'file', 'signature'].includes(
           currentInnerBlock.type
         ) && (
           <div className="mt-4">
@@ -4535,6 +4916,7 @@ function RepeaterBlock({
 
 // Composant pour le rendu des inputs des blocs internes
 interface InnerBlockInputProps {
+  formId: string
   block: FormBlock
   showLetters: boolean
   themeProps: ThemeProperties
@@ -4552,6 +4934,7 @@ interface InnerBlockInputProps {
 }
 
 function InnerBlockInput({
+  formId,
   block,
   showLetters,
   themeProps,
@@ -5191,6 +5574,27 @@ function InnerBlockInput({
         </div>
       )
     }
+
+    case 'file':
+      return (
+        <FileUploadInput
+          formId={formId}
+          block={block}
+          value={answer}
+          onChange={onAnswer}
+          themeProps={themeProps}
+        />
+      )
+
+    case 'signature':
+      return (
+        <SignaturePadInput
+          block={block}
+          value={answer}
+          onChange={onAnswer}
+          themeProps={themeProps}
+        />
+      )
 
     default:
       return null

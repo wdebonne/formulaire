@@ -8,12 +8,15 @@
 // qu'ici Response.data contient déjà les libellés résolus par resolveDataLabels(). D'où la
 // normalisation des deux côtés avant comparaison.
 
-import { findBlockDeep, formatBlockValue } from './response-format'
+import { answerToText, findBlockDeep, formatBlockValue, isStructuredAnswer } from './response-format'
 import type { LogicCondition } from '@/types/form'
 
 function flatten(value: any): string {
   if (value === undefined || value === null) return ''
   if (typeof value === 'boolean') return value ? 'true' : 'false'
+  // Pièce jointe / signature : leur structure ne se déplie pas en texte utile — et déverser
+  // une signature (data-URL base64) dans une cellule ou un jeton la rendrait illisible.
+  if (isStructuredAnswer(value)) return answerToText(value)
   if (Array.isArray(value)) return value.map(flatten).filter(Boolean).join(', ')
   if (typeof value === 'object') {
     return Object.entries(value)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
-import { findBlockDeep, formatBlockValue, formatDateString, resolveDataLabels } from '@/lib/response-format'
+import { answerToText, findBlockDeep, formatBlockValue, formatDateString, isStructuredAnswer, resolveDataLabels } from '@/lib/response-format'
 import { parseFormDocumentSettings } from '@/lib/docx-template'
 import { sendDocumentForResponse } from '@/lib/document-delivery'
 import { resolveFormGate, submittedCookieName, SUBMITTED_COOKIE_MAX_AGE } from '@/lib/form-gate'
@@ -52,9 +52,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Déclencher les webhooks
     const webhooks = JSON.parse(form.webhooks || '[]') as any[]
-    const enabledWebhooks = webhooks.filter(
-      (w) => w.enabled && (w.triggerOn === 'submission' || !w.triggerOn)
-    )
+    // La soumission est le seul déclencheur qui existe : filtrer sur `triggerOn` laissait
+    // muets les webhooks enregistrés avec une des valeurs fictives proposées autrefois par
+    // l'éditeur ('partial', 'save'), sans que rien ne le signale.
+    const enabledWebhooks = webhooks.filter((w) => w.enabled)
 
     // Stocker les résultats des webhooks
     const webhookStatus: Record<string, { success: boolean; lastSent: string; error?: string }> = {}
@@ -119,6 +120,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.error('Erreur lors de la soumission:', error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
+}
+
+// Corps `FORM` : une valeur structurée (pièce jointe, quantité, groupe) n'a pas d'écriture
+// dans un x-www-form-urlencoded. `String(objet)` donnait « [object Object] » : on écrit le
+// libellé lisible pour une pièce jointe, du JSON pour le reste.
+function formEncodedValue(value: any): string {
+  if (value === null || value === undefined) return ''
+  if (isStructuredAnswer(value)) return answerToText(value)
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function resolveCustomTemplate(
@@ -317,7 +328,7 @@ async function triggerWebhook(webhook: any, data: Record<string, any>, form: any
   if (method !== 'GET') {
     if (bodyFormat === 'FORM') {
       bodyContent = new URLSearchParams(
-        Object.entries(payload).map(([k, v]) => [k, String(v ?? '')])
+        Object.entries(payload).map(([k, v]) => [k, formEncodedValue(v)])
       ).toString()
     } else {
       bodyContent = JSON.stringify(payload)

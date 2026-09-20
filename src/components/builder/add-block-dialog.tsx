@@ -197,6 +197,8 @@ const blockTypes: BlockTypeConfig[] = [
     defaultAttributes: {
       label: 'Téléchargez un fichier',
       required: false,
+      maxFileSizeMb: 10,
+      allowedFileExtensions: [],
     },
   },
   {
@@ -208,6 +210,8 @@ const blockTypes: BlockTypeConfig[] = [
     defaultAttributes: {
       label: 'Votre signature',
       required: false,
+      signatureHeight: 180,
+      signaturePenColor: '#111827',
     },
   },
   {

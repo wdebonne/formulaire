@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import { getClientIp } from '@/lib/security'
 import { logEvent } from '@/lib/audit-log'
+import { deleteFormFiles } from '@/lib/response-uploads'
 
 interface RouteParams {
   params: { id: string }
@@ -76,6 +77,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (!form) {
       return NextResponse.json({ error: 'Formulaire non trouvé dans la corbeille' }, { status: 404 })
     }
+
+    // Le formulaire emporte ses réponses (cascade) : ses pièces jointes doivent suivre.
+    await deleteFormFiles(params.id)
 
     await prisma.form.delete({ where: { id: params.id } })
 

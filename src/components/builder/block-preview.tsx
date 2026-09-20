@@ -386,6 +386,12 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
             <p className="text-xs" style={{ color: themeProps.answersColor }}>
               📎 Glissez un fichier ou cliquez
             </p>
+            <p className="text-[10px] opacity-60" style={{ color: themeProps.answersColor }}>
+              {(block.attributes.allowedFileExtensions || []).length > 0
+                ? `${(block.attributes.allowedFileExtensions || []).join(', ')} — `
+                : ''}
+              {block.attributes.maxFileSizeMb || 10} Mo maximum
+            </p>
           </div>
         )
 

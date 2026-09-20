@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type React from "react"
+import { answerToText, isStructuredAnswer } from "@/lib/response-format"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -188,6 +189,12 @@ function formatAnswer(answer: any, choices?: { label: string; value: string }[])
 
   if (typeof answer === 'string') {
     return resolveLabel(answer)
+  }
+
+  // Pièce jointe ou signature reprise par une variable @n dans un libellé : « [object Object] »
+  // sinon.
+  if (isStructuredAnswer(answer)) {
+    return answerToText(answer)
   }
 
   return String(answer)

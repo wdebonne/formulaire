@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { getAccessibleForm } from '@/lib/form-access'
 import { findBlockDeep, resolveDataLabels } from '@/lib/response-format'
+import { deleteFilesOfResponses } from '@/lib/response-uploads'
 import { logEvent } from '@/lib/audit-log'
 import { getClientIp } from '@/lib/security'
 
@@ -134,6 +135,10 @@ export async function DELETE(
     if (!response) {
       return NextResponse.json({ error: 'Réponse non trouvée' }, { status: 404 })
     }
+
+    // Les pièces jointes vivent sur le disque, hors de la base : les laisser derrière
+    // ferait survivre le fichier à la réponse qui le référençait.
+    await deleteFilesOfResponses([response])
 
     await prisma.response.delete({
       where: {

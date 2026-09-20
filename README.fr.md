@@ -114,7 +114,7 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 - Tableau des réponses avec **sélecteur de colonnes** (choix des questions affichées), pagination et modal de détail.
 - **Correction d'une réponse enregistrée** — le bouton *Modifier* du modal de détail rouvre les réponses dans de vrais champs éditables (cases à cocher, dates, listes, champs de groupes et de blocs répétables) et enregistre la correction exactement comme si le répondant l'avait saisie. La modification est journalisée avec la **liste des champs modifiés, jamais leurs valeurs**.
 - **Export CSV** (UTF-8 avec BOM, s'ouvre directement dans Excel), incluant les champs internes des groupes et les itérations des blocs répétables en colonnes distinctes.
-- Suivi des réponses complètes et partielles.
+- **Pièces jointes et signatures** — un fichier déposé par le répondant se télécharge depuis le détail de la réponse, une signature s'y affiche ; l'un et l'autre figurent dans l'export CSV et dans les documents générés. Supprimer une réponse supprime ses fichiers.
 - **Indicateur de statut webhook** par réponse (vert / orange / rouge / gris) avec relance en un clic.
 - **Statut du document par circuit d'envoi** — accepté par le serveur / en échec / non concerné / jamais envoyé — avec date et destinataires, relance en un clic et téléchargement direct du document rempli.
 
@@ -178,8 +178,8 @@ Le mot de passe est stocké sous forme de **condensat bcrypt et ne quitte jamais
 | Date | Sélecteur de date natif |
 | Date avancée | Calendrier visuel avec plage de dates et contraintes min/max configurables |
 | Heure | Sélecteur d'heure ou plage horaire |
-| Téléchargement | Pièce jointe |
-| Signature | Zone de signature tactile/souris |
+| Téléchargement | Dépôt d'un fichier par le répondant — formats et taille limités par bloc, stockage hors du dossier public, téléchargement réservé aux personnes ayant accès au formulaire |
+| Signature | Zone de signature à la souris ou au doigt, enregistrée en image PNG dans la réponse (hauteur et couleur du tracé réglables) |
 | Curseur | Valeur numérique avec slider |
 | Site web | URL avec validation |
 | Mention légale | Case à cocher de consentement obligatoire |
@@ -306,6 +306,7 @@ Pour le déploiement sur Portainer et en production, consultez **[DEPLOY-PORTAIN
 |----------|-------------|--------|
 | `TRUSTED_PROXY_IPS` | IP des reverse proxies de confiance, séparées par des virgules. Quand elle est définie, `X-Forwarded-For` n'est pris en compte que pour les connexions venant de ces adresses — à laisser vide si l'application est exposée directement | *(vide)* |
 | `DOCUMENT_STORAGE_DIR` | Dossier privé contenant les modèles `.docx` importés | `<projet>/storage/templates` |
+| `RESPONSE_UPLOAD_DIR` | Dossier privé contenant les pièces jointes déposées par les répondants | `<projet>/storage/response-files` |
 | `REPORT_SCHEDULER` | Minuterie interne des rapports ; `0` la désactive (pilotez alors `/api/internal/reports/run` depuis votre propre cron) | `1` |
 | `REPORT_SCHEDULER_INTERVAL_MINUTES` | Fréquence de vérification des échéances, 1 à 60 | `5` |
 | `MIGRATION_AUTO_REPAIR` | Réparation automatique, en une seule tentative, d'une migration bloquée au démarrage du conteneur ; `0` pour s'en passer | `1` |

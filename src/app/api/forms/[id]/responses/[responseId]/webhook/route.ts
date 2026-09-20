@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 import { applyWebhookSignature } from '@/lib/webhook-signature'
+import { answerToText, isStructuredAnswer } from '@/lib/response-format'
+
+// Corps `FORM` : une valeur structurée (pièce jointe, quantité, groupe) n'a pas d'écriture
+// dans un x-www-form-urlencoded. `String(objet)` donnait « [object Object] » : on écrit le
+// libellé lisible pour une pièce jointe, du JSON pour le reste.
+function formEncodedValue(value: any): string {
+  if (value === null || value === undefined) return ''
+  if (isStructuredAnswer(value)) return answerToText(value)
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
 
 interface Webhook {
   id: string
@@ -265,7 +276,7 @@ export async function POST(
             bodyContent = JSON.stringify(payload)
           } else {
             bodyContent = new URLSearchParams(
-              Object.entries(payload).map(([k, v]) => [k, String(v)])
+              Object.entries(payload).map(([k, v]) => [k, formEncodedValue(v)])
             ).toString()
           }
         }

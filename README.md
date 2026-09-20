@@ -114,7 +114,7 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 - Response table with a **column selector** (choose which questions to display), pagination, and a detail modal.
 - **Correct a recorded response** — the detail modal's *Modifier* button re-opens the answers in proper editable controls (checkboxes, dates, dropdowns, group and repeater fields) and stores the correction exactly as a respondent's answer would have been stored. The change is written to the activity log with the **list of edited fields, never their values**.
 - **CSV export** (UTF-8 with BOM, opens straight in Excel), including group inner fields and repeater iterations as separate columns.
-- Partial and completed response tracking.
+- **Attachments and signatures** — a file uploaded by the respondent downloads from the response detail, a signature is displayed there; both appear in the CSV export and in generated documents. Deleting a response deletes its files.
 - **Webhook status indicator** per response (green / orange / red / grey) with one-click replay.
 - **Document status per routing circuit** — accepted by the server / failed / not concerned / never sent — showing date and recipients, with one-click replay and a direct download of the filled document.
 
@@ -178,8 +178,8 @@ The password is stored as a **bcrypt hash and never leaves the server** — the 
 | Date | Native date picker |
 | Advanced Date | Visual calendar with date-range support and configurable min/max constraints |
 | Time | Time picker or time range |
-| File Upload | File attachment |
-| Signature | Touch/mouse signature pad |
+| File Upload | Respondent file upload — formats and size capped per block, stored outside the public folder, downloadable only by people with access to the form |
+| Signature | Mouse or finger signature pad, stored as a PNG image in the response (adjustable height and pen colour) |
 | Slider | Numeric value with a slider |
 | Website | URL with validation |
 | Legal | Required consent checkbox |
@@ -306,6 +306,7 @@ For Portainer and production deployment, see **[DEPLOY-PORTAINER.en.md](DEPLOY-P
 |----------|-------------|---------|
 | `TRUSTED_PROXY_IPS` | Comma-separated IPs of trusted reverse proxies. When set, `X-Forwarded-For` is only honoured for connections coming from these addresses — leave empty when the app is exposed directly | *(empty)* |
 | `DOCUMENT_STORAGE_DIR` | Private directory holding the uploaded `.docx` templates | `<project>/storage/templates` |
+| `RESPONSE_UPLOAD_DIR` | Private directory holding the files uploaded by respondents | `<project>/storage/response-files` |
 | `REPORT_SCHEDULER` | In-process report scheduler; `0` disables it (drive `/api/internal/reports/run` from your own cron instead) | `1` |
 | `REPORT_SCHEDULER_INTERVAL_MINUTES` | How often due reports are checked, 1–60 | `5` |
 | `MIGRATION_AUTO_REPAIR` | Automatic one-shot recovery of a blocked migration at container start-up; `0` opts out | `1` |

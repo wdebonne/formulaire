@@ -545,6 +545,18 @@ function SortableMappingRow({
   )
 }
 
+// Deux valeurs de déclenchement ont longtemps été proposées sans qu'aucun chemin d'envoi ne les
+// honore : un webhook ainsi réglé était silencieusement inerte. Elles ont disparu du choix, et
+// l'enregistrement existant est signalé plutôt que corrigé en douce.
+const LEGACY_TRIGGERS: Record<string, string> = {
+  partial: 'Soumission partielle',
+  save: "À l'enregistrement",
+}
+
+function legacyTriggerLabel(triggerOn: string | undefined): string {
+  return triggerOn ? LEGACY_TRIGGERS[triggerOn] ?? '' : ''
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
   const { webhooks, addWebhook, updateWebhook, removeWebhook } = useFormBuilder()
@@ -713,11 +725,14 @@ export function WebhooksEditor({ blocks }: WebhooksEditorProps) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Déclencher</Label>
-          <select value={webhook.triggerOn} onChange={(e) => updateWebhook(webhook.id, { triggerOn: e.target.value as Webhook['triggerOn'] })} className={selectCls}>
-            <option value="submission">À la soumission</option>
-            <option value="partial">Soumission partielle</option>
-            <option value="save">À l'enregistrement</option>
-          </select>
+          <div className={`${selectCls} flex items-center text-gray-600`}>À la soumission</div>
+          {legacyTriggerLabel(webhook.triggerOn) && (
+            <p className="text-[11px] leading-snug text-amber-700">
+              Ce webhook était réglé sur « {legacyTriggerLabel(webhook.triggerOn)} », un déclencheur
+              qui n'a jamais été relié à quoi que ce soit : il n'envoyait rien. Il part désormais à
+              la soumission, comme les autres.
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Format du corps</Label>

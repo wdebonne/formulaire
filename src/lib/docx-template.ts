@@ -14,7 +14,7 @@ import Docxtemplater from 'docxtemplater'
 // en est exempt et suffit, à condition de récupérer soi-même le postparsed (voir plus bas).
 import { getTags } from 'docxtemplater/js/get-tags.js'
 import PizZip from 'pizzip'
-import { findBlockDeep, formatBlockValue } from './response-format'
+import { answerToText, findBlockDeep, formatBlockValue, isStructuredAnswer } from './response-format'
 import type {
   DocumentCheckboxStyle,
   DocumentEmailRoute,
@@ -118,6 +118,9 @@ function formatDate(d: Date): string {
 function toText(value: unknown): string {
   if (value === undefined || value === null) return ''
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non'
+  // Pièce jointe / signature : leur structure ne se déplie pas en texte utile — et déverser
+  // une signature (data-URL base64) dans une cellule ou un jeton la rendrait illisible.
+  if (isStructuredAnswer(value)) return answerToText(value)
   if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(', ')
   if (typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>)

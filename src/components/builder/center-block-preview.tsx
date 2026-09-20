@@ -1023,18 +1023,26 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
             <p className="text-base" style={{ color: themeProps.answersColor }}>
               Glissez un fichier ici ou cliquez pour parcourir
             </p>
+            <p className="mt-1 text-xs opacity-60" style={{ color: themeProps.answersColor }}>
+              {(block.attributes.allowedFileExtensions || []).length > 0
+                ? `${(block.attributes.allowedFileExtensions || []).join(', ')} — `
+                : ''}
+              {block.attributes.maxFileSizeMb || 10} Mo maximum
+            </p>
           </div>
         )
 
       case 'signature':
         return (
-          <div 
-            className="mt-6 border-2 border-dashed rounded-xl p-8 text-center max-w-md"
-            style={{ borderColor: themeProps.buttonsBgColor + '60' }}
+          <div
+            className="mt-6 flex max-w-md items-center justify-center rounded-xl border-2 bg-white"
+            style={{
+              borderColor: themeProps.buttonsBgColor + '60',
+              height: `${block.attributes.signatureHeight || 180}px`,
+            }}
           >
-            <div className="text-4xl mb-3">✍️</div>
-            <p className="text-base" style={{ color: themeProps.answersColor }}>
-              Signez dans cette zone
+            <p className="text-sm opacity-50" style={{ color: themeProps.answersColor }}>
+              ✍️ Signez dans cette zone
             </p>
           </div>
         )

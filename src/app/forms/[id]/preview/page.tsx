@@ -82,6 +82,7 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
       theme={parsedTheme}
       siteLogo={systemSettings?.siteLogo ?? null}
       renderToken={signRenderToken(form.id)}
+      draftScope="preview"
     />
   )
 }

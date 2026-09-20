@@ -10,11 +10,23 @@ import type {
   UploadedFileValue,
   SignatureValue,
 } from '@/types/form'
-import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X, Paperclip } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronRight, Check, Loader2, Download, Maximize2, X, Paperclip, RotateCcw } from 'lucide-react'
 import { replaceVariables, getBackgroundStyle } from '@/lib/utils'
 import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 import { useCatalogBlocks } from '@/lib/use-catalog-blocks'
 import { HONEYPOT_FIELD } from '@/lib/form-options'
+import {
+  DRAFT_SAVE_DEBOUNCE_MS,
+  buildFormDraft,
+  clearDraft,
+  draftAnswerCount,
+  formatDraftDate,
+  isDraftEnabled,
+  readDraft,
+  writeDraft,
+  type DraftScope,
+  type FormDraft,
+} from '@/lib/form-draft'
 
 // Composant de prévisualisation Excel (chargement dynamique de SheetJS)
 interface ExcelPreviewProps {
@@ -721,6 +733,9 @@ interface PublicFormClientProps {
   siteLogo?: string | null
   // Horodatage signé du rendu de la page, renvoyé tel quel à la soumission (anti-spam).
   renderToken?: string
+  // Cloisonne le brouillon local : une saisie de test faite dans l'aperçu du concepteur ne doit
+  // pas être proposée au premier répondant du formulaire publié.
+  draftScope?: DraftScope
 }
 
 // Champ leurre : invisible pour un répondant, hors du parcours clavier et ignoré des lecteurs
@@ -739,6 +754,71 @@ function HoneypotField({ inputRef }: { inputRef: React.RefObject<HTMLInputElemen
         autoComplete="off"
         defaultValue=""
       />
+    </div>
+  )
+}
+
+// Proposition de reprise affichée au retour sur un formulaire dont une saisie a été interrompue.
+// Elle est modale : reprendre ou repartir de zéro se décide avant de retoucher au formulaire,
+// sans quoi la première frappe écraserait le brouillon qu'on est en train de proposer.
+interface ResumeDraftPromptProps {
+  draft: FormDraft | null
+  themeProps: ThemeProperties
+  buttonBorderRadius: string
+  hasSignature: boolean
+  onResume: () => void
+  onDiscard: () => void
+}
+
+function ResumeDraftPrompt({
+  draft,
+  themeProps,
+  buttonBorderRadius,
+  hasSignature,
+  onResume,
+  onDiscard,
+}: ResumeDraftPromptProps) {
+  if (!draft) return null
+
+  const count = draftAnswerCount(draft)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-4 border-b">
+          <RotateCcw className="w-5 h-5 text-gray-500" />
+          <span className="font-semibold text-sm text-gray-800">Reprendre votre saisie ?</span>
+        </div>
+        <div className="px-5 py-4 space-y-2">
+          <p className="text-sm text-gray-700">
+            Une saisie interrompue a été retrouvée sur cet appareil, enregistrée le{' '}
+            {formatDraftDate(draft.savedAt)}.
+          </p>
+          <p className="text-xs text-gray-500">
+            {count} champ{count > 1 ? 's' : ''} déjà rempli{count > 1 ? 's' : ''}
+            {hasSignature ? ' — la signature, elle, est à refaire.' : '.'}
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 bg-gray-50">
+          <button
+            onClick={onDiscard}
+            className="px-4 py-2 text-sm font-medium text-gray-600 rounded-md border border-gray-300 transition-colors hover:bg-gray-100"
+          >
+            Recommencer
+          </button>
+          <button
+            onClick={onResume}
+            className="px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: themeProps.buttonsBgColor,
+              color: themeProps.buttonsFontColor,
+              borderRadius: buttonBorderRadius,
+            }}
+          >
+            Reprendre
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -793,7 +873,7 @@ function getNextVisibleInnerIndex(
   return null
 }
 
-export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicFormClientProps) {
+export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScope = 'public' }: PublicFormClientProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, any>>({})
   const [isAnimating, setIsAnimating] = useState(false)
@@ -811,6 +891,18 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
   // État pour les blocs répétables
   const [repeaterStates, setRepeaterStates] = useState<Record<string, RepeaterState>>({})
 
+  // Brouillon local (voir src/lib/form-draft.ts)
+  const draftEnabled = isDraftEnabled(form.settings)
+  const [pendingDraft, setPendingDraft] = useState<FormDraft | null>(null)
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null)
+  // Tant que la proposition de reprise est à l'écran, on n'écrit rien : la saisie vide en cours
+  // écraserait le brouillon avant même que le répondant ait choisi de le reprendre.
+  const [draftArmed, setDraftArmed] = useState(false)
+  // La position du brouillon n'est appliquée qu'une fois `visibleBlocks` recalculé avec les
+  // réponses restaurées, faute de quoi elle pointerait au-delà d'une liste encore filtrée
+  // sur un formulaire vide.
+  const pendingDraftIndexRef = useRef<number | null>(null)
+
   const themeProps = theme.properties
   // Les blocs, options du catalogue déjà injectées : un bloc de choix branché sur l'application de
   // gestion reçoit ici sa liste du jour, et le bloc quantité qui le suit ses plafonds. Tout ce qui
@@ -818,6 +910,11 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
   // n'a pas à savoir d'où vient la liste.
   const allBlocks = useCatalogBlocks(form.id, form.blocks, answers)
   const thankyouBlock = allBlocks.find((b) => b.type === 'thankyou-screen')
+  // Une signature n'est pas conservée dans le brouillon : la proposition de reprise le dit plutôt
+  // que de laisser découvrir la zone vide à la question concernée.
+  const hasSignatureBlock = allBlocks.some(
+    (b) => b.type === 'signature' || b.innerBlocks?.some((inner) => inner.type === 'signature')
+  )
 
   // Charger la police du thème
   useEffect(() => {
@@ -915,6 +1012,63 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
     visibleBlocksRef.current = visible
     setVisibleBlocks(visible)
   }, [allBlocks, form.logic, answers])
+
+  // Recherche d'un brouillon au premier rendu côté navigateur. Rien trouvé : l'enregistrement
+  // s'arme aussitôt. Trouvé : il attend la décision du répondant.
+  useEffect(() => {
+    if (!draftEnabled) return
+    const existing = readDraft(form.id, draftScope)
+    if (existing) setPendingDraft(existing)
+    else setDraftArmed(true)
+  }, [draftEnabled, form.id, draftScope])
+
+  // Enregistrement différé de la saisie en cours.
+  useEffect(() => {
+    if (!draftEnabled || !draftArmed || isSubmitted || isSubmitting) return
+
+    const persist = () => {
+      const draft = buildFormDraft(form.id, currentIndex, answers, repeaterStates)
+      if (!draft) return
+      if (writeDraft(draft, draftScope)) setDraftSavedAt(draft.savedAt)
+    }
+
+    const timer = setTimeout(persist, DRAFT_SAVE_DEBOUNCE_MS)
+    // `pagehide` plutôt que `beforeunload` : celui-ci n'est pas déclenché quand un mobile met
+    // l'onglet en arrière-plan puis le supprime, ce qui est justement le cas à couvrir.
+    window.addEventListener('pagehide', persist)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('pagehide', persist)
+    }
+  }, [draftEnabled, draftArmed, isSubmitted, isSubmitting, form.id, draftScope, currentIndex, answers, repeaterStates])
+
+  // Application différée de la position enregistrée, une fois la liste des blocs visibles
+  // recalculée à partir des réponses restaurées.
+  useEffect(() => {
+    const target = pendingDraftIndexRef.current
+    if (target === null || visibleBlocks.length === 0) return
+    pendingDraftIndexRef.current = null
+    setCurrentIndex(Math.min(target, visibleBlocks.length - 1))
+  }, [visibleBlocks])
+
+  const resumeDraft = () => {
+    if (!pendingDraft) return
+    const restored = { ...pendingDraft.answers }
+    answersRef.current = restored
+    setAnswers(restored)
+    setRepeaterStates(pendingDraft.repeaterStates || {})
+    pendingDraftIndexRef.current = pendingDraft.currentIndex
+    setDraftSavedAt(pendingDraft.savedAt)
+    setPendingDraft(null)
+    setDraftArmed(true)
+  }
+
+  const discardDraft = () => {
+    clearDraft(form.id, draftScope)
+    setPendingDraft(null)
+    setDraftSavedAt(null)
+    setDraftArmed(true)
+  }
 
   const currentBlock = visibleBlocks[currentIndex]
   const progress = visibleBlocks.length > 0 ? ((currentIndex + 1) / visibleBlocks.length) * 100 : 0
@@ -1501,6 +1655,9 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
         throw new Error(errorData.error || 'Erreur lors de la soumission')
       }
 
+      // La réponse est partie : le brouillon n'a plus de raison d'exister sur l'appareil.
+      clearDraft(form.id, draftScope)
+      setDraftSavedAt(null)
       setIsSubmitted(true)
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue')
@@ -1596,6 +1753,8 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
     setIsSubmitting(false)
     setError(null)
     setRepeaterStates({})
+    clearDraft(form.id, draftScope)
+    setDraftSavedAt(null)
   }
 
   if (!isSubmitted && visibleBlocks.length === 0) {
@@ -1764,6 +1923,14 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
+        <ResumeDraftPrompt
+          draft={pendingDraft}
+          themeProps={themeProps}
+          buttonBorderRadius={buttonBorderRadius}
+          hasSignature={hasSignatureBlock}
+          onResume={resumeDraft}
+          onDiscard={discardDraft}
+        />
         <HoneypotField inputRef={honeypotRef} />
         <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
       </>
@@ -1864,6 +2031,14 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
         </div>
+        <ResumeDraftPrompt
+          draft={pendingDraft}
+          themeProps={themeProps}
+          buttonBorderRadius={buttonBorderRadius}
+          hasSignature={hasSignatureBlock}
+          onResume={resumeDraft}
+          onDiscard={discardDraft}
+        />
         <HoneypotField inputRef={honeypotRef} />
         <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
       </>
@@ -2103,9 +2278,22 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
             <ChevronDown className="w-6 h-6 sm:w-5 sm:h-5" />
           </button>
         </div>
-        <span className="text-sm" style={{ color: themeProps.answersColor }}>
-          {currentIndex + 1} / {visibleBlocks.length}
-        </span>
+        <div className="flex items-center gap-3">
+          {/* Dire que la saisie est conservée est la moitié de la fonctionnalité : sans ce
+              repère, fermer l'onglet reste un risque aux yeux du répondant. */}
+          {draftSavedAt && (
+            <span
+              className="hidden sm:flex items-center gap-1 text-xs opacity-60"
+              style={{ color: themeProps.answersColor }}
+            >
+              <Check className="w-3 h-3" />
+              Brouillon enregistré
+            </span>
+          )}
+          <span className="text-sm" style={{ color: themeProps.answersColor }}>
+            {currentIndex + 1} / {visibleBlocks.length}
+          </span>
+        </div>
       </div>
 
       {/* Progress bar - Bottom */}
@@ -2117,6 +2305,14 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken }: PublicF
       {/* Logo - Bottom */}
       {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
     </div>
+    <ResumeDraftPrompt
+      draft={pendingDraft}
+      themeProps={themeProps}
+      buttonBorderRadius={buttonBorderRadius}
+      hasSignature={hasSignatureBlock}
+      onResume={resumeDraft}
+      onDiscard={discardDraft}
+    />
     <HoneypotField inputRef={honeypotRef} />
     <GdprNoticeModal block={currentBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
     </>

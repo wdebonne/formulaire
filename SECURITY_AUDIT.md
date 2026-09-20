@@ -335,3 +335,40 @@ le modèle lui-même (susceptible de porter l'en-tête d'un organisme) et le doc
   larges (webhooks, sauvegarde de base) — mais il n'y a **pas** de filtrage d'adresses privées
   comparable à celui appliqué en S4 sur les webhooks.
 - `convertDocxToPdf()` n'a pas été exercé contre une instance Gotenberg réelle.
+
+---
+
+## Addendum — 2026-09-20 : brouillon local de la saisie d'un répondant
+
+> Cette section **ne fait pas partie de l'audit du 2026-06-09**. Elle documente les décisions prises
+> lors de l'ajout de la reprise d'un formulaire interrompu. Ce code n'a pas fait l'objet d'une revue
+> multi-agent.
+
+### Contexte
+
+La saisie en cours d'un répondant est recopiée dans le `localStorage` de son navigateur afin de lui
+proposer une reprise s'il revient. Ce sont des données personnelles — nom, adresse, réponses — qui
+séjournent sur un poste potentiellement partagé, et qui échappent par nature à la purge de rétention
+RGPD appliquée côté serveur.
+
+### Décisions
+
+| Décision | Raison |
+|----------|--------|
+| Aucun brouillon côté serveur, aucune ligne `Response` partielle | Pas de donnée supplémentaire à conserver, à exporter au titre du droit d'accès ni à purger ; le périmètre RGPD de l'application est inchangé |
+| Brouillon effacé à la soumission, à *Recommencer*, et expiré à 7 jours à la lecture suivante | Le poste partagé ne conserve pas indéfiniment la saisie de la personne précédente ; l'expiration est vérifiée à la lecture, donc appliquée même si le répondant ne revient jamais |
+| Signature (`SignatureValue`) exclue de `sanitizeDraftAnswers()` | Une signature manuscrite en data-URL recopiée sur un poste partagé est la seule valeur du brouillon réutilisable ailleurs telle quelle ; elle est refaite à la reprise, ce que la modale annonce |
+| Pièce jointe conservée sous forme de **référence** (`storedName`), jamais de contenu | Le fichier reste dans `storage/response-files/`, gouverné par `getAccessibleForm()` ; le brouillon ne transporte qu'un identifiant déjà inutilisable sans authentification |
+| Aperçu du concepteur cloisonné sur une clé distincte (`draftScope`) | Les deux pages rendent le même composant ; sans cela, une saisie de test d'un administrateur serait proposée au premier répondant du formulaire publié |
+| Tout accès au stockage encapsulé dans `try/catch`, `writeDraft()` renvoie un booléen | Navigation privée, stratégie de groupe, iframe cloisonné, quota atteint : l'accès lui-même peut lever. Un brouillon est un confort, jamais une condition pour répondre — et la mention « Brouillon enregistré » n'apparaît que sur une écriture réellement aboutie |
+| Format versionné ; un brouillon d'une version antérieure est ignoré puis effacé | Restaurer de travers une saisie est pire que ne rien proposer |
+
+### Points d'attention non traités
+
+- Le `localStorage` **n'est pas chiffré** et reste lisible par tout script s'exécutant sur l'origine
+  du formulaire. Ce n'est pas une régression : un tel script lit déjà le DOM et les réponses en
+  cours de saisie. Sur un poste partagé, la fenêtre d'exposition est en revanche allongée jusqu'à
+  7 jours pour un formulaire abandonné.
+- Le réglage est **actif par défaut**, y compris sur les formulaires existants, contrairement à la
+  purge automatique RGPD. La différence est assumée : aucune donnée n'est détruite ni transmise, et
+  la donnée reste sur l'appareil de la personne qui l'a elle-même saisie.

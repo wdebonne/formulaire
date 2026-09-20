@@ -84,6 +84,7 @@ Context for Claude Code when working on this project.
 | `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
 | `src/lib/form-options.ts` | Pure/client-safe access options — `FormAccessSettings` defaults, `parseFormAccessSettings()`, `accessMessage()`, `accessSummary()`, `scheduleState()`; no Prisma import |
 | `src/lib/form-gate.ts` | Server-only enforcement — `resolveFormGate()`, access/submitted cookie names, `signAccessToken()`, `hashFormPassword()` |
+| `src/lib/form-draft.ts` | Pure/client-safe local draft — `readDraft()`/`writeDraft()`/`clearDraft()`, `buildFormDraft()`, `sanitizeDraftAnswers()`, `isDraftEnabled()`; `localStorage` only, nothing reaches the server |
 | `src/lib/form-antispam.ts` | Server-only anti-spam — `signRenderToken()`/`readRenderToken()`, the per-IP submission bucket, `evaluateSubmissionAntiSpam()` |
 | `src/components/forms/form-options-modal.tsx` | "Options" modal — availability window, password, quota, participation restrictions, noindex |
 | `src/app/[slug]/form-gate-screen.tsx` | Public screen shown in place of a form that is closed, scheduled, full, already answered, or locked |
@@ -145,6 +146,10 @@ place that turns a value into text: `answerToText()`/`isStructuredAnswer()` in
 `stringifyValue()` in the GDPR export and `valueToText()` in the GDPR search. Each of them used to unfold an unknown object key by key — which is how a
 base64 signature would have landed whole in an Excel cell.
 
+Also decide whether the value belongs in the local draft: `sanitizeDraftAnswers()` in
+`src/lib/form-draft.ts` copies whatever it does not recognise into the respondent's `localStorage`.
+Anything heavy (a data URL) or that should not be mirrored onto their disk needs an exclusion there.
+
 ---
 
 ## Conventions
@@ -169,6 +174,7 @@ base64 signature would have landed whole in an Excel cell.
 - `Theme` model stores `properties` as JSON
 - `Font` model stores Google Fonts added by admins
 - `FormSettings` (JSON stored in `Form.settings`) includes `showLogo`, `logoPosition` (`top`|`bottom`), `logoAlignment` (`left`|`center`|`right`) — the logo URL itself comes from `SystemSettings.siteLogo`, fetched server-side in `src/app/[slug]/page.tsx`
+- `FormSettings.saveDraftEnabled` (same JSON) — local draft of the respondent's entry; absent means enabled, `false` turns it off for that form. Nothing is stored server-side, so there is no column and nothing to migrate
 - `SystemSettings.loginPageSettings` (JSON stored as string, same convention as `Form.settings`) — typed as `LoginPageSettings` in `src/types/form.ts`; controls the login page's "forgot password" link visibility and background (solid/gradient/image + blur)
 - `SystemSettings.gdprSettings` (JSON stored as string) — typed as `GdprSettings` in `src/types/form.ts`; holds `retentionEnabled`/`retentionMonths` (default legal retention: 36 months), plus `autoPurgeEnabled`/`lastAutoPurgeAt` for the daily automatic purge, read via `getGdprSettings()` in `src/lib/gdpr.ts`
 - `AuditLog` model — append-only activity log: `action`, `status` (`success`|`failure`), `userId`/`userEmail` (email copied at write time so it survives user deletion), `ipAddress`, `targetType`/`targetId`/`targetLabel` (label copied at write time, e.g. form title), `metadata` (JSON-as-string), `createdAt`; indexed on `action`, `userId`, `createdAt`
@@ -682,6 +688,47 @@ therefore cannot be unlocked from inside a *cross-site* iframe embed — the bro
 cookie back. `SameSite=None` is not the fix: it requires `Secure`, which plain-HTTP self-hosted
 deployments don't have, so it would break those instead. Password protection and cross-site
 embedding are mutually exclusive; the direct link works normally.
+
+### Resuming an Interrupted Form (`src/lib/form-draft.ts`)
+A long form — repeaters, several iterations of an equipment declaration — used to lose everything
+typed into it when the tab closed or the network dropped. The answers are now mirrored into
+`localStorage` as the respondent types, and a modal offers to resume on their next visit.
+
+**Nothing leaves the device.** `form-draft.ts` is pure and client-safe (the `form-options.ts`
+precedent) and touches no route: there is no server-side draft, no half-filled `Response` row and
+therefore nothing extra to purge under GDPR. Submitting clears the entry; so does *Recommencer*.
+An untouched draft expires after `DRAFT_MAX_AGE_DAYS` (7) and is removed on the next read.
+
+**The prompt is modal, and that is the point.** Rendering the form behind an open prompt would let
+the first keystroke overwrite the very draft being offered. `draftArmed` therefore gates every
+write until the respondent has chosen, and `buildFormDraft()` returns `null` for an empty form, so
+opening a page and leaving writes nothing.
+
+**A signature is excluded, an attachment is kept.** A signature is an act, not an entry — re-signing
+after an interruption is the honest behaviour, and a base64 PNG would fill the origin's quota by
+itself. An uploaded file is only a reference in `Response.data` (`storedName`) and the file already
+sits in `storage/response-files/`, so restoring it saves a re-upload and redeems what would
+otherwise be an orphan file. The prompt says so when the form carries a signature block.
+
+**The saved position is applied one render late, on purpose.** `visibleBlocks` is recomputed by an
+effect from `answers`; setting `currentIndex` in the same batch would point past a list still
+filtered on an empty form. `pendingDraftIndexRef` holds it until `visibleBlocks` has been
+recomputed, and it is clamped to that length — conditional logic may have hidden the block the
+draft was sitting on.
+
+**Every storage access is wrapped.** Private browsing, a group policy, a partitioned iframe: even
+reading `window.localStorage` can throw, and a quota-exceeded `setItem` must not break a form.
+`writeDraft()` returns `false` rather than throwing, and the "Brouillon enregistré" marker only
+appears on a write that actually landed — announcing a save that did not happen is worse than
+announcing nothing.
+
+**The builder preview writes to its own key** (`draftScope="preview"`). Both pages render the same
+`PublicFormClient`, so without that split a test entry made in the preview would be offered to the
+first real respondent. **Add the prop to any new page rendering `PublicFormClient`** that is not the
+public form — same rule as `renderToken`.
+
+`FormSettings.saveDraftEnabled` turns it off per form (*Paramètres* panel). Absent means enabled, so
+forms saved before the feature have it without being re-saved — the anti-spam convention.
 
 ### Anti-spam on Public Submission (`src/lib/form-antispam.ts`)
 Three cumulative measures on `POST /api/forms/[id]/submit`, no captcha and no external service.

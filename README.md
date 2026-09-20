@@ -69,7 +69,7 @@ with no third-party service in the loop.
 - **Faithful live preview** — the center panel reacts instantly to every change (label, choices, type, theme) through Zustand. The **Aperçu** button auto-saves, then renders the form in a fullscreen iframe using *the exact same renderer as the published page* — no visual discrepancy is possible.
 - **Version history** — automatic snapshot every 10 saves, plus manual versions with an optional label. Restore or delete any version from the builder or the dashboard, search across versions, and the current state is always snapshotted before a restore so nothing is ever lost silently.
 - **Themes** — colors, Google Fonts, backgrounds (solid, gradient with 8 directions, image with opacity), button and input styles, choice background color. The builder preview reflects the active theme in real time.
-- **Form settings** — progress bar (position, size), question numbering, animations, branding, custom slug, site logo display (position + alignment).
+- **Form settings** — progress bar (position, size), question numbering, animations, branding, custom slug, site logo display (position + alignment), entry resuming.
 
 <details>
 <summary><b>More about the visual logic builder</b></summary>
@@ -88,6 +88,9 @@ with no third-party service in the loop.
 - **3 permission levels** — Read, Edit, Administrator — with user autocomplete when sharing.
 - **Access options** (form card menu → *Options*) — go-live and closing dates, password protection, maximum number of responses, one response per device, restriction to signed-in users, and search-engine opt-out. Every rule is enforced **server-side both when the page is rendered and when a response is submitted**, with a customisable message per situation. The dashboard shows a *Scheduled* / *Closed* badge when a published form is not actually accepting responses.
 - **Anti-spam** (same modal, *Anti-spam* section) — three cumulative measures, no captcha and no external service: a **honeypot field** invisible to respondents (filled in, the response is silently discarded), a **minimum fill time** attested by a server-signed timestamp (so it cannot be backdated, and a script POSTing straight to the submit endpoint without loading the page is refused), and a **rate limit per IP address and per form**. On by default for every form; each measure can be tuned or turned off.
+- **Resuming an interrupted form** — the entry in progress is kept in the respondent's browser as they type. Should they come back after closing the tab, losing the network or running out of battery, a **resume** prompt hands back their answers and the question they had reached, instead of making them retype everything. On a long form, with repeaters and declarations spanning several iterations, that is the difference between a response and an abandonment. A *Brouillon enregistré* marker tells them so while they answer, without which closing the tab still feels like a risk. Can be turned off per form in *Paramètres*.
+  - **Nothing leaves the device** — the draft lives in the respondent's browser, not on the server: no half-filled response is created in the database, so there is nothing more to retain or to purge under GDPR. It is cleared as soon as the response is sent, as it is when the respondent chooses to start over, and it expires on its own after 7 days.
+  - **A signature is not kept** — it is an act, not an entry, and re-signing after an interruption is the honest behaviour; the resume prompt says so when the form carries one. **An already uploaded file is found again**: the response only carries its reference and the file already sits on the server, so resuming spares a re-upload.
 
 <details>
 <summary><b>QR code designer</b></summary>

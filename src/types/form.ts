@@ -578,6 +578,9 @@ export interface FormSettings {
   animationDirection?: 'vertical' | 'horizontal'
   disableSwipeByWheel?: boolean
   autoSubmitLastQuestion?: boolean
+  // Brouillon local : la saisie est conservée dans le navigateur du répondant et une reprise lui
+  // est proposée s'il revient. Absent = activé (voir isDraftEnabled dans lib/form-draft.ts).
+  saveDraftEnabled?: boolean
   showBranding?: boolean
   brandingText?: string
   logo?: string // URL du logo

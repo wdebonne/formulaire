@@ -97,6 +97,9 @@ export interface BlockAttributes {
   imageSize?: 'small' | 'medium' | 'large' // Taille des images
   // Attributs pour le bloc Choix Multiple
   allowOtherOption?: boolean // Afficher une option "Autre" avec saisie libre
+  otherOptionLabel?: string // Libellé de l'option (défaut « Autre ») — ex. « Commentaire », « Votre avis »
+  otherOptionMode?: 'choice' | 'complement' // choice : une option de plus ; complement : champ libre en plus de la sélection
+  otherOptionPlaceholder?: string // Texte indicatif de la saisie libre
   // Attributs pour le bloc Repeater
   excludePreviousChoices?: boolean // Masquer les choix déjà sélectionnés dans les répétitions précédentes
   // Attributs pour le bloc Dropdown (Liste déroulante)

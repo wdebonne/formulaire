@@ -11,6 +11,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Renamable "Other" option, usable as a complement** — on a Multiple Choice block, the "Other" option only served to give an off-list answer. It can now carry any label ("Comment", "Your opinion", "Details"…) and works in two modes:
+  - **One more option** — the historical behaviour, unchanged by default.
+  - **A complement to the selection** — a free field always shown under the choices, added to whatever is checked, **even when a single answer is allowed**. The stored answer reads `Oui, Commentaire : …` in the table, exports, webhooks and Word templates.
+  - Conditional logic is unaffected: the complement lives under a separate key while filling and is only merged into the answer at submission. In complement mode a single choice no longer auto-advances, otherwise the field would never be reached.
+  - Statistics and PDF reports do not count comments as options — every respondent would otherwise create their own bar.
+  - Customisable placeholder for the free-text field.
 - **Automatic retry of failed webhooks** — a failed webhook left a trace in the response's status and nothing more: the answer was stored, the receiving application never saw it, and nobody was told. A silent loss, only found by reconciling two databases by hand. Failed deliveries now enter a **retry queue** handled by the maintenance timer.
   - **Six attempts spread over twenty-four hours** — 1 min, 5 min, 15 min, 1 h, 6 h, 24 h. A minute covers a service restart, twenty-four hours cover an outage dealt with the next morning; beyond that, insisting adds nothing a manual replay would not do better, and the row is marked "abandoned" — with an audit entry, since that is the moment the loss becomes final.
   - **A random spread is added to each delay**, never subtracted: a hundred answers piled up during an outage would otherwise all fire on the same second and finish off a receiver that has just come back.
@@ -23,6 +29,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Deleted `form-preview.tsx`** — 1,811 lines re-implementing the form renderer, unused since the *Aperçu* button started opening the real public component in an iframe. A second renderer nobody runs is a second renderer that drifts.
 
 ### Fixed
+- **Arrow keys inside the "Other" free-text field** jumped between options instead of moving the caret.
 - **The webhook payload builder existed twice**, between the submit route and the manual replay route; the retry queue would have made it a third. It now lives in a single module, `src/lib/webhook-send.ts`.
 
 ### Documentation

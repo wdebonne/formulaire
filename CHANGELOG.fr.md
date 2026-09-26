@@ -11,6 +11,12 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Option « Autre » renommable, et utilisable comme complément** — sur un bloc Choix multiple, l'option « Autre » servait uniquement à donner une réponse hors liste. Elle peut désormais porter le libellé de son choix (« Commentaire », « Votre avis », « Précisions »…) et fonctionner selon deux modes :
+  - **Une option de plus** — le comportement historique, inchangé par défaut.
+  - **Un complément à la sélection** — un champ libre toujours affiché sous les choix, qui s'ajoute au choix ou aux choix cochés, **y compris quand une seule réponse est autorisée**. La réponse enregistrée se lit `Oui, Commentaire : …` dans le tableau, les exports, les webhooks et les modèles Word.
+  - La logique conditionnelle n'est pas affectée : le complément vit sous une clé à part pendant le remplissage et n'est fusionné dans la réponse qu'à l'envoi. En mode complément, un choix unique ne fait plus passer automatiquement à la question suivante, sans quoi le champ ne serait jamais atteint.
+  - Les statistiques et les rapports PDF ne comptent pas les commentaires comme des options — chaque répondant aurait sinon créé sa propre barre.
+  - Texte indicatif de la saisie libre personnalisable.
 - **Reprise automatique des webhooks en échec** — un webhook qui échouait laissait une trace dans le statut de la réponse, et rien de plus : la réponse était bien enregistrée, mais l'application destinataire ne la voyait jamais et personne n'était prévenu. Une perte silencieuse, qui ne se découvrait qu'en rapprochant les deux bases à la main. Les envois en échec entrent désormais dans une **file de reprise** traitée par la minuterie de maintenance.
   - **Six tentatives échelonnées sur vingt-quatre heures** — 1 min, 5 min, 15 min, 1 h, 6 h, 24 h. Une minute couvre le redémarrage d'un service, vingt-quatre heures couvrent une panne traitée le lendemain matin ; au-delà, insister n'apporte rien qu'une relance manuelle ne ferait mieux, et la ligne est classée « abandonnée » — avec une entrée au journal d'activité, puisque c'est le moment où la perte devient définitive.
   - **Un écart aléatoire est ajouté à chaque délai**, jamais soustrait : cent réponses accumulées pendant une panne repartiraient sinon à la même seconde et achèveraient un récepteur qui vient à peine de revenir.
@@ -23,6 +29,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **Suppression de `form-preview.tsx`** — 1 811 lignes qui réimplémentaient le rendu du formulaire, plus utilisées depuis que le bouton *Aperçu* ouvre le vrai composant public dans un iframe. Un second moteur de rendu que personne n'exécute est un second moteur de rendu qui diverge.
 
 ### Corrections
+- **Les flèches du clavier dans la saisie libre de l'option « Autre »** sautaient d'une option à l'autre au lieu de déplacer le curseur dans le texte.
 - **Le constructeur de corps de webhook existait en double**, entre la route de soumission et la route de relance manuelle ; la file de reprise en aurait fait un troisième. Il vit désormais dans un seul module, `src/lib/webhook-send.ts`.
 
 ### Documentation

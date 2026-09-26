@@ -49,6 +49,9 @@ export function choiceListProps(multiple: boolean): ChoiceListProps {
   return {
     role: multiple ? 'group' : 'radiogroup',
     onKeyDown: (event) => {
+      // La saisie libre de l'option « Autre » vit dans la liste : ses flèches déplacent le curseur.
+      const target = event.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
       const container = event.currentTarget
       switch (event.key) {
         case 'ArrowDown':

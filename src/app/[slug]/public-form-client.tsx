@@ -26,6 +26,7 @@ import {
   usesNativeLabel,
 } from '@/lib/a11y'
 import { choiceListProps, choiceOptionProps, selectedChoiceIndex } from '@/lib/choice-list'
+import { COMPLEMENT_SUFFIX, complementKey, isComplementMode, mergeChoiceComplements, otherOptionLabel } from '@/lib/choice-other'
 import {
   DRAFT_SAVE_DEBOUNCE_MS,
   buildFormDraft,
@@ -1755,7 +1756,7 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: completeData,
+          data: mergeChoiceComplements(completeData, allBlocks),
           honeypot: honeypotRef.current?.value ?? '',
           renderToken,
           metadata: {
@@ -1793,7 +1794,8 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
   }
 
   // Fonction pour gérer les réponses du repeater
-  const handleRepeaterAnswer = (value: any) => {
+  // `keySuffix` : clé voisine de la réponse courante — le complément d'un choix multiple.
+  const handleRepeaterAnswer = (value: any, keySuffix = '') => {
     if (!currentBlock || currentBlock.type !== 'repeater') return
     
     const state = repeaterStates[currentBlock.id]
@@ -1809,7 +1811,7 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
       const innerBlocks = currentBlock.innerBlocks || []
       const currentInnerBlock = innerBlocks[state.currentInnerIndex]
       if (currentInnerBlock) {
-        handleAnswer(value, `${currentBlock.id}_${state.repetitionCount}_${currentInnerBlock.id}`)
+        handleAnswer(value, `${currentBlock.id}_${state.repetitionCount}_${currentInnerBlock.id}${keySuffix}`)
       }
     }
   }
@@ -2491,7 +2493,7 @@ interface QuestionBlockProps {
   showLetters: boolean
   themeProps: ThemeProperties
   answer: any
-  onAnswer: (value: any) => void
+  onAnswer: (value: any, customKey?: string) => void
   onNext: (skipValidation?: boolean, currentValue?: any) => void
   isLast: boolean
   isSubmitting: boolean
@@ -2855,6 +2857,45 @@ function SignaturePadInput({
   )
 }
 
+// Champ libre affiché sous les choix quand l'option « Autre » est en mode complément : il
+// s'ajoute à la sélection au lieu d'en être une (voir src/lib/choice-other.ts).
+function ChoiceComplementField({
+  block,
+  value,
+  onChange,
+  themeProps,
+  inputStyle = {},
+}: {
+  block: FormBlock
+  value: string
+  onChange: (text: string) => void
+  themeProps: ThemeProperties
+  inputStyle?: React.CSSProperties
+}) {
+  const inputId = `${fieldId(block.id)}-complement`
+  return (
+    <div className="mt-4 space-y-1">
+      <label htmlFor={inputId} className="block text-sm font-medium" style={{ color: themeProps.answersColor }}>
+        {otherOptionLabel(block.attributes)}
+      </label>
+      <textarea
+        id={inputId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+        placeholder={block.attributes.otherOptionPlaceholder || 'Votre commentaire...'}
+        className="w-full bg-transparent border-2 py-2 px-3 text-base outline-none resize-none transition-colors focus:border-opacity-100"
+        style={{
+          color: themeProps.answersColor,
+          borderColor: themeProps.buttonsBgColor + '60',
+          fontSize: '16px',
+          ...inputStyle,
+        }}
+      />
+    </div>
+  )
+}
+
 // Helper : construit la liste des items à afficher pour un bloc Quantité.
 // Gère les valeurs normales, les réponses "Autre" (__other__:) et les saisies libres (allowCustomValue).
 function buildQuantityChoices(
@@ -3208,7 +3249,8 @@ function QuestionBlock({
       case 'multiple-choice':
         const choices = block.attributes.choices || []
         const allowMultiple = block.attributes.allowMultiple || block.attributes.multiple
-        const allowOtherOption = block.attributes.allowOtherOption
+        const complementMode = isComplementMode(block.attributes)
+        const allowOtherOption = block.attributes.allowOtherOption && !complementMode
         const isOtherSelected = allowOtherOption && (allowMultiple
           ? (answer || []).some((v: string) => typeof v === 'string' && v.startsWith('__other__:'))
           : typeof answer === 'string' && answer.startsWith('__other__:'))
@@ -3218,6 +3260,7 @@ function QuestionBlock({
             : (answer as string).slice(10)
           : ''
         return (
+          <>
           <div className="mt-4 space-y-2 sm:space-y-3" {...listProps} {...groupA11y}>
             <CatalogNotice block={block} themeProps={themeProps} />
             {choices.map((choice: any, idx: number) => {
@@ -3239,7 +3282,8 @@ function QuestionBlock({
                       }
                     } else {
                       onAnswer(choice.value)
-                      setTimeout(() => onNext(true, choice.value), 300)
+                      // Avancer tout de suite couperait l'accès au complément, affiché sous les choix.
+                      if (!complementMode) setTimeout(() => onNext(true, choice.value), 300)
                     }
                   }}
                   className="w-full flex items-center px-4 py-3 sm:py-4 rounded-md border-2 transition-all active:scale-[0.98] hover:scale-[1.01]"
@@ -3310,13 +3354,13 @@ function QuestionBlock({
                       {isOtherSelected ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[choices.length]}
                     </span>
                   )}
-                  <span style={{ color: themeProps.answersColor }}>Autre</span>
+                  <span style={{ color: themeProps.answersColor }}>{otherOptionLabel(block.attributes)}</span>
                 </button>
                 {isOtherSelected && (
                   <input
                     autoFocus
                     type="text"
-                    aria-label={`${resolvedLabel} — précisez votre réponse`}
+                    aria-label={`${resolvedLabel} — ${otherOptionLabel(block.attributes)}`}
                     value={otherText}
                     onChange={(e) => {
                       const text = e.target.value
@@ -3327,7 +3371,7 @@ function QuestionBlock({
                         onAnswer(`__other__:${text}`)
                       }
                     }}
-                    placeholder="Précisez votre réponse..."
+                    placeholder={block.attributes.otherOptionPlaceholder || 'Précisez votre réponse...'}
                     className="w-full px-4 py-2 border-b-2 bg-transparent outline-none text-base transition-colors"
                     style={{
                       color: themeProps.answersColor,
@@ -3338,6 +3382,16 @@ function QuestionBlock({
               </>
             )}
           </div>
+          {complementMode && (
+            <ChoiceComplementField
+              block={block}
+              value={allAnswers[complementKey(block.id)] || ''}
+              onChange={(text) => onAnswer(text, complementKey(block.id))}
+              themeProps={themeProps}
+              inputStyle={inputStyle}
+            />
+          )}
+          </>
         )
 
       case 'image-selection':
@@ -4461,7 +4515,8 @@ function GroupBlock({
       case 'multiple-choice':
         const choices = innerBlock.attributes.choices || []
         const allowMultiple = innerBlock.attributes.allowMultiple || innerBlock.attributes.multiple
-        const allowOtherOptionGroup = innerBlock.attributes.allowOtherOption
+        const complementModeGroup = isComplementMode(innerBlock.attributes)
+        const allowOtherOptionGroup = innerBlock.attributes.allowOtherOption && !complementModeGroup
         const selectedValues = Array.isArray(value) ? value : value ? [value] : []
         const isOtherSelectedGroup = allowOtherOptionGroup && (allowMultiple
           ? selectedValues.some((v: string) => typeof v === 'string' && v.startsWith('__other__:'))
@@ -4473,6 +4528,7 @@ function GroupBlock({
           : ''
 
         return (
+          <>
           <div className="space-y-2" {...innerListProps} {...innerGroupA11y}>
             <CatalogNotice block={innerBlock} themeProps={themeProps} />
             {choices.map((choice: any, choiceIdx: number) => {
@@ -4557,13 +4613,13 @@ function GroupBlock({
                       {isOtherSelectedGroup ? <Check aria-hidden="true" className="w-3 h-3" /> : letters[choices.length]}
                     </span>
                   )}
-                  <span className="text-sm" style={{ color: themeProps.answersColor }}>Autre</span>
+                  <span className="text-sm" style={{ color: themeProps.answersColor }}>{otherOptionLabel(innerBlock.attributes)}</span>
                 </button>
                 {isOtherSelectedGroup && (
                   <input
                     autoFocus
                     type="text"
-                    aria-label="Précisez votre réponse"
+                    aria-label={`${innerBlock.attributes.label || 'Question'} — ${otherOptionLabel(innerBlock.attributes)}`}
                     value={otherTextGroup}
                     onChange={(e) => {
                       const text = e.target.value
@@ -4574,7 +4630,7 @@ function GroupBlock({
                         handleChange(`__other__:${text}`)
                       }
                     }}
-                    placeholder="Précisez votre réponse..."
+                    placeholder={innerBlock.attributes.otherOptionPlaceholder || 'Précisez votre réponse...'}
                     className="w-full px-3 py-2 border-b-2 bg-transparent outline-none text-sm transition-colors"
                     style={{
                       color: themeProps.answersColor,
@@ -4585,6 +4641,16 @@ function GroupBlock({
               </>
             )}
           </div>
+          {complementModeGroup && (
+            <ChoiceComplementField
+              block={innerBlock}
+              value={answers[complementKey(innerBlock.id)] || ''}
+              onChange={(text) => onAnswer(text, complementKey(innerBlock.id))}
+              themeProps={themeProps}
+              inputStyle={inputStyle}
+            />
+          )}
+          </>
         )
 
       case 'dropdown': {
@@ -5153,7 +5219,7 @@ interface RepeaterBlockProps {
   showLetters: boolean
   themeProps: ThemeProperties
   answers: Record<string, any>
-  onAnswer: (value: any) => void
+  onAnswer: (value: any, keySuffix?: string) => void
   onNext: (skipValidation?: boolean, currentValue?: any) => void
   isLast: boolean
   isSubmitting: boolean
@@ -5599,7 +5665,7 @@ interface InnerBlockInputProps {
   showLetters: boolean
   themeProps: ThemeProperties
   answer: any
-  onAnswer: (value: any) => void
+  onAnswer: (value: any, keySuffix?: string) => void
   onNext: (skipValidation?: boolean, currentValue?: any) => void
   error: string | null
   inputStyle?: React.CSSProperties
@@ -5809,7 +5875,9 @@ function InnerBlockInput({
         (c: any) => !excludedChoiceValues?.has(c.value)
       )
       const innerAllowMultiple = block.attributes.allowMultiple || block.attributes.multiple
-      const allowOtherOptionInner = block.attributes.allowOtherOption
+      const complementModeInner = isComplementMode(block.attributes)
+      const allowOtherOptionInner = block.attributes.allowOtherOption && !complementModeInner
+      const complementKeyInner = complementKey(`${repeaterBlockId}_${repetitionCount}_${block.id}`)
       const isOtherSelectedInner = allowOtherOptionInner && (innerAllowMultiple
         ? (answer || []).some((v: string) => typeof v === 'string' && v.startsWith('__other__:'))
         : typeof answer === 'string' && answer.startsWith('__other__:'))
@@ -5819,6 +5887,7 @@ function InnerBlockInput({
           : (answer as string).slice(10)
         : ''
       return (
+        <>
         <div className="mt-4 space-y-2" {...listProps} {...groupA11y}>
         <CatalogNotice block={block} themeProps={themeProps} />
           {innerChoices.map((choice: any, idx: number) => {
@@ -5840,7 +5909,7 @@ function InnerBlockInput({
                     }
                   } else {
                     onAnswer(choice.value)
-                    setTimeout(() => onNext(true), 300)
+                    if (!complementModeInner) setTimeout(() => onNext(true), 300)
                   }
                 }}
                 className="w-full flex items-center px-4 py-3 border-2 transition-all hover:scale-[1.02]"
@@ -5918,13 +5987,13 @@ function InnerBlockInput({
                     {isOtherSelectedInner ? <Check aria-hidden="true" className="w-4 h-4" /> : letters[innerChoices.length]}
                   </span>
                 )}
-                <span style={{ color: themeProps.answersColor }}>Autre</span>
+                <span style={{ color: themeProps.answersColor }}>{otherOptionLabel(block.attributes)}</span>
               </button>
               {isOtherSelectedInner && (
                 <input
                   autoFocus
                   type="text"
-                  aria-label="Précisez votre réponse"
+                  aria-label={`${block.attributes.label || 'Question'} — ${otherOptionLabel(block.attributes)}`}
                   value={otherTextInner}
                   onChange={(e) => {
                     const text = e.target.value
@@ -5935,7 +6004,7 @@ function InnerBlockInput({
                       onAnswer(`__other__:${text}`)
                     }
                   }}
-                  placeholder="Précisez votre réponse..."
+                  placeholder={block.attributes.otherOptionPlaceholder || 'Précisez votre réponse...'}
                   className="w-full px-4 py-2 border-b-2 bg-transparent outline-none text-base transition-colors"
                   style={{
                     color: themeProps.answersColor,
@@ -5946,6 +6015,16 @@ function InnerBlockInput({
             </>
           )}
         </div>
+        {complementModeInner && (
+          <ChoiceComplementField
+            block={block}
+            value={allAnswers[complementKeyInner] || ''}
+            onChange={(text) => onAnswer(text, COMPLEMENT_SUFFIX)}
+            themeProps={themeProps}
+            inputStyle={inputStyle}
+          />
+        )}
+        </>
       )
 
     case 'date':

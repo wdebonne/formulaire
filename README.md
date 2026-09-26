@@ -198,7 +198,7 @@ The public form — the part respondents fill in — is built to be usable **by 
 | Phone | Phone field (standard or international format, configurable digit count) |
 | Address | Autocomplete via the official French Address API (BAN) — full address, or **town only** with its department and region shown in the suggestions |
 | Number | Numeric input |
-| Multiple Choice | Single or multi-select (with optional "Other" free-text option); options can be drawn from the equipment catalog |
+| Multiple Choice | Single or multi-select (with an optional, renamable "Other" field — either one more option or a free-text complement added to the selection, e.g. "Comment"); options can be drawn from the equipment catalog |
 | Image Selection | Choices illustrated with clickable images (grid or stacked) |
 | Dropdown | Searchable list with optional free input, dynamic filtering based on another block; options can be drawn from the equipment catalog |
 | Quantity | List of items with individual quantity inputs |

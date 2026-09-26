@@ -198,7 +198,7 @@ Le formulaire public — la partie que remplissent les répondants — est conç
 | Téléphone | Champ téléphone (format standard ou international, nombre de chiffres configurable) |
 | Adresse | Autocomplétion via l'API Adresse officielle (BAN) — adresse complète, ou **commune seule** avec département et région affichés dans les suggestions |
 | Nombre | Champ numérique |
-| Choix multiple | Sélection unique ou multiple (avec option « Autre » pour réponse libre) ; options tirées du catalogue de matériel en option |
+| Choix multiple | Sélection unique ou multiple (avec un champ « Autre » optionnel et renommable — soit une option de plus, soit un complément libre ajouté à la sélection, ex. « Commentaire ») ; options tirées du catalogue de matériel en option |
 | Sélection image | Choix illustrés par des images cliquables (grille ou empilés) |
 | Menu déroulant | Liste avec autocomplétion, saisie libre optionnelle, filtrage dynamique selon un autre bloc ; options tirées du catalogue de matériel en option |
 | Quantité | Liste d'articles avec saisie de quantités individuelles |

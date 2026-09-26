@@ -11,6 +11,7 @@
 // comptage, sans quoi une même option serait comptée deux fois.
 
 import { answerToText, isStructuredAnswer } from './response-format'
+import { stripChoiceComplement } from './choice-other'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import type { FormReportSettings } from '@/types/form'
@@ -569,7 +570,9 @@ export function computeReportStats(
       }
 
       for (const value of flatValues) {
-        for (const token of tokenize(value, options)) {
+        // Un commentaire saisi en complément n'est pas une option : il ferait une barre par répondant.
+        const selection = stripChoiceComplement(value, field.block.attributes)
+        for (const token of tokenize(selection, options)) {
           const label = matchOption(token, options)
           counts.set(label, (counts.get(label) ?? 0) + 1)
         }

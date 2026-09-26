@@ -41,6 +41,7 @@ Context for Claude Code when working on this project.
 | `src/app/[slug]/public-form-client.tsx` | Public form renderer (end-user facing) |
 | `src/lib/a11y.ts` | Pure/client-safe ARIA plumbing — `labelId()`/`descId()`/`errorId()`/`fieldId()`/`hintId()`, `describedBy()`, `fieldA11y()`, `usesNativeLabel()`; no Prisma import |
 | `src/lib/choice-list.ts` | Pure keyboard/ARIA props for button-based choice lists — `choiceListProps()`, `choiceOptionProps()`, `selectedChoiceIndex()` |
+| `src/lib/choice-other.ts` | Pure/client-safe « Autre » option — `otherOptionLabel()`, `isComplementMode()`, `mergeChoiceComplements()` (run at submit), `stripChoiceComplement()` (report counts) |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
 | `src/app/forms/[id]/stats/stats-client.tsx` | On-screen statistics page (`/forms/[id]/stats`) — period picker + every section of the PDF report, rendered from `computeReportStats()` |
@@ -220,6 +221,18 @@ Repeater state (current iteration, answers per iteration) is managed locally in 
 
 ### Choice Value vs Label
 Blocks with choices (`dropdown`, `multiple-choice`, `image-selection`) store `choice.value` (slug, e.g. `service-informatique`) in `FormResponse.data`, not the human-readable `choice.label`. The responses page resolves slugs to labels at display time using `formatValueWithChoices(value, block.attributes.choices)` defined in `responses-client.tsx`. This applies to the table, the detail modal, and the CSV export. Do not change the stored value — always resolve at display time.
+
+### « Autre » Option: Choice or Complement
+`allowOtherOption` on a `multiple-choice` block has a renamable label (`otherOptionLabel`, default
+« Autre ») and two modes. `choice` (default, historical) is one more option storing `__other__:text`
+in the answer. `complement` is a free field always shown under the choices, in addition to the
+selection — even single-choice. While filling, it lives under a **separate key**
+(`{answerKey}__complement`) so the answer keeps its shape: the form's logic compares single choices
+with `===`, and an array would break every jump rule. `mergeChoiceComplements()` folds it into the
+answer at submit as `__other__:{label} : text`, which the whole downstream already strips, so the
+stored value reads `"Oui, Commentaire : …"`. Single choice does **not** auto-advance in complement
+mode — it would skip the field. `computeReportStats()` strips the complement before counting
+options, otherwise every comment would become a bar.
 
 ### Correction d'une réponse enregistrée
 `PATCH /api/forms/[id]/responses/[responseId]` corrige les valeurs d'une réponse déjà reçue (bouton

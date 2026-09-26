@@ -15,6 +15,7 @@ import {
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen, Star, Heart, ThumbsUp } from 'lucide-react'
+import { DEFAULT_OTHER_LABEL, isComplementMode, otherOptionLabel } from '@/lib/choice-other'
 import { ALLOWED_UPLOAD_TYPES, DEFAULT_MAX_FILE_SIZE_MB, MAX_RESPONSE_FILE_SIZE } from '@/lib/upload-types'
 import { DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 
@@ -689,8 +690,8 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="allowOtherOption">Autoriser une option &quot;Autre&quot;</Label>
-                  <p className="text-xs text-gray-500">L'utilisateur peut saisir une réponse personnalisée</p>
+                  <Label htmlFor="allowOtherOption">Autoriser une option &quot;{otherOptionLabel(block.attributes)}&quot;</Label>
+                  <p className="text-xs text-gray-500">L'utilisateur peut saisir une réponse libre</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -703,6 +704,64 @@ export function BlockEditor({ block, isInnerBlock = false, parentGroupId }: Bloc
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
               </div>
+              {block.attributes.allowOtherOption && (
+                <div className="space-y-3 pl-3 border-l-2 border-gray-100">
+                  <div className="space-y-1">
+                    <Label htmlFor="otherOptionLabel">Libellé du champ</Label>
+                    <Input
+                      id="otherOptionLabel"
+                      value={block.attributes.otherOptionLabel ?? ''}
+                      onChange={(e) => updateAttribute('otherOptionLabel', e.target.value)}
+                      placeholder={DEFAULT_OTHER_LABEL}
+                    />
+                    <p className="text-xs text-gray-500">Ex. « Commentaire », « Votre avis », « Précisions »</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Fonctionnement</Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {([
+                        {
+                          mode: 'choice',
+                          title: 'Une option de plus',
+                          hint: block.attributes.allowMultiple
+                            ? 'Se coche avec les autres choix et ouvre une saisie libre'
+                            : 'Remplace les choix proposés par une réponse libre',
+                        },
+                        {
+                          mode: 'complement',
+                          title: 'Un complément à la sélection',
+                          hint: 'Champ libre toujours affiché sous les choix, en plus de la réponse — même limitée à un seul choix',
+                        },
+                      ] as const).map(({ mode, title, hint }) => {
+                        const active = (block.attributes.otherOptionMode || 'choice') === mode
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => updateAttribute('otherOptionMode', mode)}
+                            className={`text-left rounded-md border px-3 py-2 transition-colors ${
+                              active ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <span className="block text-sm font-medium">{title}</span>
+                            <span className="block text-xs text-gray-500">{hint}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="otherOptionPlaceholder">Texte indicatif de la saisie</Label>
+                    <Input
+                      id="otherOptionPlaceholder"
+                      value={block.attributes.otherOptionPlaceholder ?? ''}
+                      onChange={(e) => updateAttribute('otherOptionPlaceholder', e.target.value)}
+                      placeholder={isComplementMode(block.attributes) ? 'Votre commentaire...' : 'Précisez votre réponse...'}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

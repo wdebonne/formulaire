@@ -78,6 +78,15 @@ describe('catalogPeriod', () => {
     })
   })
 
+  // Plusieurs dates : la période couvre de la première à la dernière, jours intermédiaires
+  // compris — le disponible annoncé peut être sous-estimé, jamais surestimé.
+  it('couvre de la première à la dernière date d’un bloc à plusieurs dates', () => {
+    expect(catalogPeriod(catalogBlock(), { quand: ['2026-08-19', '2026-08-12', '2026-08-26'] })).toEqual({
+      from: '2026-08-12',
+      to: '2026-08-26',
+    })
+  })
+
   it('lit la borne de fin depuis un second bloc', () => {
     const b = catalogBlock({ catalogEndDateBlockId: 'jusqua' })
     expect(catalogPeriod(b, { quand: '2026-08-12', jusqua: '2026-08-15' })).toEqual({

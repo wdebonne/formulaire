@@ -12,6 +12,7 @@
 // le serveur.
 
 import type { BlockChoice, FormBlock } from '@/types/form'
+import { toDateList } from '@/lib/multi-date'
 
 export interface CatalogItem {
   /** Référence sans collision entre les tables de l'application de gestion : `stock:7`, `parc:12`. */
@@ -72,6 +73,13 @@ function lireDate(reponse: unknown, bout: 'start' | 'end'): string | null {
   if (typeof reponse === 'string') {
     const jour = reponse.slice(0, 10)
     return ISO_DATE.test(jour) ? jour : null
+  }
+  // Plusieurs dates : la période couvre de la première à la dernière. Le stock des jours
+  // intermédiaires est compté aussi, donc le disponible annoncé est prudent, jamais surestimé.
+  if (Array.isArray(reponse)) {
+    const jours = toDateList(reponse)
+    if (jours.length === 0) return null
+    return bout === 'start' ? jours[0] : jours[jours.length - 1]
   }
   if (reponse && typeof reponse === 'object') {
     const valeur = (reponse as Record<string, unknown>)[bout]

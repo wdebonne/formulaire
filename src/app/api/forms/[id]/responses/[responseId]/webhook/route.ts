@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth'
 import { applyWebhookSignature } from '@/lib/webhook-signature'
 import { cancelWebhookRetries, enqueueWebhookRetry } from '@/lib/webhook-queue'
 import { answerToText, isStructuredAnswer } from '@/lib/response-format'
+import { hasMultiDateOption } from '@/lib/multi-date'
 
 // Corps `FORM` : une valeur structurée (pièce jointe, quantité, groupe) n'a pas d'écriture
 // dans un x-www-form-urlencoded. `String(objet)` donnait « [object Object] » : on écrit le
@@ -136,6 +137,10 @@ export async function POST(
       // Choix (dropdown, multiple-choice, image-selection) : nettoyer __other__:
       if (['dropdown', 'multiple-choice', 'image-selection'].includes(block?.type)) {
         return cleanValue(rawValue)
+      }
+      // Plusieurs dates : un tableau, comme à l'envoi initial (webhook-send.ts)
+      if (block?.type === 'advanced-date' && hasMultiDateOption(block.attributes) && typeof rawValue === 'string') {
+        return rawValue.split(',').map((d) => d.trim()).filter(Boolean)
       }
       return rawValue
     }

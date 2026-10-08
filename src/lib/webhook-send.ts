@@ -14,6 +14,7 @@ import {
   formatBlockValue,
   isStructuredAnswer,
 } from './response-format'
+import { hasMultiDateOption } from './multi-date'
 import { applyWebhookSignature } from './webhook-signature'
 
 // Un récepteur qui ne répond jamais bloquerait la soumission du répondant jusqu'au délai du
@@ -103,6 +104,16 @@ function resolveCustomTemplate(
     .replace(/\{form_id\}/g, formId)
 }
 
+// Un bloc qui peut porter plusieurs dates part toujours en tableau, même avec une seule date : le
+// récepteur n'a pas à deviner, réponse par réponse, s'il reçoit une chaîne ou une liste.
+function webhookValue(block: any, rawValue: any): any {
+  const formatted = formatBlockValue(block, rawValue)
+  if (block?.type === 'advanced-date' && hasMultiDateOption(block.attributes) && typeof formatted === 'string') {
+    return formatted.split(',').map((d) => d.trim()).filter(Boolean)
+  }
+  return formatted
+}
+
 export function buildWebhookPayload(
   webhook: WebhookConfig,
   data: Record<string, any>,
@@ -128,7 +139,7 @@ export function buildWebhookPayload(
       for (const innerBlock of innerBlocks) {
         const key = `${repeaterId}_${repetition}_${innerBlock.id}`
         if (data[key] !== undefined) {
-          repetitionData[getBlockLabel(innerBlock)] = formatBlockValue(innerBlock, data[key])
+          repetitionData[getBlockLabel(innerBlock)] = webhookValue(innerBlock, data[key])
           hasAnyValue = true
         }
       }
@@ -148,7 +159,7 @@ export function buildWebhookPayload(
     const groupData: Record<string, any> = {}
     for (const innerBlock of innerBlocks) {
       if (data[innerBlock.id] !== undefined) {
-        groupData[getBlockLabel(innerBlock)] = formatBlockValue(innerBlock, data[innerBlock.id])
+        groupData[getBlockLabel(innerBlock)] = webhookValue(innerBlock, data[innerBlock.id])
       }
     }
     return groupData
@@ -178,7 +189,7 @@ export function buildWebhookPayload(
               const dataKey = `${mapping.blockId}_${rep}_${innerBlock.id}`
               if (data[dataKey] !== undefined) {
                 const fieldSlug = slugify(getBlockLabel(innerBlock))
-                payload[`${mapping.key}_${fieldSlug}_${rep}`] = formatBlockValue(
+                payload[`${mapping.key}_${fieldSlug}_${rep}`] = webhookValue(
                   innerBlock,
                   data[dataKey]
                 )
@@ -193,7 +204,7 @@ export function buildWebhookPayload(
         } else if (block?.type === 'group' && block.innerBlocks) {
           payload[mapping.key] = extractGroupData(mapping.blockId, block.innerBlocks)
         } else {
-          payload[mapping.key] = formatBlockValue(block, data[mapping.blockId])
+          payload[mapping.key] = webhookValue(block, data[mapping.blockId])
         }
       }
     }
@@ -210,7 +221,7 @@ export function buildWebhookPayload(
       const groupData = extractGroupData(block.id, block.innerBlocks)
       if (Object.keys(groupData).length > 0) payload[getBlockLabel(block)] = groupData
     } else if (data[block.id] !== undefined) {
-      payload[getBlockLabel(block)] = formatBlockValue(block, data[block.id])
+      payload[getBlockLabel(block)] = webhookValue(block, data[block.id])
     }
   }
 

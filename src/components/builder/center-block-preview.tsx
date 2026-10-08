@@ -25,6 +25,7 @@ interface MiniCalendarPreviewProps {
   maxDateType?: string
   minDateOffset?: number
   maxDateOffset?: number
+  multiDateMode?: 'off' | 'always' | 'conditional'
 }
 
 function MiniCalendarPreview({ 
@@ -35,7 +36,8 @@ function MiniCalendarPreview({
   minDateType,
   maxDateType,
   minDateOffset,
-  maxDateOffset
+  maxDateOffset,
+  multiDateMode = 'off',
 }: MiniCalendarPreviewProps) {
   const today = new Date()
   const [displayMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
@@ -91,8 +93,21 @@ function MiniCalendarPreview({
   const hasMinRestriction = minDateType && minDateType !== 'none'
   const hasMaxRestriction = maxDateType && maxDateType !== 'none'
 
+  const multiDateOn = multiDateMode === 'always' || multiDateMode === 'conditional'
+  if (multiDateOn) isDateRange = false
+
   return (
     <div className="mt-4 w-full">
+      {multiDateOn && (
+        <div className="mb-3 text-center">
+          <span
+            className="inline-block px-2 py-0.5 rounded-full text-xs"
+            style={{ backgroundColor: themeProps.buttonsBgColor + '15', color: themeProps.buttonsBgColor }}
+          >
+            {multiDateMode === 'always' ? 'Plusieurs dates' : 'Plusieurs dates (selon une réponse précédente)'}
+          </span>
+        </div>
+      )}
       {isDateRange && (
         <div className="flex gap-2 mb-3 max-w-md mx-auto">
           <div 
@@ -335,6 +350,7 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
           <MiniCalendarPreview
             themeProps={themeProps}
             isDateRange={innerBlock.attributes.isDateRange}
+            multiDateMode={innerBlock.attributes.multiDateMode}
             startDateLabel={innerBlock.attributes.startDateLabel}
             endDateLabel={innerBlock.attributes.endDateLabel}
             minDateType={innerBlock.attributes.minDateType}
@@ -821,6 +837,7 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
           <MiniCalendarPreview
             themeProps={themeProps}
             isDateRange={block.attributes.isDateRange}
+            multiDateMode={block.attributes.multiDateMode}
             startDateLabel={block.attributes.startDateLabel}
             endDateLabel={block.attributes.endDateLabel}
             minDateType={block.attributes.minDateType}

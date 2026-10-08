@@ -42,6 +42,7 @@ Context for Claude Code when working on this project.
 | `src/lib/a11y.ts` | Pure/client-safe ARIA plumbing — `labelId()`/`descId()`/`errorId()`/`fieldId()`/`hintId()`, `describedBy()`, `fieldA11y()`, `usesNativeLabel()`; no Prisma import |
 | `src/lib/choice-list.ts` | Pure keyboard/ARIA props for button-based choice lists — `choiceListProps()`, `choiceOptionProps()`, `selectedChoiceIndex()` |
 | `src/lib/choice-other.ts` | Pure/client-safe « Autre » option — `otherOptionLabel()`, `isComplementMode()`, `mergeChoiceComplements()` (run at submit), `stripChoiceComplement()` (report counts) |
+| `src/lib/multi-date.ts` | Pure/client-safe « plusieurs dates » mode of `advanced-date` — `isMultiDateActive()`, `toDateList()`, `normalizeMultiDateAnswers()` (run at submit), `hasMultiDateOption()` |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
 | `src/app/forms/[id]/stats/stats-client.tsx` | On-screen statistics page (`/forms/[id]/stats`) — period picker + every section of the PDF report, rendered from `computeReportStats()` |
@@ -233,6 +234,26 @@ answer at submit as `__other__:{label} : text`, which the whole downstream alrea
 stored value reads `"Oui, Commentaire : …"`. Single choice does **not** auto-advance in complement
 mode — it would skip the field. `computeReportStats()` strips the complement before counting
 options, otherwise every comment would become a bar.
+
+### Date avancée : plusieurs dates (événement récurrent)
+`multiDateMode` on an `advanced-date` block (`off` by default, `always`, or `conditional` on an
+earlier closed question — `multiDateConditionBlockId`/`multiDateConditionValue`) lets the respondent
+tick several days on one calendar, so a recurring event is one response instead of one per date.
+It excludes `isDateRange`: an occurrence is a day, not a period. `multiDateMax` caps the count.
+
+While filling, the answer is a `string[]` of ISO dates; emptied, it becomes `''`, never `[]` — an
+empty array is truthy and would pass the `!answers[id]` required check. In a repeater the condition
+is read from the **same iteration** (`{repeaterId}_{n}_{sourceId}`). The respondent may tick three
+dates, go back and answer « Non »: `normalizeMultiDateAnswers()` runs at submit beside
+`mergeChoiceComplements()` and keeps only the first date, which is also what the calendar shows.
+
+`formatBlockValue()` joins the list as `"03/10/2026, 10/10/2026"` — the multiple-choice convention,
+so exports, reports, docx tokens, `condition-eval` and the GDPR export need nothing. The webhook is
+the exception: a block that *can* carry several dates always goes out as an **array**, even with one
+date, so the receiver gets a stable shape (`webhookValue()` in `webhook-send.ts`, mirrored in the
+manual replay route, which still has its own formatter). The edit modal falls back to a free text
+field on the joined string, as it does for a range. The catalog reads the list as first → last date:
+intermediate days are counted, so availability is under-stated, never over-stated.
 
 ### Correction d'une réponse enregistrée
 `PATCH /api/forms/[id]/responses/[responseId]` corrige les valeurs d'une réponse déjà reçue (bouton

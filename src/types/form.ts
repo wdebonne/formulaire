@@ -81,6 +81,11 @@ export interface BlockAttributes {
   isDateRange?: boolean // Activer la sélection d'une plage de dates (début et fin)
   startDateLabel?: string // Label pour la date de début
   endDateLabel?: string // Label pour la date de fin
+  // Plusieurs dates sur le même calendrier (événement récurrent) — absent = 'off'
+  multiDateMode?: 'off' | 'always' | 'conditional'
+  multiDateConditionBlockId?: string // question précédente qui active le mode
+  multiDateConditionValue?: string // valeur attendue (value du choix, ou 'yes'/'no')
+  multiDateMax?: number // nombre maximum de dates, absent = illimité
   // Attributs pour le bloc Heure
   isTimeRange?: boolean // Activer la sélection d'une plage horaire (début et fin)
   startTimeLabel?: string // Label pour l'heure de début

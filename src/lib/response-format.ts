@@ -50,6 +50,10 @@ export function formatBlockValue(block: any, rawValue: any): any {
   if (block.type === 'advanced-date') {
     const fmt = block.attributes?.format || 'DD/MM/YYYY'
     if (typeof rawValue === 'string') return formatDateString(rawValue, fmt)
+    // Plusieurs dates (événement récurrent) : jointes comme un choix multiple
+    if (Array.isArray(rawValue)) {
+      return rawValue.map((d) => formatDateString(String(d), fmt)).join(', ')
+    }
     // Plage de dates : { start, end }
     if (rawValue && typeof rawValue === 'object' && rawValue.start) {
       const start = formatDateString(rawValue.start, fmt)

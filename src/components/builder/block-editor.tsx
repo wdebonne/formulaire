@@ -1604,14 +1604,152 @@ function AdvancedDateEditor({ block, updateAttribute, isInnerBlock, parentGroupI
   
   const availableDateBlocks = getAvailableDateBlocks()
   
+  // Questions précédentes capables de déclencher le mode plusieurs dates : une réponse fermée,
+  // dont la valeur attendue se choisit dans une liste plutôt que de se taper.
+  const getConditionSources = () => {
+    const sources: { block: FormBlock; label: string }[] = []
+    const triggerTypes = ['yes-no', 'multiple-choice', 'dropdown', 'image-selection']
+    for (const b of blocks) {
+      if (b.id === block.id) break
+      if (triggerTypes.includes(b.type)) {
+        sources.push({ block: b, label: b.attributes.label || 'Question sans titre' })
+      }
+      if (b.innerBlocks?.length) {
+        const inners = b.innerBlocks
+        const stop = inners.findIndex((inner) => inner.id === block.id)
+        for (const inner of stop >= 0 ? inners.slice(0, stop) : inners) {
+          if (triggerTypes.includes(inner.type)) {
+            sources.push({
+              block: inner,
+              label: `${b.attributes.label || 'Groupe'} > ${inner.attributes.label || 'Question sans titre'}`,
+            })
+          }
+        }
+        if (stop >= 0) break
+      }
+    }
+    return sources
+  }
+
+  const conditionSources = getConditionSources()
+  const multiDateMode = block.attributes.multiDateMode || 'off'
+  const conditionSource = conditionSources.find((s) => s.block.id === block.attributes.multiDateConditionBlockId)?.block
+  const conditionValues: { value: string; label: string }[] = !conditionSource
+    ? []
+    : conditionSource.type === 'yes-no'
+      ? [
+          { value: 'yes', label: conditionSource.attributes.yesLabel || 'Oui' },
+          { value: 'no', label: conditionSource.attributes.noLabel || 'Non' },
+        ]
+      : (conditionSource.attributes.choices || []).map((c) => ({ value: c.value, label: c.label }))
+
   const minDateType = block.attributes.minDateType || 'none'
   const maxDateType = block.attributes.maxDateType || 'none'
   const isDateRange = block.attributes.isDateRange || false
+  const multiDateOn = multiDateMode !== 'off'
 
   return (
     <div className="space-y-4">
+      {/* Plusieurs dates (événement récurrent) */}
+      <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 space-y-3">
+        <h4 className="font-medium text-emerald-700 flex items-center gap-2">
+          <Calendar className="w-4 h-4" />
+          Plusieurs dates
+        </h4>
+        <p className="text-xs text-gray-500">
+          Le répondant coche plusieurs jours sur le même calendrier (événement récurrent) : une seule
+          réponse porte toutes les dates.
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="multiDateMode">Activation</Label>
+          <select
+            id="multiDateMode"
+            value={multiDateMode}
+            onChange={(e) => updateAttribute('multiDateMode', e.target.value)}
+            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="off">Désactivé (une seule date)</option>
+            <option value="always">Toujours</option>
+            {(conditionSources.length > 0 || multiDateMode === 'conditional') && (
+              <option value="conditional">Selon la réponse à une question précédente</option>
+            )}
+          </select>
+        </div>
+
+        {multiDateMode === 'conditional' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="multiDateConditionBlockId">Si la question</Label>
+              <select
+                id="multiDateConditionBlockId"
+                value={block.attributes.multiDateConditionBlockId || ''}
+                onChange={(e) => updateAttribute('multiDateConditionBlockId', e.target.value)}
+                className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Sélectionner une question</option>
+                {conditionSources.map((s) => (
+                  <option key={s.block.id} value={s.block.id}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            {conditionSource && (
+              <div className="space-y-2">
+                <Label htmlFor="multiDateConditionValue">a pour réponse</Label>
+                {conditionValues.length > 0 ? (
+                  <select
+                    id="multiDateConditionValue"
+                    value={block.attributes.multiDateConditionValue || ''}
+                    onChange={(e) => updateAttribute('multiDateConditionValue', e.target.value)}
+                    className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Sélectionner une réponse</option>
+                    {conditionValues.map((v) => (
+                      <option key={v.value} value={v.value}>{v.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <Input
+                    id="multiDateConditionValue"
+                    value={block.attributes.multiDateConditionValue || ''}
+                    onChange={(e) => updateAttribute('multiDateConditionValue', e.target.value)}
+                    placeholder="Valeur attendue"
+                  />
+                )}
+              </div>
+            )}
+            {(!conditionSource ||
+              !block.attributes.multiDateConditionValue ||
+              (conditionValues.length > 0 && !conditionValues.some((v) => v.value === block.attributes.multiDateConditionValue))) && (
+              <p className="text-xs text-amber-700">
+                Condition incomplète : le bloc reste une date simple tant qu'elle n'est pas renseignée.
+              </p>
+            )}
+            <p className="text-xs text-gray-500">
+              Sinon, le répondant choisit une seule date.
+            </p>
+          </>
+        )}
+
+        {multiDateOn && (
+          <div className="space-y-2">
+            <Label htmlFor="multiDateMax">Nombre maximum de dates</Label>
+            <Input
+              id="multiDateMax"
+              type="number"
+              min={1}
+              value={block.attributes.multiDateMax ?? ''}
+              onChange={(e) => updateAttribute('multiDateMax', e.target.value === '' ? undefined : Math.max(1, Number(e.target.value)))}
+              placeholder="Illimité"
+            />
+          </div>
+        )}
+      </div>
+
       {/* Plage de dates */}
-      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-3">
+      <div className={`p-3 bg-purple-50 rounded-lg border border-purple-200 space-y-3 ${multiDateOn ? 'opacity-50 pointer-events-none' : ''}`}>
+        {multiDateOn && (
+          <p className="text-xs text-purple-700">Incompatible avec le mode plusieurs dates.</p>
+        )}
         <div className="flex items-center justify-between">
           <h4 className="font-medium text-purple-700 flex items-center gap-2">
             <CalendarRange className="w-4 h-4" />

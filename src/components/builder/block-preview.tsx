@@ -3,6 +3,7 @@
 import type { FormBlock, Theme } from '@/types/form'
 import { Check, ChevronDown, Image, FileSpreadsheet } from 'lucide-react'
 import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
+import { hasMultiDateOption } from '@/lib/multi-date'
 
 interface BlockPreviewProps {
   block: FormBlock
@@ -226,8 +227,13 @@ export function BlockPreview({ block, theme }: BlockPreviewProps) {
                 }}
               />
             </div>
-            {(hasMinRestriction || hasMaxRestriction) && (
+            {(hasMinRestriction || hasMaxRestriction || hasMultiDateOption(block.attributes)) && (
               <div className="flex gap-2 mt-1">
+                {hasMultiDateOption(block.attributes) && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                    Plusieurs dates{block.attributes.multiDateMode === 'conditional' ? ' (conditionnel)' : ''}
+                  </span>
+                )}
                 {hasMinRestriction && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-600">
                     Min: {block.attributes.minDateType === 'today' ? "Aujourd'hui" : 

@@ -27,6 +27,7 @@ import {
 } from '@/lib/a11y'
 import { choiceListProps, choiceOptionProps, selectedChoiceIndex } from '@/lib/choice-list'
 import { COMPLEMENT_SUFFIX, complementKey, isComplementMode, mergeChoiceComplements, otherOptionLabel } from '@/lib/choice-other'
+import { isMultiDateActive, normalizeMultiDateAnswers, toDateList } from '@/lib/multi-date'
 import {
   DRAFT_SAVE_DEBOUNCE_MS,
   buildFormDraft,
@@ -1762,7 +1763,10 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: mergeChoiceComplements(pruneStaleRepeaterKeys(completeData, allBlocks, repeaterStatesRef.current), allBlocks),
+          data: normalizeMultiDateAnswers(
+            mergeChoiceComplements(pruneStaleRepeaterKeys(completeData, allBlocks, repeaterStatesRef.current), allBlocks),
+            allBlocks
+          ),
           honeypot: honeypotRef.current?.value ?? '',
           renderToken,
           metadata: {
@@ -3732,7 +3736,7 @@ function QuestionBlock({
           } else if (dateType === 'specific' && specificDate) {
             return specificDate // Pas besoin d'offset pour une date spécifique
           } else if (dateType === 'block' && blockId) {
-            const blockValue = allAnswers[blockId]
+            const blockValue = Array.isArray(allAnswers[blockId]) ? toDateList(allAnswers[blockId])[0] : allAnswers[blockId]
             if (blockValue && typeof blockValue === 'string' && blockValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
               const [y, m, d] = blockValue.split('-').map(Number)
               baseDate = new Date(y, m - 1, d)
@@ -3775,6 +3779,8 @@ function QuestionBlock({
               isDateRange={block.attributes.isDateRange}
               startDateLabel={block.attributes.startDateLabel}
               endDateLabel={block.attributes.endDateLabel}
+              multiple={isMultiDateActive(block, allAnswers, allBlocks)}
+              maxCount={block.attributes.multiDateMax}
             />
           </div>
         )
@@ -4805,7 +4811,7 @@ function GroupBlock({
           }
           
           if (dateType === 'block' && blockId) {
-            const blockAnswer = answers[blockId]
+            const blockAnswer = Array.isArray(answers[blockId]) ? toDateList(answers[blockId])[0] : answers[blockId]
             if (blockAnswer) {
               // Parser manuellement si c'est une chaîne de date
               if (typeof blockAnswer === 'string' && blockAnswer.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -4847,6 +4853,8 @@ function GroupBlock({
               isDateRange={innerBlock.attributes.isDateRange}
               startDateLabel={innerBlock.attributes.startDateLabel}
               endDateLabel={innerBlock.attributes.endDateLabel}
+              multiple={isMultiDateActive(innerBlock, answers, allBlocks)}
+              maxCount={innerBlock.attributes.multiDateMax}
             />
           </div>
         )
@@ -6067,7 +6075,7 @@ function InnerBlockInput({
         } else if (dateType === 'specific' && specificDate) {
           return specificDate
         } else if (dateType === 'block' && blockId) {
-          const blockValue = allAnswers[blockId]
+          const blockValue = Array.isArray(allAnswers[blockId]) ? toDateList(allAnswers[blockId])[0] : allAnswers[blockId]
           if (blockValue && typeof blockValue === 'string' && blockValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
             const [y, m, d] = blockValue.split('-').map(Number)
             baseDate = new Date(y, m - 1, d)
@@ -6110,6 +6118,13 @@ function InnerBlockInput({
             isDateRange={block.attributes.isDateRange}
             startDateLabel={block.attributes.startDateLabel}
             endDateLabel={block.attributes.endDateLabel}
+            multiple={isMultiDateActive(
+              block,
+              allAnswers,
+              parentInnerBlocks,
+              repeaterBlockId ? `${repeaterBlockId}_${repetitionCount}_${block.id}` : block.id
+            )}
+            maxCount={block.attributes.multiDateMax}
           />
         </div>
       )
@@ -6423,14 +6438,16 @@ function InnerBlockInput({
 
 // Composant Calendrier pour le bloc Date Avancée
 interface AdvancedDateCalendarProps {
-  value: string | { start: string; end: string } | undefined
-  onChange: (value: string | { start: string; end: string }) => void
+  value: string | string[] | { start: string; end: string } | undefined
+  onChange: (value: string | string[] | { start: string; end: string }) => void
   minDate?: string
   maxDate?: string
   themeProps: ThemeProperties
   isDateRange?: boolean
   startDateLabel?: string
   endDateLabel?: string
+  multiple?: boolean
+  maxCount?: number
 }
 
 function AdvancedDateCalendar({ 
@@ -6441,8 +6458,12 @@ function AdvancedDateCalendar({
   themeProps, 
   isDateRange = false,
   startDateLabel = 'Date de début',
-  endDateLabel = 'Date de fin'
+  endDateLabel = 'Date de fin',
+  multiple = false,
+  maxCount,
 }: AdvancedDateCalendarProps) {
+  // Le mode plusieurs dates exclut la plage : une occurrence est un jour, pas une période.
+  if (multiple) isDateRange = false
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   
@@ -6451,12 +6472,15 @@ function AdvancedDateCalendar({
   const getSingleValue = (): string | undefined => {
     if (!value) return undefined
     if (typeof value === 'string') return value
+    // Plusieurs dates choisies, puis la condition est retombée : la première reste affichée,
+    // et c'est elle seule que normalizeMultiDateAnswers() enverra.
+    if (Array.isArray(value)) return toDateList(value)[0]
     return undefined
   }
   
   const getRangeValue = (): { start?: string; end?: string } => {
     if (!value) return {}
-    if (typeof value === 'object' && 'start' in value) {
+    if (typeof value === 'object' && !Array.isArray(value) && 'start' in value) {
       return value
     }
     return {}
@@ -6464,9 +6488,11 @@ function AdvancedDateCalendar({
   
   const singleValue = getSingleValue()
   const rangeValue = getRangeValue()
+  const multiValue = multiple ? toDateList(Array.isArray(value) ? value : value ? [value] : []) : []
+  const maxReached = multiple && !!maxCount && maxCount > 0 && multiValue.length >= maxCount
   
   const [displayMonth, setDisplayMonth] = useState(() => {
-    const dateToUse = isDateRange ? rangeValue.start : singleValue
+    const dateToUse = isDateRange ? rangeValue.start : multiple ? multiValue[0] : singleValue
     if (dateToUse) {
       const d = new Date(dateToUse)
       return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -6487,6 +6513,12 @@ function AdvancedDateCalendar({
 
   const getDaysInMonth = (date: Date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
+  }
+
+  // `generateCalendarDays` laisse déborder l'index du mois (-1, 12) : Date le ramène.
+  const isoOf = (year: number, month: number, day: number) => {
+    const d = new Date(year, month, day)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
   const isDateDisabled = (year: number, month: number, day: number) => {
@@ -6510,11 +6542,15 @@ function AdvancedDateCalendar({
       startDate.setHours(0, 0, 0, 0)
       if (date < startDate) return true
     }
+
+    // Plafond atteint : seuls les jours déjà choisis restent cliquables, pour pouvoir les retirer.
+    if (maxReached && !multiValue.includes(isoOf(year, month, day))) return true
     
     return false
   }
 
   const isDateSelected = (year: number, month: number, day: number) => {
+    if (multiple) return multiValue.includes(isoOf(year, month, day)) ? 'single' : false
     if (isDateRange) {
       if (rangeValue.start) {
         // Parser la date manuellement pour éviter les problèmes de fuseau horaire
@@ -6606,7 +6642,12 @@ function AdvancedDateCalendar({
     if (isDateDisabled(year, month, day)) return
     
     // Formater manuellement pour éviter les problèmes de fuseau horaire avec toISOString()
-    const formatted = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const formatted = isoOf(year, month, day)
+
+    if (multiple) {
+      toggleMultiDate(formatted)
+      return
+    }
     
     if (isDateRange) {
       if (rangeSelection === 'start') {
@@ -6626,6 +6667,15 @@ function AdvancedDateCalendar({
     } else {
       onChange(formatted)
     }
+  }
+
+  // Liste vidée → chaîne vide, pas `[]` : un tableau vide est truthy et passerait pour une
+  // réponse au contrôle « champ requis ».
+  const toggleMultiDate = (iso: string) => {
+    const next = multiValue.includes(iso)
+      ? multiValue.filter((d) => d !== iso)
+      : toDateList([...multiValue, iso])
+    onChange(next.length > 0 ? next : '')
   }
 
   const days = generateCalendarDays()
@@ -6817,8 +6867,45 @@ function AdvancedDateCalendar({
         )}
       </div>
       
+      {/* Dates choisies (mode plusieurs dates) */}
+      {multiple && (
+        <div className="mt-3" style={{ color: themeProps.answersColor }}>
+          <p className="text-sm opacity-80" aria-live="polite">
+            {multiValue.length === 0
+              ? 'Sélectionnez une ou plusieurs dates dans le calendrier.'
+              : `${multiValue.length} date${multiValue.length > 1 ? 's' : ''} sélectionnée${multiValue.length > 1 ? 's' : ''}${maxCount ? ` sur ${maxCount} maximum` : ''}`}
+          </p>
+          {multiValue.length > 0 && (
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {multiValue.map((iso) => {
+                const [y, m, d] = iso.split('-').map(Number)
+                const label = new Date(y, m - 1, d).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                return (
+                  <li
+                    key={iso}
+                    className="inline-flex items-center gap-1 pl-3 pr-1 py-1 rounded-full text-sm"
+                    style={{ backgroundColor: themeProps.buttonsBgColor + '15', border: `1px solid ${themeProps.buttonsBgColor}40` }}
+                  >
+                    <span>{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleMultiDate(iso)}
+                      aria-label={`Retirer le ${label}`}
+                      className="w-6 h-6 rounded-full flex items-center justify-center hover:opacity-70"
+                      style={{ color: themeProps.answersColor }}
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Affichage de la date sélectionnée */}
-      {!isDateRange && singleValue && (
+      {!multiple && !isDateRange && singleValue && (
         <div className="mt-3 text-lg text-center" style={{ color: themeProps.answersColor }}>
           Date sélectionnée : <strong>{new Date(singleValue).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
         </div>

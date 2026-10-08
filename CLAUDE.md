@@ -87,7 +87,7 @@ Context for Claude Code when working on this project.
 | `src/lib/form-access.ts` | Shared form permission check (`getAccessibleForm`) used by the document and report routes |
 | `src/lib/form-options.ts` | Pure/client-safe access options — `FormAccessSettings` defaults, `parseFormAccessSettings()`, `accessMessage()`, `accessSummary()`, `scheduleState()`; no Prisma import |
 | `src/lib/form-gate.ts` | Server-only enforcement — `resolveFormGate()`, access/submitted cookie names, `signAccessToken()`, `hashFormPassword()` |
-| `src/lib/form-draft.ts` | Pure/client-safe local draft — `readDraft()`/`writeDraft()`/`clearDraft()`, `buildFormDraft()`, `sanitizeDraftAnswers()`, `isDraftEnabled()`; `localStorage` only, nothing reaches the server |
+| `src/lib/form-draft.ts` | Pure/client-safe local draft — `readDraft()`/`writeDraft()`/`clearDraft()`, `buildFormDraft()`, `sanitizeDraftAnswers()`, `isDraftEnabled()`, `buildRestartAnswers()`/`pruneStaleRepeaterKeys()` (pre-filled restart); `localStorage` only, nothing reaches the server |
 | `src/lib/form-antispam.ts` | Server-only anti-spam — `signRenderToken()`/`readRenderToken()`, the per-IP submission bucket, `evaluateSubmissionAntiSpam()` |
 | `src/components/forms/form-options-modal.tsx` | "Options" modal — availability window, password, quota, participation restrictions, noindex |
 | `src/app/[slug]/form-gate-screen.tsx` | Public screen shown in place of a form that is closed, scheduled, full, already answered, or locked |
@@ -927,6 +927,16 @@ public form — same rule as `renderToken`.
 
 `FormSettings.saveDraftEnabled` turns it off per form (*Paramètres* panel). Absent means enabled, so
 forms saved before the feature have it without being re-saved — the anti-spam convention.
+
+**Pre-filled restart.** `restartPrefill` on the `thankyou-screen` block makes the *Recommencer*
+button start the next response from the one just sent (serial entries where only a date changes);
+absent means the historical empty restart. `buildRestartAnswers()` keeps everything except the
+signature (an act, as above) **and attachments** — erasing a response deletes its files, so two
+responses sharing a `storedName` would lose the file together. Restarting walks the form from the
+start with `repeaterStates` reset, so a repeater may now be walked through fewer times than the
+answers hold: `pruneStaleRepeaterKeys()` drops the iterations beyond the final `repetitionCount` at
+submit. It reads `repeaterStatesRef`, never the closure — `handleSubmit` is reached from memoised
+callbacks, and a stale count would prune iterations the respondent really typed.
 
 ### Anti-spam on Public Submission (`src/lib/form-antispam.ts`)
 Three cumulative measures on `POST /api/forms/[id]/submit`, no captcha and no external service.

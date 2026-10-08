@@ -11,6 +11,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 ## [Non publié]
 
 ### Ajouts
+- **Recommencer pré-rempli** — le bouton *Recommencer* de l'écran de fin vidait tout le formulaire : des saisies en série qui ne diffèrent que par une date étaient à retaper entièrement. Un nouvel interrupteur *Reprendre les réponses précédentes* sur le bloc Écran de fin le fait repartir de la réponse qui vient d'être envoyée.
+  - Le répondant reparcourt le formulaire depuis le début, chaque champ déjà rempli ; la logique conditionnelle se recalcule sur les réponses reprises.
+  - **La signature et les pièces jointes repartent vides** : signer est un acte à refaire, et deux réponses pointant le même fichier le perdraient ensemble à la suppression de l'une d'elles.
+  - Désactivé par défaut — les formulaires existants gardent le redémarrage à vide.
 - **Option « Autre » renommable, et utilisable comme complément** — sur un bloc Choix multiple, l'option « Autre » servait uniquement à donner une réponse hors liste. Elle peut désormais porter le libellé de son choix (« Commentaire », « Votre avis », « Précisions »…) et fonctionner selon deux modes :
   - **Une option de plus** — le comportement historique, inchangé par défaut.
   - **Un complément à la sélection** — un champ libre toujours affiché sous les choix, qui s'ajoute au choix ou aux choix cochés, **y compris quand une seule réponse est autorisée**. La réponse enregistrée se lit `Oui, Commentaire : …` dans le tableau, les exports, les webhooks et les modèles Word.
@@ -29,6 +33,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 - **Suppression de `form-preview.tsx`** — 1 811 lignes qui réimplémentaient le rendu du formulaire, plus utilisées depuis que le bouton *Aperçu* ouvre le vrai composant public dans un iframe. Un second moteur de rendu que personne n'exécute est un second moteur de rendu qui diverge.
 
 ### Corrections
+- **Itérations fantômes d'un bloc répétable** — remplir un répéteur en moins d'itérations qu'auparavant (après un retour en arrière, ou sur un redémarrage pré-rempli) envoyait les itérations en trop avec la réponse. Celles qui dépassent le nombre réellement parcouru sont désormais retirées à l'envoi.
 - **Les flèches du clavier dans la saisie libre de l'option « Autre »** sautaient d'une option à l'autre au lieu de déplacer le curseur dans le texte.
 - **Le constructeur de corps de webhook existait en double**, entre la route de soumission et la route de relance manuelle ; la file de reprise en aurait fait un troisième. Il vit désormais dans un seul module, `src/lib/webhook-send.ts`.
 

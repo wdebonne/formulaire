@@ -75,6 +75,41 @@ export function sanitizeDraftAnswers(answers: Record<string, any>): Record<strin
   return clean
 }
 
+// Réponses reprises par le bouton « Recommencer » en mode pré-rempli. Mêmes exclusions que le
+// brouillon, plus les pièces jointes : supprimer une réponse supprime ses fichiers
+// (`deleteFilesOfResponses`), donc deux réponses pointant le même `storedName` verraient l'une
+// perdre son fichier le jour où l'autre est effacée.
+export function buildRestartAnswers(answers: Record<string, any>): Record<string, any> {
+  const kept: Record<string, any> = {}
+  for (const [key, value] of Object.entries(sanitizeDraftAnswers(answers))) {
+    if (value && typeof value === 'object' && (value as any).kind === 'file') continue
+    kept[key] = value
+  }
+  return kept
+}
+
+// Retire les itérations de répéteur au-delà du nombre réellement parcouru. Sans cela, une saisie
+// reprise (ou un retour en arrière) faite de 2 itérations après 3 enverrait la 3ᵉ, fantôme.
+export function pruneStaleRepeaterKeys(
+  data: Record<string, any>,
+  blocks: { id: string; type: string }[],
+  repeaterStates: Record<string, Pick<DraftRepeaterState, 'repetitionCount'>>
+): Record<string, any> {
+  const repeaterIds = blocks.filter((b) => b.type === 'repeater').map((b) => b.id)
+  if (repeaterIds.length === 0) return data
+
+  const pruned: Record<string, any> = {}
+  for (const [key, value] of Object.entries(data)) {
+    const stale = repeaterIds.some((id) => {
+      const match = key.startsWith(`${id}_`) && /^(?:repeat_)?(\d+)/.exec(key.slice(id.length + 1))
+      if (!match) return false
+      return Number(match[1]) > (repeaterStates[id]?.repetitionCount ?? 0)
+    })
+    if (!stale) pruned[key] = value
+  }
+  return pruned
+}
+
 // Renvoie null quand il n'y a rien à conserver : ouvrir la page puis la fermer ne doit pas laisser
 // de trace, et surtout pas écraser un brouillon existant par un objet vide.
 export function buildFormDraft(

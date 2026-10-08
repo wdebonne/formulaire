@@ -11,6 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Pre-filled restart** — the *Recommencer* button on the thank-you screen used to empty the whole form, so serial entries differing only by a date had to be retyped from scratch. A new *Reprendre les réponses précédentes* switch on the thank-you screen block makes it start from the response just sent.
+  - The respondent walks the form again from the start, every field already filled; conditional logic is recomputed on the resumed answers.
+  - **Signature and attachments start empty**: signing is an act to repeat, and two responses referencing the same file would lose it together when either is erased.
+  - Off by default — existing forms keep the empty restart.
 - **Renamable "Other" option, usable as a complement** — on a Multiple Choice block, the "Other" option only served to give an off-list answer. It can now carry any label ("Comment", "Your opinion", "Details"…) and works in two modes:
   - **One more option** — the historical behaviour, unchanged by default.
   - **A complement to the selection** — a free field always shown under the choices, added to whatever is checked, **even when a single answer is allowed**. The stored answer reads `Oui, Commentaire : …` in the table, exports, webhooks and Word templates.
@@ -29,6 +33,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Deleted `form-preview.tsx`** — 1,811 lines re-implementing the form renderer, unused since the *Aperçu* button started opening the real public component in an iframe. A second renderer nobody runs is a second renderer that drifts.
 
 ### Fixed
+- **Phantom repeater iterations** — answering a repeater with fewer iterations than earlier (after going back, or on a pre-filled restart) sent the leftover iterations along with the response. Iterations beyond the count actually walked through are now dropped at submission.
 - **Arrow keys inside the "Other" free-text field** jumped between options instead of moving the caret.
 - **The webhook payload builder existed twice**, between the submit route and the manual replay route; the retry queue would have made it a third. It now lives in a single module, `src/lib/webhook-send.ts`.
 

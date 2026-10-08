@@ -30,10 +30,12 @@ import { COMPLEMENT_SUFFIX, complementKey, isComplementMode, mergeChoiceCompleme
 import {
   DRAFT_SAVE_DEBOUNCE_MS,
   buildFormDraft,
+  buildRestartAnswers,
   clearDraft,
   draftAnswerCount,
   formatDraftDate,
   isDraftEnabled,
+  pruneStaleRepeaterKeys,
   readDraft,
   writeDraft,
   type DraftScope,
@@ -982,6 +984,10 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
 
   // État pour les blocs répétables
   const [repeaterStates, setRepeaterStates] = useState<Record<string, RepeaterState>>({})
+  // handleSubmit est appelé depuis des callbacks mémoïsés : sans ref, il élaguerait les itérations
+  // de répéteur sur un compte périmé, et supprimerait des réponses réellement saisies.
+  const repeaterStatesRef = useRef(repeaterStates)
+  repeaterStatesRef.current = repeaterStates
 
   // Brouillon local (voir src/lib/form-draft.ts)
   const draftEnabled = isDraftEnabled(form.settings)
@@ -1756,7 +1762,7 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: mergeChoiceComplements(completeData, allBlocks),
+          data: mergeChoiceComplements(pruneStaleRepeaterKeys(completeData, allBlocks, repeaterStatesRef.current), allBlocks),
           honeypot: honeypotRef.current?.value ?? '',
           renderToken,
           metadata: {
@@ -1869,10 +1875,12 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
     }
   }, [goToNext, goToPrev, isSubmitted, isSubmitting])
 
-  // Réinitialise complètement le formulaire pour une nouvelle soumission
+  // Relance le formulaire pour une nouvelle soumission — vide, ou pré-rempli avec la réponse
+  // envoyée quand l'écran de fin le demande (saisies en série où seule une date change).
   const handleRestart = () => {
-    answersRef.current = {}
-    setAnswers({})
+    const kept = thankyouBlock?.attributes.restartPrefill ? buildRestartAnswers(answersRef.current) : {}
+    answersRef.current = kept
+    setAnswers(kept)
     setCurrentIndex(0)
     setIsSubmitted(false)
     setIsSubmitting(false)

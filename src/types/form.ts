@@ -110,6 +110,7 @@ export interface BlockAttributes {
   // Attributs pour l'écran de remerciement (thankyou-screen)
   showRestartButton?: boolean // Afficher un bouton "Recommencer" pour relancer le formulaire
   restartButtonText?: string // Texte du bouton de recommencement
+  restartPrefill?: boolean // Recommencer reprend les réponses envoyées (absent = formulaire vide)
   // Mention RGPD (welcome-screen et thankyou-screen)
   showGdprNotice?: boolean // Afficher un lien vers une mention RGPD
   gdprNoticeLinkText?: string // Texte du lien (ex: "Politique de confidentialité")

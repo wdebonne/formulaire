@@ -14,19 +14,13 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import {
-  MAX_ROUTE_VARIABLES,
-  MAX_ROUTE_VARIABLE_LENGTH,
   buildFieldCatalog,
   catalogToMappings,
-  toVariableKey,
+  sanitizeRouteVariables,
   type DocumentCatalogField,
 } from '@/lib/document-fields'
-import type {
-  DocumentEmailRoute,
-  EmailRouteVariable,
-  FormDocumentSettings,
-  LogicCondition,
-} from '@/types/form'
+import { VariablesEditor } from '@/components/forms/variables-editor'
+import type { DocumentEmailRoute, FormDocumentSettings, LogicCondition } from '@/types/form'
 import {
   AlertTriangle,
   ChevronDown,
@@ -161,6 +155,7 @@ export function DocumentEmailModal({
     [conditionFields]
   )
   const availableTags = useMemo(() => catalogToMappings(catalog).map((m) => m.tag), [catalog])
+  const [commonTags, setCommonTags] = useState<string[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -170,6 +165,7 @@ export function DocumentEmailModal({
       const data: FormDocumentSettings = await res.json()
       setHasTemplate(Boolean(data.template.storedName))
       setMappings(data.template.mappings ?? [])
+      setCommonTags(sanitizeRouteVariables(data.template.variables).map((v) => v.key))
       setEnabled(data.email.enabled)
       setSendOnSubmission(data.email.sendOnSubmission)
       setRoutes(data.email.routes ?? [])
@@ -575,6 +571,7 @@ export function DocumentEmailModal({
                         <RouteVariables
                           route={route}
                           formTags={availableTags}
+                          commonTags={commonTags}
                           onChange={(patch) => updateRoute(route.id, patch)}
                         />
 
@@ -660,8 +657,8 @@ export function DocumentEmailModal({
 
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="mb-1.5 text-xs font-medium text-gray-600">
-                Jetons acceptés dans l’objet et le corps (plus les valeurs personnalisées de
-                chaque circuit). Une date se reformate avec{' '}
+                Jetons acceptés dans l’objet et le corps (plus les valeurs communes définies dans
+                « Modèle de document » et celles de chaque circuit). Une date se reformate avec{' '}
                 <code className="font-mono">{'{today|JJ/MM/AAAA}'}</code> — lettres JJ, MM, MMMM,
                 AAAA, AA, JJJJ (jour de la semaine) :
               </p>
@@ -674,6 +671,17 @@ export function DocumentEmailModal({
                     {`{${tag}}`}
                   </code>
                 ))}
+                {commonTags
+                  .filter((tag) => !availableTags.includes(tag))
+                  .map((tag) => (
+                    <code
+                      key={`common-${tag}`}
+                      title="Valeur commune (Modèle de document)"
+                      className="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-[11px] text-blue-700 ring-1 ring-blue-200"
+                    >
+                      {`{${tag}}`}
+                    </code>
+                  ))}
               </div>
             </div>
           </div>
@@ -804,93 +812,40 @@ function RouteRecipients({
 function RouteVariables({
   route,
   formTags,
+  commonTags,
   onChange,
 }: {
   route: DocumentEmailRoute
   formTags: string[]
+  commonTags: string[]
   onChange: (patch: Partial<DocumentEmailRoute>) => void
 }) {
-  const variables = route.variables ?? []
-  const formTagSet = new Set(formTags)
-
-  const update = (index: number, patch: Partial<EmailRouteVariable>) =>
-    onChange({ variables: variables.map((v, i) => (i === index ? { ...v, ...patch } : v)) })
-
   return (
-    <div className="space-y-3">
-      <div>
-        <Label>Valeurs personnalisées de ce circuit</Label>
-        <p className="mt-1 text-xs text-gray-500">
+    <VariablesEditor
+      title="Valeurs personnalisées de ce circuit"
+      description={
+        <>
           Utilisables dans l’objet, le corps et le document joint de ce circuit uniquement, par
           exemple <code className="font-mono">{'{responsable}'}</code>. Une valeur peut reprendre
-          un jeton du formulaire, et une date peut être reformatée :{' '}
+          un jeton du formulaire ou une valeur commune, et une date peut être reformatée :{' '}
           <code className="font-mono">{'{today|AAAA-MM-JJ}'}</code> → 2026-11-18,{' '}
           <code className="font-mono">{'{today|JJ-MM-AAAA}'}</code> → 18-11-2026,{' '}
           <code className="font-mono">{'{entry_date|JJ MMMM AAAA}'}</code> → 18 novembre 2026.
-        </p>
-      </div>
-
-      {variables.map((variable, index) => {
-        const key = variable.key.replace(/^_+|_+$/g, '')
-        const duplicate = key && variables.findIndex((v) => v.key.replace(/^_+|_+$/g, '') === key) < index
-        return (
-          <div key={index} className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Input
-                value={variable.key}
-                onChange={(e) => update(index, { key: toVariableKey(e.target.value) })}
-                placeholder="responsable"
-                aria-label="Nom du jeton"
-                className="w-48 font-mono"
-              />
-              <Input
-                value={variable.value}
-                onChange={(e) => update(index, { value: e.target.value })}
-                placeholder="Didier Dupont"
-                aria-label={key ? `Valeur de {${key}}` : 'Valeur'}
-                maxLength={MAX_ROUTE_VARIABLE_LENGTH}
-                className="flex-1"
-              />
-              <button
-                type="button"
-                onClick={() => onChange({ variables: variables.filter((_, i) => i !== index) })}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                title="Retirer cette valeur"
-                aria-label="Retirer cette valeur"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            {key && !duplicate && (
-              <p className="pl-1 text-xs text-gray-500">
-                Jeton : <code className="font-mono text-gray-700">{`{${key}}`}</code>
-                {formTagSet.has(key) && (
-                  <span className="ml-2 text-amber-700">
-                    — remplace le champ du formulaire du même nom dans ce circuit
-                  </span>
-                )}
-              </p>
-            )}
-            {duplicate && (
-              <p className="pl-1 text-xs text-amber-700">
-                Déjà défini plus haut : cette ligne sera ignorée.
-              </p>
-            )}
-          </div>
-        )
-      })}
-
-      {variables.length < MAX_ROUTE_VARIABLES && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onChange({ variables: [...variables, { key: '', value: '' }] })}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Ajouter une valeur
-        </Button>
-      )}
-    </div>
+        </>
+      }
+      variables={route.variables ?? []}
+      onChange={(variables) => onChange({ variables })}
+      shadowedTags={[
+        {
+          tags: new Set(commonTags),
+          note: 'remplace la valeur commune du même nom dans ce circuit',
+        },
+        {
+          tags: new Set(formTags),
+          note: 'remplace le champ du formulaire du même nom dans ce circuit',
+        },
+      ]}
+    />
   )
 }
+

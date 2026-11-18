@@ -284,6 +284,19 @@ export function sanitizeRouteVariables(input: unknown): EmailRouteVariable[] {
  * sont résolus contre les jetons du formulaire seulement, jamais contre les autres valeurs du
  * circuit : l'ordre des lignes n'a donc aucune incidence et aucune boucle n'est possible.
  */
+/**
+ * Form tokens, then the values common to the form, then the route's own values — each layer
+ * resolved against the ones below it only. A route value may therefore reuse a common value,
+ * never the reverse, and a common value cannot depend on which route is sending.
+ */
+export function withTokenLayers(
+  tokens: Record<string, any>,
+  common: EmailRouteVariable[] | undefined,
+  route?: EmailRouteVariable[] | undefined
+): Record<string, any> {
+  return withRouteVariables(withRouteVariables(tokens, common), route)
+}
+
 export function withRouteVariables(
   tokens: Record<string, any>,
   variables: EmailRouteVariable[] | undefined

@@ -19,7 +19,8 @@ import {
   sanitizeRouteVariables,
   type DocumentCatalogField,
 } from '@/lib/document-fields'
-import type { FormDocumentSettings } from '@/types/form'
+import { VariablesEditor } from '@/components/forms/variables-editor'
+import type { EmailRouteVariable, FormDocumentSettings } from '@/types/form'
 import {
   AlertTriangle,
   Check,
@@ -162,6 +163,7 @@ export function DocumentTemplateModal({
   const [outputName, setOutputName] = useState('')
   const [outputFormat, setOutputFormat] = useState<'docx' | 'pdf'>('docx')
   const [checkboxStyle, setCheckboxStyle] = useState<'unicode' | 'wingdings'>('unicode')
+  const [commonVariables, setCommonVariables] = useState<EmailRouteVariable[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -173,6 +175,7 @@ export function DocumentTemplateModal({
       setOutputName(data.template.outputName ?? '')
       setOutputFormat(data.template.outputFormat === 'pdf' ? 'pdf' : 'docx')
       setCheckboxStyle(data.template.checkboxStyle === 'wingdings' ? 'wingdings' : 'unicode')
+      setCommonVariables(data.template.variables ?? [])
     } catch (error: any) {
       toast({ title: 'Erreur', description: error.message, variant: 'destructive' })
     } finally {
@@ -203,6 +206,12 @@ export function DocumentTemplateModal({
   )
   // Jetons fournis par les circuits d'envoi : remplis dans le document joint par ces circuits,
   // vides au téléchargement direct, qui ne passe par aucun circuit.
+  // Typed values count as soon as they are typed, not after saving: the user fills {date} and
+  // watches it leave the "unknown" warning.
+  const commonTags = useMemo(
+    () => new Set(sanitizeRouteVariables(commonVariables).map((v) => v.key)),
+    [commonVariables]
+  )
   const routeTags = useMemo(
     () =>
       new Set(
@@ -213,12 +222,18 @@ export function DocumentTemplateModal({
     [payload?.email.routes]
   )
   const unknownTags = useMemo(
-    () => Array.from(docTags).filter((tag) => !knownTags.has(tag) && !routeTags.has(tag)),
-    [docTags, knownTags, routeTags]
+    () =>
+      Array.from(docTags).filter(
+        (tag) => !knownTags.has(tag) && !commonTags.has(tag) && !routeTags.has(tag)
+      ),
+    [docTags, knownTags, commonTags, routeTags]
   )
   const routeOnlyTags = useMemo(
-    () => Array.from(docTags).filter((tag) => !knownTags.has(tag) && routeTags.has(tag)),
-    [docTags, knownTags, routeTags]
+    () =>
+      Array.from(docTags).filter(
+        (tag) => !knownTags.has(tag) && !commonTags.has(tag) && routeTags.has(tag)
+      ),
+    [docTags, knownTags, commonTags, routeTags]
   )
 
   const handleUpload = async (file: File) => {
@@ -277,6 +292,7 @@ export function DocumentTemplateModal({
             outputName,
             outputFormat,
             checkboxStyle,
+            variables: commonVariables,
           },
         }),
       })
@@ -420,7 +436,10 @@ export function DocumentTemplateModal({
                         </code>
                       ))}
                     </p>
-                    <p className="mt-1 text-xs">Ils resteront vides à la génération.</p>
+                    <p className="mt-1 text-xs">
+                      Ils resteront vides à la génération — sauf si vous leur donnez une valeur
+                      dans « Valeurs communes » plus bas.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -440,7 +459,8 @@ export function DocumentTemplateModal({
                   </p>
                   <p className="mt-1 text-xs">
                     Remplis dans le document joint par le circuit qui les définit ; vides au
-                    téléchargement direct depuis la liste des réponses.
+                    téléchargement direct depuis la liste des réponses. Pour une valeur identique
+                    partout, définissez-la plutôt dans « Valeurs communes ».
                   </p>
                 </div>
               </div>
@@ -497,6 +517,45 @@ export function DocumentTemplateModal({
                   document imprimé vierge reste donc remplissable à la main, sans le modifier.
                 </p>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 p-4">
+              <VariablesEditor
+                title="Valeurs communes"
+                description={
+                  <>
+                    Jetons absents du formulaire mais attendus par le modèle, avec la même valeur
+                    pour tous les circuits d’envoi — et au téléchargement direct. Par exemple{' '}
+                    <code className="font-mono">{'{date}'}</code> →{' '}
+                    <code className="font-mono">{'{today|JJ/MM/AAAA}'}</code>. Utilisables aussi
+                    dans l’objet et le corps des e-mails. Un circuit peut redéfinir le même jeton
+                    pour lui seul.
+                  </>
+                }
+                variables={commonVariables}
+                onChange={setCommonVariables}
+                shadowedTags={[
+                  {
+                    tags: knownTags,
+                    note: 'remplace le champ du formulaire du même nom',
+                  },
+                ]}
+              />
+              {unknownTags.length + routeOnlyTags.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                  <span>Ajouter un jeton du modèle :</span>
+                  {[...unknownTags, ...routeOnlyTags].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setCommonVariables((prev) => [...prev, { key: tag, value: '' }])}
+                      className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 font-mono text-amber-800 hover:bg-amber-100"
+                    >
+                      + {`{${tag}}`}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Sortie */}

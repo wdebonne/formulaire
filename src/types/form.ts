@@ -290,6 +290,10 @@ export interface DocumentTemplateSettings {
   outputFormat?: DocumentOutputFormat // 'pdf' n'est proposé que si un convertisseur est vérifié
   outputName?: string // gabarit du nom de fichier, ex: "Ordre de mission - {nom_agent}"
   checkboxStyle?: DocumentCheckboxStyle // jeu de caractères des cases : Unicode (défaut) ou Wingdings
+  // Jetons communs à tout le formulaire ({date} → « {today|JJ/MM/AAAA} ») : remplis dans le
+  // document, au téléchargement direct comme dans chaque circuit, et dans les e-mails. Une
+  // valeur du circuit de même nom l'emporte.
+  variables?: EmailRouteVariable[]
 }
 
 /**

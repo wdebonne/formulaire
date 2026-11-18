@@ -689,7 +689,12 @@ subject and body by `withRouteVariables()` (`src/lib/document-fields.ts`). A rou
 form field of the same tag — it is the narrower scope, like a docxtemplater loop — and the modal
 flags the collision. They also fill the attached `.docx`: `sendDocumentForResponse()` renders one
 document **per distinct set of route values** (routes without values share one render and one PDF
-round-trip). The direct download from the responses page goes through no route, so those tokens
+round-trip). A value the template needs but no question provides, and that is the same for every
+route (`{date}`), belongs in the template's **common values** (`DocumentTemplateSettings.variables`,
+edited in *Modèle de document*): `withTokenLayers()` stacks form tokens → common values → route
+values, each layer resolved against the ones below only, so a route may reuse or override a common
+value and a common value can never depend on which route is sending. Unlike route values, common
+values also fill the direct download. The direct download from the responses page goes through no route, so those tokens
 come out empty there — the template modal lists them apart from the unknown tokens and says so.
 A route value may itself contain form tokens, and any date token takes a format —
 `{today|AAAA-MM-JJ}`, `{entry_date|JJ MMMM AAAA}` (`src/lib/token-format.ts`, French or English

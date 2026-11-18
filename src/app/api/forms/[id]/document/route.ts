@@ -160,6 +160,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...(body?.template?.outputName !== undefined && {
           outputName: String(body.template.outputName).slice(0, 200),
         }),
+        ...(body?.template?.variables !== undefined && {
+          variables: sanitizeRouteVariables(body.template.variables),
+        }),
         ...(body?.template?.checkboxStyle !== undefined && {
           checkboxStyle: body.template.checkboxStyle === 'wingdings' ? 'wingdings' : 'unicode',
         }),

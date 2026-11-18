@@ -26,6 +26,7 @@ import {
   catalogToMappings,
   sanitizeRouteVariables,
   withRouteVariables,
+  withTokenLayers,
 } from './document-fields'
 import type {
   DocumentEmailRoute,
@@ -94,13 +95,14 @@ export async function generateDocumentForResponse(
   const blocks = JSON.parse(form.blocks || '[]')
   const responseData = JSON.parse(response.data || '{}')
 
-  const data = withRouteVariables(
+  const data = withTokenLayers(
     buildDocumentData(blocks, template.mappings, responseData, {
       responseId: response.id,
       createdAt: response.createdAt,
       formTitle: form.title,
       checkboxStyle: template.checkboxStyle,
     }),
+    template.variables,
     options.variables
   )
 
@@ -175,16 +177,19 @@ function emailTokens(
   settings: FormDocumentSettings
 ): Record<string, any> {
   const blocks = JSON.parse(form.blocks || '[]')
-  return buildDocumentData(
-    blocks,
-    catalogToMappings(buildFieldCatalog(blocks, settings.template.mappings)),
-    JSON.parse(response.data || '{}'),
-    {
-      responseId: response.id,
-      createdAt: response.createdAt,
-      formTitle: form.title,
-      checkboxStyle: settings.template.checkboxStyle,
-    }
+  return withTokenLayers(
+    buildDocumentData(
+      blocks,
+      catalogToMappings(buildFieldCatalog(blocks, settings.template.mappings)),
+      JSON.parse(response.data || '{}'),
+      {
+        responseId: response.id,
+        createdAt: response.createdAt,
+        formTitle: form.title,
+        checkboxStyle: settings.template.checkboxStyle,
+      }
+    ),
+    settings.template.variables
   )
 }
 

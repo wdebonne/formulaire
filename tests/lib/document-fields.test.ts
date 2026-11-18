@@ -8,6 +8,7 @@ import {
   slugifyTag,
   toVariableKey,
   withRouteVariables,
+  withTokenLayers,
 } from '@/lib/document-fields'
 
 const metaTags = DOCUMENT_META_FIELDS.map((m) => m.id)
@@ -252,5 +253,43 @@ describe('valeurs personnalisées d’un circuit', () => {
   it('laisse les jetons intacts pour un circuit enregistré avant la fonctionnalité', () => {
     const tokens = { form_title: 'X' }
     expect(withRouteVariables(tokens, undefined)).toBe(tokens)
+  })
+})
+
+describe('withTokenLayers — valeurs communes du modèle puis valeurs du circuit', () => {
+  const tokens = { form_title: 'Ordre de mission', entry_date: '18/11/2026' }
+
+  it('remplit un jeton absent du formulaire pour tous les circuits', () => {
+    expect(withTokenLayers(tokens, [{ key: 'date', value: '{entry_date}' }]).date).toBe(
+      '18/11/2026'
+    )
+  })
+
+  // The narrower scope wins: one service may need its own {date} while the others share one.
+  it('laisse la valeur du circuit l’emporter sur la valeur commune', () => {
+    const data = withTokenLayers(
+      tokens,
+      [{ key: 'responsable', value: 'Accueil' }],
+      [{ key: 'responsable', value: 'Didier Dupont' }]
+    )
+    expect(data.responsable).toBe('Didier Dupont')
+  })
+
+  it('permet à une valeur du circuit de reprendre une valeur commune, jamais l’inverse', () => {
+    const data = withTokenLayers(
+      tokens,
+      [
+        { key: 'service', value: 'RH' },
+        { key: 'commune', value: '[{signataire}]' },
+      ],
+      [{ key: 'signataire', value: 'Le {service}' }]
+    )
+    expect(data.signataire).toBe('Le RH')
+    // A common value is the same for every route, so it cannot see a route's values.
+    expect(data.commune).toBe('[]')
+  })
+
+  it('ne change rien pour un formulaire sans valeur commune ni circuit', () => {
+    expect(withTokenLayers(tokens, undefined, undefined)).toBe(tokens)
   })
 })

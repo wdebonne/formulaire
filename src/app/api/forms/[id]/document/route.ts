@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth'
 import { getAccessibleForm } from '@/lib/form-access'
 import { inspectDocxTags, parseFormDocumentSettings } from '@/lib/docx-template'
 import { readTemplateFile } from '@/lib/document-storage'
+import { sanitizeRouteVariables } from '@/lib/document-fields'
 import { isPdfConversionAvailable } from '@/lib/pdf-convert'
 import { prisma } from '@/lib/prisma'
 import { randomUUID } from 'crypto'
@@ -117,6 +118,7 @@ function sanitizeRoutes(input: unknown, current: DocumentEmailRoute[]): Document
       subject: String(raw?.subject ?? '').slice(0, 300),
       body: String(raw?.body ?? '').slice(0, 20000),
       attachDocument: raw?.attachDocument !== false,
+      variables: sanitizeRouteVariables(raw?.variables),
     })
   }
   return routes

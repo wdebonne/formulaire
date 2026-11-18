@@ -310,6 +310,14 @@ export interface DocumentEmailRoute {
   subject: string
   body: string // HTML ; accepte les mêmes jetons {tag} que le modèle
   attachDocument: boolean // un circuit peut notifier sans joindre le document
+  // Jetons propres à ce circuit ({responsable} → « Didier Dupont »), résolus dans l'objet et le
+  // corps de ses seuls e-mails. Absent sur les circuits enregistrés avant la fonctionnalité.
+  variables?: EmailRouteVariable[]
+}
+
+export interface EmailRouteVariable {
+  key: string
+  value: string
 }
 
 export interface DocumentEmailSettings {

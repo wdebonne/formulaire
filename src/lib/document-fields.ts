@@ -4,7 +4,7 @@
 // être importé depuis un composant 'use client' — même raisonnement que audit-actions.ts
 // vis-à-vis de audit-log.ts. Le rendu du document lui-même vit dans docx-template.ts.
 
-import type { DocumentFieldMapping, DocumentMetaField } from '@/types/form'
+import type { DocumentFieldMapping, DocumentMetaField, EmailRouteVariable } from '@/types/form'
 
 export interface DocumentFieldChoice {
   label: string
@@ -238,4 +238,52 @@ export function catalogToMappings(fields: DocumentCatalogField[]): DocumentField
 // Tous les jetons du catalogue, boucles et enfants compris.
 export function catalogTags(fields: DocumentCatalogField[]): string[] {
   return catalogToMappings(fields).map((m) => m.tag)
+}
+
+export const MAX_ROUTE_VARIABLES = 30
+export const MAX_ROUTE_VARIABLE_LENGTH = 2000
+const COMBINING_MARKS = new RegExp('[\\u0300-\\u036f]', 'g')
+
+// Saisie en cours d'une clé : on ne rogne pas les underscores de bord, sinon taper « mon_ »
+// avant « nom » produirait « monnom ». Le rognage final se fait à l'enregistrement.
+export function toVariableKey(raw: string): string {
+  return String(raw)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(COMBINING_MARKS, '')
+    .replace(/[^a-z0-9_]+/g, '_')
+    .slice(0, 60)
+}
+
+/**
+ * Valeurs personnalisées d'un circuit, nettoyées pour l'enregistrement. Une clé vide est
+ * écartée (ligne laissée blanche dans la modale), une clé en double garde sa première valeur :
+ * deux lignes « responsable » ne doivent pas dépendre de leur ordre pour savoir laquelle part.
+ */
+export function sanitizeRouteVariables(input: unknown): EmailRouteVariable[] {
+  if (!Array.isArray(input)) return []
+  const seen = new Set<string>()
+  const variables: EmailRouteVariable[] = []
+  for (const raw of input) {
+    const key = toVariableKey(String(raw?.key ?? '')).replace(/^_+|_+$/g, '')
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    variables.push({ key, value: String(raw?.value ?? '').slice(0, MAX_ROUTE_VARIABLE_LENGTH) })
+    if (variables.length >= MAX_ROUTE_VARIABLES) break
+  }
+  return variables
+}
+
+/**
+ * Jetons d'un e-mail pour un circuit donné. La valeur du circuit l'emporte sur un champ du
+ * formulaire de même nom — c'est la portée la plus précise, comme une boucle docxtemplater
+ * masque le scope parent ; la modale signale la collision au moment de la saisie.
+ */
+export function withRouteVariables(
+  tokens: Record<string, any>,
+  variables: EmailRouteVariable[] | undefined
+): Record<string, any> {
+  const clean = sanitizeRouteVariables(variables)
+  if (clean.length === 0) return tokens
+  return { ...tokens, ...Object.fromEntries(clean.map((v) => [v.key, v.value])) }
 }

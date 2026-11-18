@@ -21,7 +21,7 @@ import {
   safeFileName,
 } from './docx-template'
 import { evaluateRouteConditions } from './condition-eval'
-import { buildFieldCatalog, catalogToMappings } from './document-fields'
+import { buildFieldCatalog, catalogToMappings, withRouteVariables } from './document-fields'
 import type {
   DocumentEmailRoute,
   DocumentRouteStatus,
@@ -262,10 +262,11 @@ export async function sendDocumentForResponse(
         continue
       }
 
+      const routeTokens = withRouteVariables(tokens, route.variables)
       const result = await sendFormDocumentEmail({
         to: recipients,
-        subject: applyTags(route.subject, tokens),
-        body: applyTags(route.body, tokens),
+        subject: applyTags(route.subject, routeTokens),
+        body: applyTags(route.body, routeTokens),
         ...(withDocument &&
           generated && {
             attachment: {

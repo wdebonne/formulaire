@@ -13,8 +13,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { buildFieldCatalog, catalogToMappings, type DocumentCatalogField } from '@/lib/document-fields'
-import type { DocumentEmailRoute, FormDocumentSettings, LogicCondition } from '@/types/form'
+import {
+  MAX_ROUTE_VARIABLES,
+  MAX_ROUTE_VARIABLE_LENGTH,
+  buildFieldCatalog,
+  catalogToMappings,
+  toVariableKey,
+  type DocumentCatalogField,
+} from '@/lib/document-fields'
+import type {
+  DocumentEmailRoute,
+  EmailRouteVariable,
+  FormDocumentSettings,
+  LogicCondition,
+} from '@/types/form'
 import {
   AlertTriangle,
   ChevronDown,
@@ -533,6 +545,12 @@ export function DocumentEmailModal({
                           onChange={(patch) => updateRoute(route.id, patch)}
                         />
 
+                        <RouteVariables
+                          route={route}
+                          formTags={availableTags}
+                          onChange={(patch) => updateRoute(route.id, patch)}
+                        />
+
                         <div className="space-y-2">
                           <Label>Objet</Label>
                           <Input
@@ -595,7 +613,8 @@ export function DocumentEmailModal({
 
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="mb-1.5 text-xs font-medium text-gray-600">
-                Jetons acceptés dans l’objet et le corps :
+                Jetons acceptés dans l’objet et le corps (plus les valeurs personnalisées de
+                chaque circuit) :
               </p>
               <div className="flex flex-wrap gap-1">
                 {availableTags.map((tag) => (
@@ -726,6 +745,98 @@ function RouteRecipients({
         <p className="text-xs text-red-600">
           Aucun destinataire : ce circuit échouera s’il se déclenche.
         </p>
+      )}
+    </div>
+  )
+}
+
+// Valeurs propres à un circuit : le service technique peut écrire {responsable} et recevoir
+// « Didier Dupont », la cantine le même jeton avec un autre nom.
+function RouteVariables({
+  route,
+  formTags,
+  onChange,
+}: {
+  route: DocumentEmailRoute
+  formTags: string[]
+  onChange: (patch: Partial<DocumentEmailRoute>) => void
+}) {
+  const variables = route.variables ?? []
+  const formTagSet = new Set(formTags)
+
+  const update = (index: number, patch: Partial<EmailRouteVariable>) =>
+    onChange({ variables: variables.map((v, i) => (i === index ? { ...v, ...patch } : v)) })
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label>Valeurs personnalisées de ce circuit</Label>
+        <p className="mt-1 text-xs text-gray-500">
+          Utilisables dans l’objet et le corps de ce circuit uniquement, par exemple{' '}
+          <code className="font-mono">{'{responsable}'}</code>.
+        </p>
+      </div>
+
+      {variables.map((variable, index) => {
+        const key = variable.key.replace(/^_+|_+$/g, '')
+        const duplicate = key && variables.findIndex((v) => v.key.replace(/^_+|_+$/g, '') === key) < index
+        return (
+          <div key={index} className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Input
+                value={variable.key}
+                onChange={(e) => update(index, { key: toVariableKey(e.target.value) })}
+                placeholder="responsable"
+                aria-label="Nom du jeton"
+                className="w-48 font-mono"
+              />
+              <Input
+                value={variable.value}
+                onChange={(e) => update(index, { value: e.target.value })}
+                placeholder="Didier Dupont"
+                aria-label={key ? `Valeur de {${key}}` : 'Valeur'}
+                maxLength={MAX_ROUTE_VARIABLE_LENGTH}
+                className="flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => onChange({ variables: variables.filter((_, i) => i !== index) })}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                title="Retirer cette valeur"
+                aria-label="Retirer cette valeur"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {key && !duplicate && (
+              <p className="pl-1 text-xs text-gray-500">
+                Jeton : <code className="font-mono text-gray-700">{`{${key}}`}</code>
+                {formTagSet.has(key) && (
+                  <span className="ml-2 text-amber-700">
+                    — remplace le champ du formulaire du même nom dans ce circuit
+                  </span>
+                )}
+              </p>
+            )}
+            {duplicate && (
+              <p className="pl-1 text-xs text-amber-700">
+                Déjà défini plus haut : cette ligne sera ignorée.
+              </p>
+            )}
+          </div>
+        )
+      })}
+
+      {variables.length < MAX_ROUTE_VARIABLES && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => onChange({ variables: [...variables, { key: '', value: '' }] })}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Ajouter une valeur
+        </Button>
       )}
     </div>
   )

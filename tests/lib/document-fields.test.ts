@@ -4,7 +4,10 @@ import {
   buildFieldCatalog,
   catalogTags,
   catalogToMappings,
+  sanitizeRouteVariables,
   slugifyTag,
+  toVariableKey,
+  withRouteVariables,
 } from '@/lib/document-fields'
 
 const metaTags = DOCUMENT_META_FIELDS.map((m) => m.id)
@@ -217,5 +220,37 @@ describe('catalogToMappings / catalogTags', () => {
     const before = buildFieldCatalog([text('b1', 'Votre prénom')])
     const after = buildFieldCatalog([text('b1', 'Comment vous appelez-vous ?')], catalogToMappings(before))
     expect(catalogTags(after)).toEqual(catalogTags(before))
+  })
+})
+
+describe('valeurs personnalisées d’un circuit', () => {
+  it('normalise la clé en jeton sans rogner pendant la saisie', () => {
+    // Rogner « mon_ » à la frappe empêcherait d'écrire « mon_nom ».
+    expect(toVariableKey('Mon ')).toBe('mon_')
+    expect(toVariableKey('Élu référent')).toBe('elu_referent')
+  })
+
+  it('écarte les clés vides et garde la première valeur d’une clé en double', () => {
+    expect(
+      sanitizeRouteVariables([
+        { key: '', value: 'orphelin' },
+        { key: ' Responsable_ ', value: 'Didier Dupont' },
+        { key: 'responsable', value: 'Autre' },
+      ])
+    ).toEqual([{ key: 'responsable', value: 'Didier Dupont' }])
+    expect(sanitizeRouteVariables('pas un tableau')).toEqual([])
+  })
+
+  it('l’emporte sur un champ du formulaire de même nom, sans toucher aux autres jetons', () => {
+    const tokens = { form_title: 'Ordre de mission', responsable: 'réponse' }
+    expect(withRouteVariables(tokens, [{ key: 'responsable', value: 'Didier Dupont' }])).toEqual({
+      form_title: 'Ordre de mission',
+      responsable: 'Didier Dupont',
+    })
+  })
+
+  it('laisse les jetons intacts pour un circuit enregistré avant la fonctionnalité', () => {
+    const tokens = { form_title: 'X' }
+    expect(withRouteVariables(tokens, undefined)).toBe(tokens)
   })
 })

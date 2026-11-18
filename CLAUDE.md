@@ -682,6 +682,13 @@ with **no condition always fires**; that is deliberately the opposite of form lo
 rule never applies), because a freshly created route, and the single route migrated from the old
 flat config, must send without inventing an always-true condition.
 
+A route can also carry its own **custom tokens** (`DocumentEmailRoute.variables`, e.g.
+`{responsable}` → « Didier Dupont » for the technical service only), resolved in that route's
+subject and body by `withRouteVariables()` (`src/lib/document-fields.ts`). A route token wins over a
+form field of the same tag — it is the narrower scope, like a docxtemplater loop — and the modal
+flags the collision. They do **not** reach the attached `.docx`: the document is generated once per
+response and shared by every route that attaches it.
+
 `src/lib/condition-eval.ts` is a **separate** evaluator from the one in `public-form-client.tsx`, and
 must stay separate: the form one compares against answers being typed, which hold raw slugs, while
 this one compares against `Response.data`, where `resolveDataLabels` already replaced slugs with

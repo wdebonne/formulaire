@@ -686,8 +686,10 @@ A route can also carry its own **custom tokens** (`DocumentEmailRoute.variables`
 `{responsable}` → « Didier Dupont » for the technical service only), resolved in that route's
 subject and body by `withRouteVariables()` (`src/lib/document-fields.ts`). A route token wins over a
 form field of the same tag — it is the narrower scope, like a docxtemplater loop — and the modal
-flags the collision. They do **not** reach the attached `.docx`: the document is generated once per
-response and shared by every route that attaches it.
+flags the collision. They also fill the attached `.docx`: `sendDocumentForResponse()` renders one
+document **per distinct set of route values** (routes without values share one render and one PDF
+round-trip). The direct download from the responses page goes through no route, so those tokens
+come out empty there — the template modal lists them apart from the unknown tokens and says so.
 
 `src/lib/condition-eval.ts` is a **separate** evaluator from the one in `public-form-client.tsx`, and
 must stay separate: the form one compares against answers being typed, which hold raw slugs, while

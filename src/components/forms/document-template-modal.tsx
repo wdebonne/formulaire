@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
   buildFieldCatalog,
   catalogToMappings,
+  sanitizeRouteVariables,
   type DocumentCatalogField,
 } from '@/lib/document-fields'
 import type { FormDocumentSettings } from '@/types/form'
@@ -26,6 +27,7 @@ import {
   Copy,
   Download,
   FileText,
+  Info,
   Loader2,
   Trash2,
   Upload,
@@ -199,9 +201,24 @@ export function DocumentTemplateModal({
     () => new Set(catalogToMappings(catalog).map((m) => m.tag)),
     [catalog]
   )
+  // Jetons fournis par les circuits d'envoi : remplis dans le document joint par ces circuits,
+  // vides au téléchargement direct, qui ne passe par aucun circuit.
+  const routeTags = useMemo(
+    () =>
+      new Set(
+        (payload?.email.routes ?? []).flatMap((route) =>
+          sanitizeRouteVariables(route.variables).map((v) => v.key)
+        )
+      ),
+    [payload?.email.routes]
+  )
   const unknownTags = useMemo(
-    () => Array.from(docTags).filter((tag) => !knownTags.has(tag)),
-    [docTags, knownTags]
+    () => Array.from(docTags).filter((tag) => !knownTags.has(tag) && !routeTags.has(tag)),
+    [docTags, knownTags, routeTags]
+  )
+  const routeOnlyTags = useMemo(
+    () => Array.from(docTags).filter((tag) => !knownTags.has(tag) && routeTags.has(tag)),
+    [docTags, knownTags, routeTags]
   )
 
   const handleUpload = async (file: File) => {
@@ -405,6 +422,26 @@ export function DocumentTemplateModal({
                     </p>
                     <p className="mt-1 text-xs">Ils resteront vides à la génération.</p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {routeOnlyTags.length > 0 && (
+              <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                <div>
+                  <p className="font-medium">Jetons fournis par les circuits d’envoi</p>
+                  <p className="mt-1 flex flex-wrap gap-1">
+                    {routeOnlyTags.map((tag) => (
+                      <code key={tag} className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-xs">
+                        {`{${tag}}`}
+                      </code>
+                    ))}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    Remplis dans le document joint par le circuit qui les définit ; vides au
+                    téléchargement direct depuis la liste des réponses.
+                  </p>
                 </div>
               </div>
             )}

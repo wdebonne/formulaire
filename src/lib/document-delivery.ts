@@ -21,11 +21,17 @@ import {
   safeFileName,
 } from './docx-template'
 import { evaluateRouteConditions } from './condition-eval'
-import { buildFieldCatalog, catalogToMappings, withRouteVariables } from './document-fields'
+import {
+  buildFieldCatalog,
+  catalogToMappings,
+  sanitizeRouteVariables,
+  withRouteVariables,
+} from './document-fields'
 import type {
   DocumentEmailRoute,
   DocumentRouteStatus,
   DocumentSendStatus,
+  EmailRouteVariable,
   FormDocumentSettings,
 } from '@/types/form'
 
@@ -71,11 +77,12 @@ export function hasEmailRoutes(documentSettings: string): boolean {
  *
  * `forceDocx` sert l'aperçu/téléchargement du .docx même lorsque le formulaire est réglé sur
  * PDF, afin de pouvoir contrôler le remplissage sans dépendre du convertisseur externe.
+ * `variables` porte les valeurs personnalisées du circuit qui joint le document.
  */
 export async function generateDocumentForResponse(
   form: FormRecord,
   response: ResponseRecord,
-  options: { forceDocx?: boolean } = {}
+  options: { forceDocx?: boolean; variables?: EmailRouteVariable[] } = {}
 ): Promise<GeneratedDocument> {
   const settings = parseFormDocumentSettings(form.documentSettings)
   const { template } = settings
@@ -87,12 +94,15 @@ export async function generateDocumentForResponse(
   const blocks = JSON.parse(form.blocks || '[]')
   const responseData = JSON.parse(response.data || '{}')
 
-  const data = buildDocumentData(blocks, template.mappings, responseData, {
-    responseId: response.id,
-    createdAt: response.createdAt,
-    formTitle: form.title,
-    checkboxStyle: template.checkboxStyle,
-  })
+  const data = withRouteVariables(
+    buildDocumentData(blocks, template.mappings, responseData, {
+      responseId: response.id,
+      createdAt: response.createdAt,
+      formTitle: form.title,
+      checkboxStyle: template.checkboxStyle,
+    }),
+    options.variables
+  )
 
   const templateBuffer = await readTemplateFile(template.storedName)
   let buffer = renderDocx(templateBuffer, data)
@@ -209,19 +219,29 @@ export async function sendDocumentForResponse(
         .map((route) => route.id)
     )
 
-    let generated: GeneratedDocument | null = null
-    let documentError: string | undefined
-    if (routes.some((route) => matched.has(route.id) && route.attachDocument !== false)) {
+    // Un document par jeu de valeurs personnalisées, pas par circuit : les circuits sans valeur
+    // (ou aux valeurs identiques) partagent le même rendu et le même aller-retour PDF.
+    type Produced = { generated: GeneratedDocument | null; error?: string }
+    const documents = new Map<string, Produced>()
+    const documentFor = async (route: DocumentEmailRoute): Promise<Produced> => {
+      const variables = sanitizeRouteVariables(route.variables)
+      const key = JSON.stringify(variables)
+      const cached = documents.get(key)
+      if (cached) return cached
+      let produced: Produced
       if (!settings.template.storedName) {
-        documentError = 'Aucun modèle de document n’est associé à ce formulaire'
+        produced = { generated: null, error: 'Aucun modèle de document n’est associé à ce formulaire' }
       } else {
         try {
-          generated = await generateDocumentForResponse(form, response)
+          produced = { generated: await generateDocumentForResponse(form, response, { variables }) }
         } catch (error: any) {
-          documentError = error?.message || 'Génération du document impossible'
+          produced = { generated: null, error: error?.message || 'Génération du document impossible' }
         }
       }
+      documents.set(key, produced)
+      return produced
     }
+    let firstGenerated: GeneratedDocument | null = null
 
     const results: DocumentRouteStatus[] = []
 
@@ -237,6 +257,10 @@ export async function sendDocumentForResponse(
       // demandent pas partent quand même — un modèle absent ou cassé ne doit pas faire taire
       // l'accusé de réception du répondant.
       const withDocument = route.attachDocument !== false
+      const { generated, error: documentError } = withDocument
+        ? await documentFor(route)
+        : { generated: null, error: undefined }
+      if (generated && !firstGenerated) firstGenerated = generated
       if (withDocument && !generated) {
         results.push({
           routeId: route.id,
@@ -290,14 +314,17 @@ export async function sendDocumentForResponse(
     }
 
     const triggered = results.filter((r) => r.matched)
+    const conversionFallback = Array.from(documents.values()).find(
+      (d) => d.generated?.conversionError
+    )?.generated?.conversionError
 
     status = {
       // Aucun circuit déclenché n'est un état neutre, pas une réussite d'envoi.
       success: triggered.length > 0 && triggered.every((r) => r.success),
       lastSent: new Date().toISOString(),
-      ...(generated && { fileName: generated.fileName }),
+      ...(firstGenerated && { fileName: firstGenerated.fileName }),
       routes: results,
-      ...(generated?.conversionError && { conversionFallback: generated.conversionError }),
+      ...(conversionFallback && { conversionFallback }),
       ...(routes.length === 0 && { error: 'Aucun circuit d’envoi actif' }),
       ...(routes.length > 0 &&
         triggered.length === 0 && { error: 'Aucun circuit ne correspond à cette réponse' }),

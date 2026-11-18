@@ -291,6 +291,7 @@ export async function sendDocumentForResponse(
         to: recipients,
         subject: applyTags(route.subject, routeTokens),
         body: applyTags(route.body, routeTokens),
+        senderName: route.senderName ? applyTags(route.senderName, routeTokens) : undefined,
         ...(withDocument &&
           generated && {
             attachment: {

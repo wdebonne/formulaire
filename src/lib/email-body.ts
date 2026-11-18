@@ -5,6 +5,17 @@ export function isCompleteHtmlDocument(body: string): boolean {
   return /^\s*(?:<!--[\s\S]*?-->\s*)*(?:<!doctype\s+html|<html[\s>])/i.test(body)
 }
 
+// The name lands in the From header and may come from tokens, i.e. from a respondent's answer:
+// a line break there would let it inject headers, and quotes or angle brackets would let it
+// fake the address part.
+export function cleanSenderName(name: string | null | undefined): string {
+  return String(name ?? '')
+    .replace(/[\r\n\t"<>\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100)
+}
+
 export function wrapDocumentEmailBody(body: string, siteName: string): string {
   if (isCompleteHtmlDocument(body)) return body
 

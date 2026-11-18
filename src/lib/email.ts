@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 import { prisma } from './prisma'
-import { wrapDocumentEmailBody } from './email-body'
+import { cleanSenderName, wrapDocumentEmailBody } from './email-body'
 
 // Récupère les paramètres SMTP depuis la base de données ou les variables d'env
 async function getSmtpConfig() {
@@ -55,6 +55,7 @@ async function createTransporter() {
       auth: config.auth,
     }),
     from: fromAddress,
+    address: config.from,
   }
 }
 
@@ -397,6 +398,7 @@ export async function sendFormDocumentEmail(options: {
   to: string[]
   subject: string
   body: string
+  senderName?: string
   attachment?: { filename: string; content: Buffer; contentType: string }
 }): Promise<{ success: boolean; error?: string; accepted?: string[]; rejected?: string[] }> {
   if (options.to.length === 0) {
@@ -409,11 +411,13 @@ export async function sendFormDocumentEmail(options: {
   }
 
   const siteName = await getSiteName()
-  const { transporter, from } = await createTransporter()
+  const { transporter, from, address } = await createTransporter()
+  const senderName = cleanSenderName(options.senderName)
 
   try {
     const info = await transporter.sendMail({
-      from,
+      // Object form: nodemailer quotes and encodes the name (accents included) itself.
+      from: senderName ? { name: senderName, address } : from,
       to: options.to.join(', '),
       subject: options.subject,
       html: wrapDocumentEmailBody(options.body, siteName),

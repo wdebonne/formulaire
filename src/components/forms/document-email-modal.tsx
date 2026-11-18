@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Copy,
   Filter,
   Info,
   Loader2,
@@ -113,6 +114,16 @@ function newRoute(name: string, withDocument: boolean): DocumentEmailRoute {
       : '<p>Bonjour,</p>\n<p>Nous avons bien reçu votre réponse au formulaire ' +
         '« {form_title} » le {entry_date}.</p>\n<p>Cordialement,</p>',
     attachDocument: withDocument,
+  }
+}
+
+// Deep copy: conditions, recipients and variables are arrays, and a shallow spread would let
+// editing the copy rewrite the original behind the user's back.
+function duplicateRoute(route: DocumentEmailRoute): DocumentEmailRoute {
+  return {
+    ...(JSON.parse(JSON.stringify(route)) as DocumentEmailRoute),
+    id: `route-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: `${route.name} (copie)`,
   }
 }
 
@@ -348,6 +359,22 @@ export function DocumentEmailModal({
                       <button
                         type="button"
                         onClick={() => {
+                          const copy = duplicateRoute(route)
+                          setRoutes((prev) => {
+                            const index = prev.findIndex((r) => r.id === route.id)
+                            return [...prev.slice(0, index + 1), copy, ...prev.slice(index + 1)]
+                          })
+                          setOpenRouteId(copy.id)
+                        }}
+                        className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                        title="Dupliquer ce circuit"
+                        aria-label={`Dupliquer le circuit « ${route.name} »`}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
                           if (!confirm(`Supprimer le circuit « ${route.name} » ?`)) return
                           setRoutes((prev) => prev.filter((r) => r.id !== route.id))
                         }}
@@ -550,6 +577,21 @@ export function DocumentEmailModal({
                           formTags={availableTags}
                           onChange={(patch) => updateRoute(route.id, patch)}
                         />
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`sender-${route.id}`}>Nom de l’expéditeur</Label>
+                          <Input
+                            id={`sender-${route.id}`}
+                            value={route.senderName ?? ''}
+                            onChange={(e) => updateRoute(route.id, { senderName: e.target.value })}
+                            placeholder="Laisser vide pour le nom par défaut (réglages SMTP)"
+                            maxLength={100}
+                          />
+                          <p className="text-xs text-gray-500">
+                            Affiché dans la boîte de réception, par exemple « Ordre de Mission ».
+                            Accepte les jetons. L’adresse d’envoi ne change pas.
+                          </p>
+                        </div>
 
                         <div className="space-y-2">
                           <Label>Objet</Label>

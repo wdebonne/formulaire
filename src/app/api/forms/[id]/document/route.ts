@@ -118,6 +118,7 @@ function sanitizeRoutes(input: unknown, current: DocumentEmailRoute[]): Document
       subject: String(raw?.subject ?? '').slice(0, 300),
       body: String(raw?.body ?? '').slice(0, 20000),
       attachDocument: raw?.attachDocument !== false,
+      senderName: String(raw?.senderName ?? '').replace(/[\r\n]/g, ' ').trim().slice(0, 100),
       variables: sanitizeRouteVariables(raw?.variables),
     })
   }

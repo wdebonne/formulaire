@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { isCompleteHtmlDocument, wrapDocumentEmailBody } from '@/lib/email-body'
+import { cleanSenderName, isCompleteHtmlDocument, wrapDocumentEmailBody } from '@/lib/email-body'
+
+describe('cleanSenderName', () => {
+  it('keeps an ordinary name, accents included', () => {
+    expect(cleanSenderName('  Ordre de Mission — Pavilly ')).toBe('Ordre de Mission — Pavilly')
+  })
+
+  // The name can come from a token, so from a respondent: a newline would inject a header,
+  // and quotes or brackets would forge the address part of From.
+  it('cannot inject a header or forge the address', () => {
+    expect(cleanSenderName('RH\r\nBcc: x@evil.test')).toBe('RH Bcc: x@evil.test')
+    expect(cleanSenderName('Maire" <maire@evil.test>')).toBe('Maire maire@evil.test')
+  })
+
+  it('treats empty input as no name, so the SMTP default applies', () => {
+    expect(cleanSenderName(undefined)).toBe('')
+    expect(cleanSenderName('   ')).toBe('')
+  })
+})
 
 describe('wrapDocumentEmailBody', () => {
   it('wraps a fragment in the site envelope', () => {

@@ -1090,8 +1090,8 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
       {/* Response detail modal */}
       {selectedResponse && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="shrink-0 p-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-lg text-gray-900">
                   {editMode ? 'Modifier la réponse' : 'Détail de la réponse'}
@@ -1109,7 +1109,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            <div className="p-5 overflow-y-auto max-h-[calc(85vh-180px)]">
+            <div className="flex-1 min-h-0 p-5 overflow-y-auto">
               {editMode ? (
                 <>
                   <p className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
@@ -1200,10 +1200,10 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 </div>
               )}
             </div>
-            <div className="p-5 border-t border-gray-100 bg-gray-50/50 flex flex-wrap justify-end gap-3">
+            <div className="shrink-0 px-5 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-wrap items-center justify-end gap-2">
               {editMode ? (
                 <>
-                  <Button
+                  <Button size="sm"
                     variant="outline"
                     onClick={() => {
                       setEditMode(false)
@@ -1213,7 +1213,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                   >
                     Annuler
                   </Button>
-                  <Button
+                  <Button size="sm"
                     onClick={handleSaveEdit}
                     disabled={savingEdit}
                     className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
@@ -1228,10 +1228,18 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 </>
               ) : (
                 <>
-                  <Button variant="outline" onClick={closeDetail}>
-                    Fermer
+                  <Button size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      handleDelete(selectedResponse.id)
+                      closeDetail()
+                    }}
+                    className="mr-auto bg-red-600 hover:bg-red-700"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Supprimer
                   </Button>
-                  <Button
+                  <Button size="sm"
                     variant="outline"
                     onClick={startEdit}
                     className="hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
@@ -1240,7 +1248,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                     Modifier
                   </Button>
                   {hasActiveWebhooks && (
-                    <Button
+                    <Button size="sm"
                       variant="outline"
                       onClick={() => handleSendWebhook(selectedResponse.id)}
                       disabled={sendingWebhook === selectedResponse.id}
@@ -1259,7 +1267,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                       href={`/api/forms/${form.id}/responses/${selectedResponse.id}/document`}
                       download
                     >
-                      <Button
+                      <Button size="sm"
                         variant="outline"
                         className="hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
                       >
@@ -1269,7 +1277,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                     </a>
                   )}
                   {hasRoutes && (
-                    <Button
+                    <Button size="sm"
                       variant="outline"
                       onClick={() => handleSendDocument(selectedResponse.id)}
                       disabled={sendingDocument === selectedResponse.id}
@@ -1284,16 +1292,8 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                       Envoyer par e-mail
                     </Button>
                   )}
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      handleDelete(selectedResponse.id)
-                      closeDetail()
-                    }}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Supprimer
+                  <Button size="sm" variant="outline" onClick={closeDetail}>
+                    Fermer
                   </Button>
                 </>
               )}

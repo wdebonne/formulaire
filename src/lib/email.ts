@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import { prisma } from './prisma'
+import { wrapDocumentEmailBody } from './email-body'
 
 // Récupère les paramètres SMTP depuis la base de données ou les variables d'env
 async function getSmtpConfig() {
@@ -388,38 +389,6 @@ export async function sendFailedLoginAlertEmail(to: string, ipAddress: string, a
     console.error('Error sending failed login alert email:', error)
     return { success: false, error }
   }
-}
-
-// Enveloppe minimale autour du corps saisi par l'utilisateur dans la modale « E-mail ».
-function wrapDocumentEmailBody(body: string, siteName: string): string {
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 24px 30px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-          .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>${siteName}</h1>
-          </div>
-          <div class="content">
-            ${body}
-          </div>
-          <div class="footer">
-            <p>© ${new Date().getFullYear()} ${siteName}. Tous droits réservés.</p>
-          </div>
-        </div>
-      </body>
-    </html>
-  `
 }
 
 // Envoi du document généré à partir d'une réponse de formulaire, en pièce jointe.

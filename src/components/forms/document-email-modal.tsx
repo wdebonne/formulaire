@@ -567,6 +567,11 @@ export function DocumentEmailModal({
                             onChange={(e) => updateRoute(route.id, { body: e.target.value })}
                             className="h-36 w-full rounded-md border px-3 py-2 font-mono text-sm"
                           />
+                          <p className="text-xs text-gray-500">
+                            Un fragment (<code>&lt;p&gt;…</code>) est placé dans l&apos;en-tête du
+                            site. Un document complet (<code>&lt;!DOCTYPE html&gt;</code>) est
+                            envoyé tel quel, avec sa propre mise en page.
+                          </p>
                         </div>
 
                         <div className="space-y-1.5">

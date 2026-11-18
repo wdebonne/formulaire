@@ -23,6 +23,7 @@ import type {
   DocumentTemplateSettings,
   FormDocumentSettings,
 } from '@/types/form'
+import { applyTokenTemplate } from './token-format'
 
 export const DEFAULT_EMAIL_SUBJECT = 'Nouvelle réponse — {form_title}'
 
@@ -339,11 +340,7 @@ export function inspectDocxTags(templateBuffer: Buffer): string[] {
 // Remplace les {jetons} d'un gabarit texte (sujet d'e-mail, nom de fichier, corps du message).
 export function applyTags(template: string, data: Record<string, any>): string {
   // Un jeton inconnu est vidé plutôt que laissé tel quel, comme le nullGetter du rendu .docx.
-  return template.replace(/\{([a-z0-9_]+)\}/gi, (_match, tag) => {
-    const value = data[tag]
-    if (Array.isArray(value)) return ''
-    return toText(value)
-  })
+  return applyTokenTemplate(template, data, toText)
 }
 
 // Nettoie un nom de fichier de pièce jointe : on ne retire que les caractères interdits par

@@ -5,6 +5,7 @@
 // vis-à-vis de audit-log.ts. Le rendu du document lui-même vit dans docx-template.ts.
 
 import type { DocumentFieldMapping, DocumentMetaField, EmailRouteVariable } from '@/types/form'
+import { applyTokenTemplate } from './token-format'
 
 export interface DocumentFieldChoice {
   label: string
@@ -278,6 +279,10 @@ export function sanitizeRouteVariables(input: unknown): EmailRouteVariable[] {
  * Jetons d'un e-mail pour un circuit donné. La valeur du circuit l'emporte sur un champ du
  * formulaire de même nom — c'est la portée la plus précise, comme une boucle docxtemplater
  * masque le scope parent ; la modale signale la collision au moment de la saisie.
+ *
+ * Une valeur peut elle-même contenir des jetons, formatés ou non (`{today|AAAA-MM-JJ}`). Ils
+ * sont résolus contre les jetons du formulaire seulement, jamais contre les autres valeurs du
+ * circuit : l'ordre des lignes n'a donc aucune incidence et aucune boucle n'est possible.
  */
 export function withRouteVariables(
   tokens: Record<string, any>,
@@ -285,5 +290,8 @@ export function withRouteVariables(
 ): Record<string, any> {
   const clean = sanitizeRouteVariables(variables)
   if (clean.length === 0) return tokens
-  return { ...tokens, ...Object.fromEntries(clean.map((v) => [v.key, v.value])) }
+  return {
+    ...tokens,
+    ...Object.fromEntries(clean.map((v) => [v.key, applyTokenTemplate(v.value, tokens)])),
+  }
 }

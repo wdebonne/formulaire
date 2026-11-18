@@ -76,6 +76,7 @@ Context for Claude Code when working on this project.
 | `src/app/api/admin/users/[id]/route.ts` | User management API — DELETE soft-deletes all active forms before removing the account; `onDelete: SetNull` then sets `userId = null` on all forms |
 | `src/app/admin/trash/trash-client.tsx` | Admin trash UI — lists trashed forms; orphaned forms (deleted owner) show an amber "Compte supprimé" badge; restoration requires mandatory owner reassignment for orphans |
 | `src/lib/document-fields.ts` | Pure/client-safe field catalog for .docx templates — `buildFieldCatalog()`, `slugifyTag()`, `catalogToMappings()`; no Prisma import |
+| `src/lib/token-format.ts` | Pure/client-safe token replacement — `applyTokenTemplate()` (`{tag}` and `{tag|AAAA-MM-JJ}`), `parseDateText()`, `formatDatePattern()`; used by `applyTags()` and route values |
 | `src/lib/docx-template.ts` | Server-only docxtemplater engine — `buildDocumentData()`, `renderDocx()`, `inspectDocxTags()`, `applyTags()`, `parseFormDocumentSettings()` |
 | `src/lib/upload-types.ts` | Pure/client-safe upload allow-list — `ALLOWED_UPLOAD_TYPES`, `MAX_RESPONSE_FILE_SIZE`, `resolveUploadType()`; imported by the block editor so the builder offers exactly what the server accepts |
 | `src/lib/response-uploads.ts` | Private storage for respondent attachments — `saveResponseFile()`, `readResponseFile()`, `deleteFormFiles()`, `collectStoredNames()`, `deleteFilesOfResponses()` |
@@ -690,6 +691,13 @@ flags the collision. They also fill the attached `.docx`: `sendDocumentForRespon
 document **per distinct set of route values** (routes without values share one render and one PDF
 round-trip). The direct download from the responses page goes through no route, so those tokens
 come out empty there — the template modal lists them apart from the unknown tokens and says so.
+A route value may itself contain form tokens, and any date token takes a format —
+`{today|AAAA-MM-JJ}`, `{entry_date|JJ MMMM AAAA}` (`src/lib/token-format.ts`, French or English
+letters). It is resolved against the **form** tokens only, never against the route's other values,
+so row order cannot matter and no cycle is possible. The `|format` syntax works wherever
+`applyTags()` runs (subject, body, output file name) but **not inside the `.docx`**, whose tags
+docxtemplater parses itself — the route value (`{date_document}`) is how a formatted date reaches
+the document.
 
 `src/lib/condition-eval.ts` is a **separate** evaluator from the one in `public-form-client.tsx`, and
 must stay separate: the form one compares against answers being typed, which hold raw slugs, while

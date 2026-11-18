@@ -614,7 +614,9 @@ export function DocumentEmailModal({
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="mb-1.5 text-xs font-medium text-gray-600">
                 Jetons acceptés dans l’objet et le corps (plus les valeurs personnalisées de
-                chaque circuit) :
+                chaque circuit). Une date se reformate avec{' '}
+                <code className="font-mono">{'{today|JJ/MM/AAAA}'}</code> — lettres JJ, MM, MMMM,
+                AAAA, AA, JJJJ (jour de la semaine) :
               </p>
               <div className="flex flex-wrap gap-1">
                 {availableTags.map((tag) => (
@@ -772,8 +774,12 @@ function RouteVariables({
       <div>
         <Label>Valeurs personnalisées de ce circuit</Label>
         <p className="mt-1 text-xs text-gray-500">
-          Utilisables dans l’objet et le corps de ce circuit uniquement, par exemple{' '}
-          <code className="font-mono">{'{responsable}'}</code>.
+          Utilisables dans l’objet, le corps et le document joint de ce circuit uniquement, par
+          exemple <code className="font-mono">{'{responsable}'}</code>. Une valeur peut reprendre
+          un jeton du formulaire, et une date peut être reformatée :{' '}
+          <code className="font-mono">{'{today|AAAA-MM-JJ}'}</code> → 2026-11-18,{' '}
+          <code className="font-mono">{'{today|JJ-MM-AAAA}'}</code> → 18-11-2026,{' '}
+          <code className="font-mono">{'{entry_date|JJ MMMM AAAA}'}</code> → 18 novembre 2026.
         </p>
       </div>
 

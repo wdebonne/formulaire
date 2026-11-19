@@ -2697,7 +2697,7 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
   ]
 
   const segmented = (active: boolean) =>
-    `px-2 py-1.5 text-xs rounded border-2 transition-colors ${
+    `min-w-0 truncate px-1 py-1.5 text-xs rounded border-2 transition-colors ${
       active ? 'border-primary bg-primary/5 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
     }`
 
@@ -2897,11 +2897,11 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
               )}
 
               {!isFullFrame && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label>Coins</Label>
                     <div className="grid grid-cols-3 gap-1">
-                      {([['none', 'Droits'], ['md', 'Arrondis'], ['xl', 'Très']] as const).map(([value, label]) => (
+                      {([['none', 'Droits'], ['md', 'Arrondis'], ['xl', 'Ronds']] as const).map(([value, label]) => (
                         <button
                           key={value}
                           type="button"
@@ -2914,9 +2914,9 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
                       ))}
                     </div>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
                     <Label htmlFor="attachmentShadow">Ombre</Label>
-                    <label className="relative inline-flex items-center cursor-pointer mt-1">
+                    <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
                         id="attachmentShadow"

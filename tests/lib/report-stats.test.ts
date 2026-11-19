@@ -427,7 +427,7 @@ describe('computeReportStats — tableau des dernières réponses', () => {
         s: { kind: 'signature', dataUrl: 'data:image/png;base64,AAAA', signedAt: '2026-09-19T10:00:00Z' },
       }),
     ])
-    expect(result.tableRows[0]).toEqual(['19/09/2026 12:00', 'contrat.pdf (1,2 Mo)', 'Signé le 19/09/2026'])
+    expect(result.tableRows[0]).toEqual(['19/09/2026 12:00', 'contrat.pdf (1,2 Mo)', 'Signé électroniquement le 19/09/2026'])
   })
 
   it('n’analyse ni les pièces jointes ni les signatures', () => {

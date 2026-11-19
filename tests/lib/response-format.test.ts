@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   answerToText,
+  displayChoices,
   findBlockDeep,
   formatBlockValue,
   formatDateString,
+  formatReadableValue,
   isStructuredAnswer,
   resolveDataLabels,
 } from '@/lib/response-format'
@@ -138,11 +140,11 @@ describe('answerToText', () => {
   })
 
   it('date une signature au format français', () => {
-    expect(answerToText({ kind: 'signature', signedAt: '2026-09-20T10:00:00Z' })).toBe('Signé le 20/09/2026')
+    expect(answerToText({ kind: 'signature', signedAt: '2026-09-20T10:00:00Z' })).toBe('Signé électroniquement le 20/09/2026')
   })
 
   it('se contente de « Signé » sans horodatage exploitable', () => {
-    expect(answerToText({ kind: 'signature' })).toBe('Signé')
+    expect(answerToText({ kind: 'signature' })).toBe('Signé électroniquement')
   })
 
   it('rend une chaîne vide pour une absence de réponse', () => {
@@ -199,5 +201,31 @@ describe('resolveDataLabels', () => {
 
   it('conserve une clé dont le bloc n’existe plus', () => {
     expect(resolveDataLabels({ disparu: 'valeur' }, blocks)).toEqual({ disparu: 'valeur' })
+  })
+})
+
+describe('Oui/Non : libellé résolu à l’affichage, valeur stockée inchangée', () => {
+  const block = { id: 'b', type: 'yes-no', attributes: { yesLabel: 'Oui', noLabel: 'Non' } }
+
+  it('affiche le libellé du bouton, pas la valeur yes/no', () => {
+    expect(formatReadableValue(block, 'yes')).toBe('Oui')
+    expect(formatReadableValue(block, 'no')).toBe('Non')
+  })
+
+  it('suit un libellé renommé', () => {
+    const renamed = { ...block, attributes: { yesLabel: 'J’autorise', noLabel: 'Je refuse' } }
+    expect(formatReadableValue(renamed, 'yes')).toBe('J’autorise')
+  })
+
+  // La valeur stockée reste 'yes' : la logique, les cases .docx et les webhooks la comparent.
+  it('ne réécrit pas la valeur enregistrée à la soumission', () => {
+    expect(resolveDataLabels({ b: 'yes' }, [block])).toEqual({ b: 'yes' })
+  })
+
+  it('fournit des pseudo-choix pour le tableau et l’export', () => {
+    expect(displayChoices(block)).toEqual([
+      { label: 'Oui', value: 'yes' },
+      { label: 'Non', value: 'no' },
+    ])
   })
 })

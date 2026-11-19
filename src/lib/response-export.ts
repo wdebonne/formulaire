@@ -9,7 +9,7 @@
 // pièce jointe et signature → texte lisible), conformément à la convention « Choice Value vs
 // Label » : ce qui est stocké n'est jamais réécrit, c'est la lecture qui traduit.
 
-import { answerToText, isStructuredAnswer } from './response-format'
+import { answerToText, displayChoices, isStructuredAnswer } from './response-format'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -145,7 +145,7 @@ export function buildExportColumns(
           columns.push({
             header: `${blockLabel(block)} #${index} - ${blockLabel(child)}`,
             read: (data) =>
-              formatExportCell(data[`${block.id}_${index}_${child.id}`], child.attributes?.choices),
+              formatExportCell(data[`${block.id}_${index}_${child.id}`], displayChoices(child)),
           })
         }
       }
@@ -156,7 +156,7 @@ export function buildExportColumns(
       for (const child of inner) {
         columns.push({
           header: `${blockLabel(block)} - ${blockLabel(child)}`,
-          read: (data) => formatExportCell(data[child.id], child.attributes?.choices),
+          read: (data) => formatExportCell(data[child.id], displayChoices(child)),
         })
       }
       continue
@@ -164,7 +164,7 @@ export function buildExportColumns(
 
     columns.push({
       header: blockLabel(block),
-      read: (data) => formatExportCell(data[block.id], block.attributes?.choices),
+      read: (data) => formatExportCell(data[block.id], displayChoices(block)),
     })
   }
 

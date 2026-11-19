@@ -637,6 +637,20 @@ export function DocumentTemplateModal({
   )
 }
 
+// Une signature se place au choix comme texte ou comme image du tracé.
+function SignatureTokensHint() {
+  return (
+    <div className="space-y-0.5 text-xs text-gray-500">
+      <div>
+        <span className="font-mono">{'{…}'}</span> → « Signé électroniquement le JJ/MM/AAAA »
+      </div>
+      <div>
+        <span className="font-mono">{'{%…}'}</span> → image de la signature (5 cm de large)
+      </div>
+    </div>
+  )
+}
+
 function FieldRows({
   field,
   docTags,
@@ -669,6 +683,7 @@ function FieldRows({
           ) : (
             <div className="flex flex-col items-start gap-1">
               <CopyTag value={`{${field.tag}}`} />
+              {field.type === 'signature' && <CopyTag value={`{%${field.tag}}`} />}
               {boxes.length > 0 && (
                 <button
                   type="button"
@@ -687,6 +702,8 @@ function FieldRows({
             <span className="text-xs text-gray-500">
               Boucle — encadre les {field.children!.length} champs ci-dessous
             </span>
+          ) : field.type === 'signature' ? (
+            <SignatureTokensHint />
           ) : (
             <ChoicesCell field={field} />
           )}
@@ -727,10 +744,13 @@ function FieldRows({
           </td>
           <td className="px-4 py-2.5 text-gray-600">{typeLabel(child.type)}</td>
           <td className="px-4 py-2.5">
-            <CopyTag value={`{${child.tag}}`} />
+            <div className="flex flex-col items-start gap-1">
+              <CopyTag value={`{${child.tag}}`} />
+              {child.type === 'signature' && <CopyTag value={`{%${child.tag}}`} />}
+            </div>
           </td>
           <td className="px-4 py-2.5">
-            <ChoicesCell field={child} />
+            {child.type === 'signature' ? <SignatureTokensHint /> : <ChoicesCell field={child} />}
           </td>
           <td className="px-4 py-2.5">
             <UsageBadge used={docTags.has(child.tag)} />

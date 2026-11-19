@@ -34,7 +34,7 @@ import {
   Save,
   Paperclip,
 } from 'lucide-react'
-import { answerToText, isStructuredAnswer } from '@/lib/response-format'
+import { answerToText, displayChoices, isStructuredAnswer } from '@/lib/response-format'
 import { ResponseEditFields } from '@/components/forms/response-edit-fields'
 import { DocumentTemplateModal } from '@/components/forms/document-template-modal'
 import { DocumentEmailModal } from '@/components/forms/document-email-modal'
@@ -374,7 +374,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         .map((inner) => ({ inner, v: data[inner.id] }))
         .filter(({ v }) => v !== undefined && v !== null && v !== '')
       if (entries.length === 0) return '-'
-      return entries.map(({ inner, v }) => formatValueWithChoices(v, inner.attributes.choices)).join(' | ')
+      return entries.map(({ inner, v }) => formatValueWithChoices(v, displayChoices(inner))).join(' | ')
     }
 
     // Pour les repeaters, afficher le nombre d'entrées
@@ -389,7 +389,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
       return `${count} entrée${count > 1 ? 's' : ''}`
     }
 
-    return formatValueWithChoices(data[block.id], block.attributes.choices)
+    return formatValueWithChoices(data[block.id], displayChoices(block))
   }
 
   // Fonction pour récupérer les données d'un repeater
@@ -452,7 +452,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                       <p className="text-xs text-gray-500">
                         {innerBlock.attributes.label || innerBlock.id}
                       </p>
-                      <div className="text-sm text-gray-900">{renderAnswerValue(value, innerBlock.attributes.choices)}</div>
+                      <div className="text-sm text-gray-900">{renderAnswerValue(value, displayChoices(innerBlock))}</div>
                     </div>
                   ))}
                 </div>
@@ -492,7 +492,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
                 <p className="text-xs text-gray-500">
                   {innerBlock.attributes.label || innerBlock.id}
                 </p>
-                <div className="text-sm text-gray-900">{renderAnswerValue(value, innerBlock.attributes.choices)}</div>
+                <div className="text-sm text-gray-900">{renderAnswerValue(value, displayChoices(innerBlock))}</div>
               </div>
             ))}
           </div>
@@ -506,7 +506,7 @@ export function ResponsesClient({ form, responses: initialResponses }: Responses
         <p className="text-sm font-medium text-gray-500 mb-1">
           {block.attributes.label || block.id}
         </p>
-        <div className="text-gray-900">{renderAnswerValue(data[block.id], block.attributes.choices)}</div>
+        <div className="text-gray-900">{renderAnswerValue(data[block.id], displayChoices(block))}</div>
       </div>
     )
   }

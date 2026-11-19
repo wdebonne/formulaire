@@ -99,6 +99,32 @@ export function formatBlockValue(block: any, rawValue: any): any {
   return rawValue
 }
 
+// ── Oui / Non ────────────────────────────────────────────────────────────────
+// Un bloc Oui/Non stocke 'yes'/'no' — valeur stable, comparée par la logique du formulaire,
+// les cases à cocher .docx, le modal d'édition et transmise telle quelle aux webhooks. Les
+// libellés (renommables) ne sont résolus qu'à l'affichage, d'où ces pseudo-choix.
+export function yesNoChoices(block: any): { label: string; value: string }[] {
+  return [
+    { label: block?.attributes?.yesLabel || 'Oui', value: 'yes' },
+    { label: block?.attributes?.noLabel || 'Non', value: 'no' },
+  ]
+}
+
+// Choix à utiliser pour afficher une valeur : ceux du bloc, ou Oui/Non pour un bloc yes-no.
+export function displayChoices(block: any): { label: string; value: string }[] | undefined {
+  if (block?.type === 'yes-no') return yesNoChoices(block)
+  return block?.attributes?.choices
+}
+
+// formatBlockValue + libellé Oui/Non, pour les sorties lues par un humain (document, e-mail).
+export function formatReadableValue(block: any, rawValue: any): any {
+  if (block?.type === 'yes-no' && typeof rawValue === 'string') {
+    const choice = yesNoChoices(block).find((c) => c.value === rawValue)
+    if (choice) return choice.label
+  }
+  return formatBlockValue(block, rawValue)
+}
+
 // ── Valeurs structurées ──────────────────────────────────────────────────────
 
 export function isStructuredAnswer(value: any): boolean {
@@ -123,7 +149,7 @@ export function answerToText(value: any): string {
   if (value.kind === 'signature') {
     const signed = typeof value.signedAt === 'string' ? value.signedAt.slice(0, 10) : ''
     const m = signed.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    return m ? `Signé le ${m[3]}/${m[2]}/${m[1]}` : 'Signé'
+    return m ? `Signé électroniquement le ${m[3]}/${m[2]}/${m[1]}` : 'Signé électroniquement'
   }
   return String(value)
 }

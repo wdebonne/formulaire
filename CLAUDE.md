@@ -668,6 +668,14 @@ failure and sends the filled `.docx` instead of the PDF, recording the reason in
 `sendDocumentForResponse()` never throwing: the respondent has already submitted, and the recipient
 would rather have a `.docx` than nothing.
 
+**Signature tokens**: a `signature` block gives two tokens. `{tag}` writes « Signé électroniquement
+le JJ/MM/AAAA »; `{%tag}` inserts the drawn PNG (5 cm wide, height capped at 2.5 cm). The `%` prefix
+is the convention of docxtemplater's *paid* image module, which is not used: without it,
+docxtemplater reads `{%tag}` as a plain tag named `%tag`, `renderDocx()` fills it with a text marker
+and `embedSignatureImages()` then swaps the marker for a `<w:drawing>` inside the same run, adding
+the media file, the relationship and the `png` content type itself. `inspectDocxTags()` strips the
+`%` so the modal recognises the field. In e-mail subjects and bodies the image token renders empty.
+
 **Checkbox tokens**: a mapping carrying `choiceValue` renders `☒` when that specific option is
 selected and `☐` otherwise (or `þ`/`¨` with `checkboxStyle: 'wingdings'`). The empty state is a real
 box glyph on purpose — the same template printed blank stays fillable by hand. Word's *native*

@@ -14,7 +14,7 @@ import Docxtemplater from 'docxtemplater'
 // en est exempt et suffit, à condition de récupérer soi-même le postparsed (voir plus bas).
 import { getTags } from 'docxtemplater/js/get-tags.js'
 import PizZip from 'pizzip'
-import { answerToText, findBlockDeep, formatBlockValue, isStructuredAnswer } from './response-format'
+import { answerToText, findBlockDeep, formatBlockValue, formatReadableValue, isStructuredAnswer } from './response-format'
 import type {
   DocumentCheckboxStyle,
   DocumentEmailRoute,
@@ -122,6 +122,8 @@ function toText(value: unknown): string {
   // Pièce jointe / signature : leur structure ne se déplie pas en texte utile — et déverser
   // une signature (data-URL base64) dans une cellule ou un jeton la rendrait illisible.
   if (isStructuredAnswer(value)) return answerToText(value)
+  // Jeton image hors du .docx (objet d'e-mail, nom de fichier) : rien à écrire.
+  if (isSignatureImage(value)) return ''
   if (Array.isArray(value)) return value.map(toText).filter(Boolean).join(', ')
   if (typeof value === 'object') {
     return Object.entries(value as Record<string, unknown>)
@@ -129,6 +131,154 @@ function toText(value: unknown): string {
       .join(', ')
   }
   return String(value)
+}
+
+// ── Signature : texte ou image ───────────────────────────────────────────────
+// Un bloc signature offre deux jetons : {tag} écrit « Signé électroniquement le … », {%tag}
+// insère le tracé. Le préfixe % est la convention du module image de docxtemplater (payant) ;
+// sans lui, docxtemplater lit {%tag} comme un jeton ordinaire nommé « %tag », qu'on remplit
+// d'un marqueur texte puis qu'on remplace par une image après le rendu (embedSignatureImages).
+export const SIGNATURE_IMAGE_PREFIX = '%'
+
+interface SignatureImageToken {
+  kind: 'signature-image'
+  dataUrl: string
+}
+
+function isSignatureImage(value: unknown): value is SignatureImageToken {
+  return !!value && typeof value === 'object' && (value as any).kind === 'signature-image'
+}
+
+function signatureImageToken(rawValue: any): SignatureImageToken | '' {
+  if (rawValue?.kind !== 'signature' || typeof rawValue.dataUrl !== 'string') return ''
+  return { kind: 'signature-image', dataUrl: rawValue.dataUrl }
+}
+
+// Largeur d'une signature dans le document ; la hauteur suit les proportions du tracé,
+// plafonnée pour qu'un pad très haut ne mange pas la page.
+const SIGNATURE_WIDTH_EMU = 5 * 360000 // 5 cm
+const SIGNATURE_MAX_HEIGHT_EMU = 2.5 * 360000
+
+interface PendingImage {
+  marker: string
+  png: Buffer
+}
+
+function decodePng(dataUrl: string): Buffer | null {
+  const m = dataUrl.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/)
+  if (!m) return null
+  const png = Buffer.from(m[1], 'base64')
+  // Signature PNG : on refuse tout autre contenu plutôt que d'embarquer n'importe quoi.
+  if (png.length < 24 || png.readUInt32BE(0) !== 0x89504e47) return null
+  return png
+}
+
+// Remplace chaque jeton image (y compris dans les lignes d'une boucle) par un marqueur texte
+// que docxtemplater recopiera tel quel dans un <w:t>.
+function extractSignatureImages(value: any, images: PendingImage[]): any {
+  if (isSignatureImage(value)) {
+    const png = decodePng(value.dataUrl)
+    if (!png) return ''
+    const marker = `FBSIGIMG${images.length}X${randomUUID().replace(/-/g, '')}`
+    images.push({ marker, png })
+    return marker
+  }
+  if (Array.isArray(value)) return value.map((v) => extractSignatureImages(v, images))
+  if (value && typeof value === 'object' && !isStructuredAnswer(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, extractSignatureImages(v, images)])
+    )
+  }
+  return value
+}
+
+function imageExtent(png: Buffer): { cx: number; cy: number } {
+  const width = png.readUInt32BE(16)
+  const height = png.readUInt32BE(20)
+  let cx = SIGNATURE_WIDTH_EMU
+  let cy = width > 0 ? Math.round((cx * height) / width) : SIGNATURE_MAX_HEIGHT_EMU
+  if (cy > SIGNATURE_MAX_HEIGHT_EMU) {
+    cx = Math.round((cx * SIGNATURE_MAX_HEIGHT_EMU) / cy)
+    cy = SIGNATURE_MAX_HEIGHT_EMU
+  }
+  return { cx, cy }
+}
+
+// Namespaces déclarés localement : on ne dépend pas de ce que la racine de la partie déclare
+// (un en-tête produit par un autre outil que Word peut ne pas déclarer wp ou r).
+function drawingXml(rId: string, docPrId: number, cx: number, cy: number): string {
+  const a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+  return (
+    `<w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0">` +
+    `<wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+    `<wp:docPr id="${docPrId}" name="Signature ${docPrId}"/>` +
+    `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="${a}" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+    `<a:graphic xmlns:a="${a}"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+    `<pic:nvPicPr><pic:cNvPr id="${docPrId}" name="signature.png"/><pic:cNvPicPr/></pic:nvPicPr>` +
+    `<pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${rId}"/>` +
+    `<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+    `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+    `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing>`
+  )
+}
+
+const EMPTY_RELS =
+  '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+  '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>'
+
+const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+
+// Remplace chaque marqueur par l'image : le marqueur est dans un <w:t>, qu'on referme pour
+// glisser un <w:drawing> dans le même <w:r> (un run peut alterner texte et dessin) — la mise
+// en forme du run et le texte qui entoure le jeton sont ainsi conservés.
+function embedSignatureImages(zip: PizZip, images: PendingImage[]): void {
+  if (images.length === 0) return
+
+  const parts = Object.keys(zip.files).filter((name) =>
+    /^word\/(document|header\d*|footer\d*|footnotes|endnotes)\.xml$/.test(name)
+  )
+  let docPrId = 90000
+  let used = false
+
+  for (const part of parts) {
+    let xml = zip.file(part)!.asText()
+    const present = images.filter((img) => xml.includes(img.marker))
+    if (present.length === 0) continue
+
+    const relsPath = part.replace(/^word\//, 'word/_rels/') + '.rels'
+    let rels = zip.file(relsPath)?.asText() ?? EMPTY_RELS
+
+    for (const img of present) {
+      const index = images.indexOf(img)
+      const rId = `rIdFbSignature${index}`
+      const media = `media/fb-signature-${index}.png`
+      zip.file(`word/${media}`, img.png)
+      rels = rels.replace(
+        '</Relationships>',
+        `<Relationship Id="${rId}" Type="${IMAGE_REL_TYPE}" Target="${media}"/></Relationships>`
+      )
+      const { cx, cy } = imageExtent(img.png)
+      xml = xml
+        .split(img.marker)
+        .join(`</w:t>${drawingXml(rId, docPrId++, cx, cy)}<w:t xml:space="preserve">`)
+    }
+
+    zip.file(relsPath, rels)
+    zip.file(part, xml)
+    used = true
+  }
+
+  if (!used) return
+  const typesPath = '[Content_Types].xml'
+  const types = zip.file(typesPath)?.asText()
+  if (types && !/Extension="png"/i.test(types)) {
+    zip.file(
+      typesPath,
+      types.replace(/<Types([^>]*)>/, '<Types$1><Default Extension="png" ContentType="image/png"/>')
+    )
+  }
 }
 
 // La case vide doit rester un vrai caractère de case, pour que le document imprimé vierge
@@ -229,17 +379,20 @@ export function buildDocumentData(
     // Répéteur → tableau d'objets consommé par {#tag} … {/tag}. Les clés de Response.data
     // suivent le format {repeaterId}_{n}_{innerBlockId} (cf. convention « Repeater State »).
     if (block?.type === 'repeater' && block.innerBlocks?.length) {
-      const rows: Record<string, string>[] = []
+      const rows: Record<string, any>[] = []
       let rep = 1
       for (;;) {
-        const row: Record<string, string> = {}
+        const row: Record<string, any> = {}
         let hasValue = false
         for (const inner of block.innerBlocks) {
           const key = `${blockId}_${rep}_${inner.id}`
           if (responseData[key] === undefined) continue
           const innerTag = tagByBlockId.get(inner.id)
           if (!innerTag) continue
-          row[innerTag] = toText(formatBlockValue(inner, responseData[key]))
+          row[innerTag] = toText(formatReadableValue(inner, responseData[key]))
+          if (inner.type === 'signature') {
+            row[SIGNATURE_IMAGE_PREFIX + innerTag] = signatureImageToken(responseData[key])
+          }
           hasValue = true
         }
         if (!hasValue) break
@@ -254,7 +407,10 @@ export function buildDocumentData(
     // jeton ne doit pas être écrasé par une valeur de premier niveau inexistante.
     if (data[tag] !== undefined) continue
 
-    data[tag] = toText(formatBlockValue(block, responseData[blockId]))
+    data[tag] = toText(formatReadableValue(block, responseData[blockId]))
+    if (block?.type === 'signature') {
+      data[SIGNATURE_IMAGE_PREFIX + tag] = signatureImageToken(responseData[blockId])
+    }
   }
 
   return data
@@ -286,12 +442,14 @@ export function renderDocx(templateBuffer: Buffer, data: Record<string, any>): B
     throw new Error(describeRenderError(error))
   }
 
+  const images: PendingImage[] = []
   try {
-    doc.render(data)
+    doc.render(extractSignatureImages(data, images))
   } catch (error: any) {
     throw new Error(describeRenderError(error))
   }
 
+  embedSignatureImages(doc.getZip(), images)
   return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' }) as Buffer
 }
 
@@ -327,7 +485,8 @@ export function inspectDocxTags(templateBuffer: Buffer): string[] {
   const found = new Set<string>()
   const walk = (node: Record<string, unknown>) => {
     for (const [key, value] of Object.entries(node ?? {})) {
-      found.add(key)
+      // {%tag} (signature en image) désigne le même champ que {tag}.
+      found.add(key.startsWith(SIGNATURE_IMAGE_PREFIX) ? key.slice(1) : key)
       if (value && typeof value === 'object') walk(value as Record<string, unknown>)
     }
   }

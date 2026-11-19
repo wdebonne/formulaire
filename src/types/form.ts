@@ -58,8 +58,17 @@ export interface BlockAttributes {
   showAttachment?: boolean
   attachmentType?: 'image' | 'video'
   attachmentUrl?: string
-  attachmentLayout?: 'stack' | 'float-right' | 'float-left' | 'split-right' | 'split-left'
+  attachmentLayout?: 'stack' | 'float-right' | 'float-left' | 'split-right' | 'split-left' | 'background'
   focalPoint?: { x: number; y: number }
+  // Rendu de l'image — tout absent = rendu historique (voir src/lib/screen-media.ts)
+  attachmentFit?: 'cover' | 'contain' | 'fill' | 'none'
+  attachmentHeight?: 'sm' | 'md' | 'lg' | 'auto'
+  attachmentZoom?: number // 100–200, mode cover uniquement
+  attachmentRadius?: 'none' | 'md' | 'xl'
+  attachmentShadow?: boolean
+  attachmentAlt?: string // vide = image décorative
+  attachmentOverlay?: 'theme' | 'dark' | 'light' // disposition background
+  attachmentOverlayOpacity?: number // 0–90, défaut 50
   // Attributs pour le bloc Repeater
   initialQuestion?: string // Question initiale demandant si l'utilisateur veut commencer (ex: "Avez-vous du matériel à déclarer ?")
   initialYesLabel?: string // Label pour "Oui" sur la question initiale

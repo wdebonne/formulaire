@@ -6,6 +6,8 @@ const config: Config = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    // screen-media.ts construit les classes de l'image des écrans d'accueil / de fin
+    './src/lib/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     container: {

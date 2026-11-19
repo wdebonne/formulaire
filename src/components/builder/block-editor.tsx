@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import type { FormBlock, BlockChoice, BlockType } from '@/types/form'
 import { v4 as uuidv4 } from 'uuid'
-import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen, Star, Heart, ThumbsUp } from 'lucide-react'
+import { Plus, Trash2, GripVertical, Upload, Type, AlignLeft, Hash, Mail, Phone, MapPin, Calendar, CalendarRange, Clock, ChevronDown, CheckSquare, SlidersHorizontal, ArrowLeft, Image, Video, Layers, PanelRight, PanelLeft, LayoutTemplate, X, Package, Search, Filter, FileSpreadsheet, ArrowUp, ArrowDown, AlignRight, Download, Expand, Cloud, Folder, ChevronRight, Loader2, CheckCircle, FolderOpen, Star, Heart, ThumbsUp, Maximize } from 'lucide-react'
+import { MAX_OVERLAY_OPACITY, MAX_ZOOM, MIN_ZOOM, effectiveScreenLayout, isFocalPointRelevant, resolveScreenMedia } from '@/lib/screen-media'
 import { DEFAULT_OTHER_LABEL, isComplementMode, otherOptionLabel } from '@/lib/choice-other'
 import { ALLOWED_UPLOAD_TYPES, DEFAULT_MAX_FILE_SIZE_MB, MAX_RESPONSE_FILE_SIZE } from '@/lib/upload-types'
 import { DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
@@ -2634,7 +2635,16 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
   const attachmentType = block.attributes.attachmentType || 'image'
   const attachmentUrl = block.attributes.attachmentUrl || ''
   const attachmentLayout = block.attributes.attachmentLayout || 'stack'
-  const focalPoint = block.attributes.focalPoint || { x: 50, y: 50 }
+  const media = resolveScreenMedia(block.attributes)
+  const focalPoint = media.focal
+  const effectiveLayout = effectiveScreenLayout(block.attributes)
+  const mediaContext = effectiveLayout.startsWith('split')
+    ? 'split'
+    : effectiveLayout === 'background'
+      ? 'background'
+      : effectiveLayout.startsWith('float') ? 'float' : 'stack'
+  const isFullFrame = mediaContext === 'split' || mediaContext === 'background'
+  const clampPercent = (value: number) => Math.max(0, Math.min(100, Number.isFinite(value) ? value : 50))
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -2671,12 +2681,25 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
   }
 
   const layouts = [
-    { value: 'stack', label: 'Empilé', icon: <Layers className="w-4 h-4" /> },
-    { value: 'float-right', label: 'Float Right', icon: <PanelRight className="w-4 h-4" /> },
-    { value: 'float-left', label: 'Float Left', icon: <PanelLeft className="w-4 h-4" /> },
-    { value: 'split-right', label: 'Split Right', icon: <LayoutTemplate className="w-4 h-4 rotate-180" /> },
-    { value: 'split-left', label: 'Split Left', icon: <LayoutTemplate className="w-4 h-4" /> },
+    { value: 'stack', label: 'Empilé', title: 'Image au-dessus du texte', icon: <Layers className="w-4 h-4" /> },
+    { value: 'float-right', label: 'Côte à côte ▸', title: 'Image à droite du texte', icon: <PanelRight className="w-4 h-4" /> },
+    { value: 'float-left', label: '◂ Côte à côte', title: 'Image à gauche du texte', icon: <PanelLeft className="w-4 h-4" /> },
+    { value: 'split-right', label: 'Moitié ▸', title: "Image sur la moitié droite de l'écran", icon: <LayoutTemplate className="w-4 h-4 rotate-180" /> },
+    { value: 'split-left', label: '◂ Moitié', title: "Image sur la moitié gauche de l'écran", icon: <LayoutTemplate className="w-4 h-4" /> },
+    { value: 'background', label: 'Arrière-plan', title: 'Image en plein écran derrière le texte', icon: <Maximize className="w-4 h-4" /> },
   ]
+
+  const fits = [
+    { value: 'cover', label: 'Remplir', title: "Remplit le cadre, quitte à rogner l'image" },
+    { value: 'contain', label: 'Adapter', title: "Montre l'image entière, sans la rogner" },
+    { value: 'fill', label: 'Étirer', title: "Étire l'image pour remplir le cadre (peut la déformer)" },
+    { value: 'none', label: 'Origine', title: "Taille d'origine, sans agrandir" },
+  ]
+
+  const segmented = (active: boolean) =>
+    `px-2 py-1.5 text-xs rounded border-2 transition-colors ${
+      active ? 'border-primary bg-primary/5 text-gray-900' : 'border-gray-200 hover:border-gray-300 text-gray-600'
+    }`
 
   return (
     <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
@@ -2781,27 +2804,186 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
           {/* Layout */}
           <div className="space-y-2">
             <Label>Disposition</Label>
-            <div className="grid grid-cols-5 gap-1">
-              {layouts.map((layout) => (
-                <button
-                  key={layout.value}
-                  onClick={() => updateAttribute('attachmentLayout', layout.value)}
-                  className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-colors ${
-                    attachmentLayout === layout.value
-                      ? 'border-primary bg-primary/5'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  title={layout.label}
-                >
-                  {layout.icon}
-                  <span className="text-[10px] mt-1 text-gray-500">{layout.label.split(' ')[0]}</span>
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-1">
+              {layouts.map((layout) => {
+                const disabled = layout.value === 'background' && attachmentType === 'video'
+                return (
+                  <button
+                    key={layout.value}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => updateAttribute('attachmentLayout', layout.value)}
+                    aria-pressed={attachmentLayout === layout.value}
+                    className={`flex flex-col items-center justify-center p-2 rounded border-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      attachmentLayout === layout.value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    title={disabled ? "Une vidéo ne peut pas servir d'arrière-plan" : layout.title}
+                  >
+                    {layout.icon}
+                    <span className="text-[10px] mt-1 text-gray-500 whitespace-nowrap">{layout.label}</span>
+                  </button>
+                )
+              })}
             </div>
+            {attachmentLayout === 'background' && attachmentType === 'video' && (
+              <p className="text-xs text-amber-600">Une vidéo ne peut pas servir d&apos;arrière-plan : elle s&apos;affiche empilée.</p>
+            )}
+            {mediaContext === 'split' && (
+              <p className="text-xs text-gray-500">Sur mobile, l&apos;image passe au-dessus du texte.</p>
+            )}
           </div>
 
-          {/* Focal Point Picker - Only for images */}
+          {/* Rendu de l'image */}
           {attachmentType === 'image' && attachmentUrl && (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Ajustement</Label>
+                <div className="grid grid-cols-4 gap-1">
+                  {fits.map((fit) => (
+                    <button
+                      key={fit.value}
+                      type="button"
+                      title={fit.title}
+                      aria-pressed={media.fit === fit.value}
+                      onClick={() => updateAttribute('attachmentFit', fit.value)}
+                      className={segmented(media.fit === fit.value)}
+                    >
+                      {fit.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {!isFullFrame && media.fit !== 'none' && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="attachmentHeight">Hauteur</Label>
+                  <div className="relative">
+                    <select
+                      id="attachmentHeight"
+                      value={block.attributes.attachmentHeight || ''}
+                      onChange={(e) => updateAttribute('attachmentHeight', e.target.value || undefined)}
+                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary appearance-none bg-white"
+                    >
+                      <option value="">Par défaut ({mediaContext === 'float' ? '500' : '300'} px max)</option>
+                      <option value="sm">Petite (200 px)</option>
+                      <option value="md">Moyenne (300 px)</option>
+                      <option value="lg">Grande (450 px)</option>
+                      <option value="auto">Proportions d&apos;origine</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              )}
+
+              {media.fit === 'cover' && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="attachmentZoom">Zoom</Label>
+                    <span className="text-xs text-gray-500">{media.zoom} %</span>
+                  </div>
+                  <input
+                    id="attachmentZoom"
+                    type="range"
+                    min={MIN_ZOOM}
+                    max={MAX_ZOOM}
+                    step={5}
+                    value={media.zoom}
+                    onChange={(e) => updateAttribute('attachmentZoom', Number(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                </div>
+              )}
+
+              {!isFullFrame && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Coins</Label>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([['none', 'Droits'], ['md', 'Arrondis'], ['xl', 'Très']] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={media.radius === value}
+                          onClick={() => updateAttribute('attachmentRadius', value)}
+                          className={segmented(media.radius === value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="attachmentShadow">Ombre</Label>
+                    <label className="relative inline-flex items-center cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        id="attachmentShadow"
+                        checked={media.shadow ?? mediaContext === 'float'}
+                        onChange={(e) => updateAttribute('attachmentShadow', e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {mediaContext === 'background' && (
+                <div className="space-y-1.5">
+                  <Label>Voile sur l&apos;image</Label>
+                  <div className="grid grid-cols-3 gap-1">
+                    {([['theme', 'Thème'], ['dark', 'Sombre'], ['light', 'Clair']] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={media.overlay === value}
+                        onClick={() => updateAttribute('attachmentOverlay', value)}
+                        className={segmented(media.overlay === value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <Label htmlFor="attachmentOverlayOpacity" className="text-xs text-gray-500">Opacité du voile</Label>
+                    <span className="text-xs text-gray-500">{media.overlayOpacity} %</span>
+                  </div>
+                  <input
+                    id="attachmentOverlayOpacity"
+                    type="range"
+                    min={0}
+                    max={MAX_OVERLAY_OPACITY}
+                    step={5}
+                    value={media.overlayOpacity}
+                    onChange={(e) => updateAttribute('attachmentOverlayOpacity', Number(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                  <p className="text-xs text-gray-500">
+                    {media.overlay === 'theme'
+                      ? 'Le voile reprend le fond du thème : ses couleurs de texte restent lisibles.'
+                      : media.overlay === 'dark' ? 'Texte affiché en blanc.' : 'Texte affiché en noir.'}
+                    {media.overlayOpacity < 30 && ' Un voile faible peut rendre le texte difficile à lire.'}
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="attachmentAlt">Texte alternatif</Label>
+                <Input
+                  id="attachmentAlt"
+                  placeholder="Ex. : Bénévoles devant la salle des fêtes"
+                  value={block.attributes.attachmentAlt || ''}
+                  onChange={(e) => updateAttribute('attachmentAlt', e.target.value)}
+                />
+                <p className="text-xs text-gray-500">Laisser vide si l&apos;image est purement décorative.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Focal Point Picker - Only for images */}
+          {attachmentType === 'image' && attachmentUrl && isFocalPointRelevant(media, mediaContext) && (
             <div className="space-y-2">
               <Label>Point focal</Label>
               <div
@@ -2828,7 +3010,7 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
                       min={0}
                       max={100}
                       value={focalPoint.x}
-                      onChange={(e) => updateAttribute('focalPoint', { ...focalPoint, x: Number(e.target.value) })}
+                      onChange={(e) => updateAttribute('focalPoint', { ...focalPoint, x: clampPercent(Number(e.target.value)) })}
                       className="text-sm"
                     />
                     <span className="ml-1 text-gray-400 text-sm">%</span>
@@ -2842,7 +3024,7 @@ function WelcomeScreenAttachment({ block, updateAttribute }: WelcomeScreenAttach
                       min={0}
                       max={100}
                       value={focalPoint.y}
-                      onChange={(e) => updateAttribute('focalPoint', { ...focalPoint, y: Number(e.target.value) })}
+                      onChange={(e) => updateAttribute('focalPoint', { ...focalPoint, y: clampPercent(Number(e.target.value)) })}
                       className="text-sm"
                     />
                     <span className="ml-1 text-gray-400 text-sm">%</span>

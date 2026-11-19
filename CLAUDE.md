@@ -42,6 +42,7 @@ Context for Claude Code when working on this project.
 | `src/lib/a11y.ts` | Pure/client-safe ARIA plumbing — `labelId()`/`descId()`/`errorId()`/`fieldId()`/`hintId()`, `describedBy()`, `fieldA11y()`, `usesNativeLabel()`; no Prisma import |
 | `src/lib/choice-list.ts` | Pure keyboard/ARIA props for button-based choice lists — `choiceListProps()`, `choiceOptionProps()`, `selectedChoiceIndex()` |
 | `src/lib/choice-other.ts` | Pure/client-safe « Autre » option — `otherOptionLabel()`, `isComplementMode()`, `mergeChoiceComplements()` (run at submit), `stripChoiceComplement()` (report counts) |
+| `src/lib/screen-media.ts` | Pure/client-safe image styles of the welcome/thank-you screens — `resolveScreenMedia()`, `screenImageProps()`, `screenOverlay()`, `effectiveScreenLayout()`; shared by the public form and the builder's center preview |
 | `src/lib/multi-date.ts` | Pure/client-safe « plusieurs dates » mode of `advanced-date` — `isMultiDateActive()`, `toDateList()`, `normalizeMultiDateAnswers()` (run at submit), `hasMultiDateOption()` |
 | `src/app/forms/[id]/preview/page.tsx` | Auth-protected preview page — renders `PublicFormClient` regardless of published status; used by the builder "Aperçu" iframe overlay |
 | `src/app/forms/[id]/responses/responses-client.tsx` | Response viewer |
@@ -235,6 +236,28 @@ answer at submit as `__other__:{label} : text`, which the whole downstream alrea
 stored value reads `"Oui, Commentaire : …"`. Single choice does **not** auto-advance in complement
 mode — it would skip the field. `computeReportStats()` strips the complement before counting
 options, otherwise every comment would become a bar.
+
+### Image des écrans d'accueil et de fin (`src/lib/screen-media.ts`)
+The attachment of `welcome-screen` / `thankyou-screen` has a fit mode (`attachmentFit`: remplir,
+adapter, étirer, taille d'origine), a height, a zoom, corners, a shadow, alt text, and a sixth
+layout, `background` (full-screen image under an overlay). **Every renderer gets its classes and
+styles from `screenImageProps()`** — the public form's float/split/background/stack paths and the
+same paths in `center-block-preview.tsx`. They used to hard-code them separately and had drifted
+(400 px in the builder, 500 px in the form); don't inline an `<img className="object-cover">` again.
+
+**Every attribute absent reproduces the historic rendering** (cover, 300 px max stacked, 500 px max
+side by side, `rounded-lg`, shadow only side by side), so forms saved before the feature look
+unchanged — there is nothing to migrate. Values are read with `??` and clamped: `focalPoint?.x || 50`
+used to send a 0 % focal point back to the centre.
+
+A video cannot be a background (an iframe does not crop like `object-cover`): `effectiveScreenLayout()`
+renders it stacked, and the editor disables the option. On mobile, `split-*` puts the image **above**
+the text instead of hiding it. The `theme` overlay reuses the theme's background colour so the theme's
+text colours stay readable; `dark`/`light` force white/dark text. Opacity is capped at 90 %.
+
+`src/lib/` is in Tailwind's `content` list **because of this module**: its classes (`object-fill`,
+`object-none`, `rounded-3xl`, `w-fit`) appear nowhere else, and without the entry they were missing
+from the production CSS.
 
 ### Date avancée : plusieurs dates (événement récurrent)
 `multiDateMode` on an `advanced-date` block (`off` by default, `always`, or `conditional` on an

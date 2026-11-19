@@ -28,6 +28,7 @@ import {
 import { choiceListProps, choiceOptionProps, selectedChoiceIndex } from '@/lib/choice-list'
 import { COMPLEMENT_SUFFIX, complementKey, isComplementMode, mergeChoiceComplements, otherOptionLabel } from '@/lib/choice-other'
 import { isMultiDateActive, normalizeMultiDateAnswers, toDateList } from '@/lib/multi-date'
+import { effectiveScreenLayout, resolveScreenMedia, screenImageProps, screenOverlay, screenVideoFrameClass } from '@/lib/screen-media'
 import {
   DRAFT_SAVE_DEBOUNCE_MS,
   buildFormDraft,
@@ -1910,16 +1911,18 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
   const screenBlock = isSubmitted ? thankyouBlock : currentBlock
 
   // Vérifier si le bloc affiché est un welcome-screen ou thankyou-screen avec un layout split
-  const hasSplitLayout = screenBlock &&
+  const isScreenWithAttachment = !!screenBlock &&
     ['welcome-screen', 'thankyou-screen'].includes(screenBlock.type) &&
-    screenBlock.attributes.showAttachment &&
-    ['split-left', 'split-right'].includes(screenBlock.attributes.attachmentLayout || '')
+    !!screenBlock.attributes.showAttachment
+  const screenLayout = screenBlock ? effectiveScreenLayout(screenBlock.attributes) : 'stack'
+
+  const hasSplitLayout = isScreenWithAttachment && ['split-left', 'split-right'].includes(screenLayout)
 
   // Vérifier si le bloc affiché a un layout float
-  const hasFloatLayout = screenBlock &&
-    ['welcome-screen', 'thankyou-screen'].includes(screenBlock.type) &&
-    screenBlock.attributes.showAttachment &&
-    ['float-left', 'float-right'].includes(screenBlock.attributes.attachmentLayout || '')
+  const hasFloatLayout = isScreenWithAttachment && ['float-left', 'float-right'].includes(screenLayout)
+
+  const hasBackgroundLayout = isScreenWithAttachment && screenLayout === 'background' &&
+    !!screenBlock?.attributes.attachmentUrl
 
   const showLogo = form.settings.showLogo && siteLogo
   const logoPosition: 'top' | 'bottom' = form.settings.logoPosition ?? 'top'
@@ -1930,7 +1933,8 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
     const layout = screenBlock.attributes.attachmentLayout
     const attachmentUrl = screenBlock.attributes.attachmentUrl
     const attachmentType = screenBlock.attributes.attachmentType || 'image'
-    const focalPoint = screenBlock.attributes.focalPoint || { x: 50, y: 50 }
+    const media = resolveScreenMedia(screenBlock.attributes)
+    const img = screenImageProps(media, 'float')
     const isImageOnLeft = layout === 'float-left'
 
     const contentSection = (
@@ -2014,20 +2018,14 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
 
     const attachmentSection = (
       <div className={`flex-1 flex items-center p-8 ${isImageOnLeft ? 'justify-end md:pl-8' : 'justify-start md:pr-8'}`}>
-        <div className="w-full max-w-xl rounded-lg overflow-hidden shadow-lg">
+        <div className="w-full max-w-xl">
           {attachmentType === 'image' && attachmentUrl && (
-            <img
-              src={attachmentUrl}
-              alt=""
-              className="w-full h-auto object-cover"
-              style={{ 
-                maxHeight: '500px',
-                objectPosition: `${focalPoint.x}% ${focalPoint.y}%` 
-              }}
-            />
+            <div className={img.frameClassName} style={img.frameStyle}>
+              <img src={attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+            </div>
           )}
           {attachmentType === 'video' && attachmentUrl && (
-            <div className="aspect-video">
+            <div className={screenVideoFrameClass(media, 'float')}>
               <iframe
                 src={`https://www.youtube.com/embed/${getYouTubeVideoId(attachmentUrl)}?autoplay=0`}
                 className="w-full h-full"
@@ -2084,11 +2082,11 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
     const layout = screenBlock.attributes.attachmentLayout
     const attachmentUrl = screenBlock.attributes.attachmentUrl
     const attachmentType = screenBlock.attributes.attachmentType || 'image'
-    const focalPoint = screenBlock.attributes.focalPoint || { x: 50, y: 50 }
+    const img = screenImageProps(resolveScreenMedia(screenBlock.attributes), 'split')
     const isImageOnLeft = layout === 'split-left'
 
     const contentSection = (
-      <div className="w-full md:w-1/2 min-h-screen flex flex-col">
+      <div className="w-full md:w-1/2 flex-1 md:flex-none md:min-h-screen flex flex-col">
         {/* Logo */}
         {form.settings.logo && (
           <div className="p-4">
@@ -2133,14 +2131,11 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
     )
 
     const attachmentSection = (
-      <div className="hidden md:block w-1/2 min-h-screen relative">
+      <div className="w-full h-56 sm:h-72 md:h-auto md:w-1/2 md:min-h-screen relative shrink-0">
         {attachmentType === 'image' && attachmentUrl && (
-          <img
-            src={attachmentUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
-          />
+          <div className={img.frameClassName} style={img.frameStyle}>
+            <img src={attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+          </div>
         )}
         {attachmentType === 'video' && attachmentUrl && (
           <iframe
@@ -2163,7 +2158,8 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
           }}
         >
           {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
-          <div className="flex-1 flex flex-row">
+          {/* Sur mobile l'image passe au-dessus du texte, quel que soit son côté */}
+          <div className={`flex-1 flex ${isImageOnLeft ? 'flex-col' : 'flex-col-reverse'} md:flex-row`}>
             {isImageOnLeft ? (
               <>
                 {attachmentSection}
@@ -2177,6 +2173,69 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
             )}
           </div>
           {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+        </div>
+        <ResumeDraftPrompt
+          draft={pendingDraft}
+          themeProps={themeProps}
+          buttonBorderRadius={buttonBorderRadius}
+          hasSignature={hasSignatureBlock}
+          onResume={resumeDraft}
+          onDiscard={discardDraft}
+        />
+        <HoneypotField inputRef={honeypotRef} />
+        <GdprNoticeModal block={screenBlock} open={gdprNoticeOpen} onClose={() => setGdprNoticeOpen(false)} />
+      </>
+    )
+  }
+
+  // Image plein écran derrière le texte, sous un voile qui garde le texte lisible
+  if (hasBackgroundLayout && screenBlock) {
+    const media = resolveScreenMedia(screenBlock.attributes)
+    const img = screenImageProps(media, 'background')
+    const overlay = screenOverlay(media, themeProps.backgroundColor)
+    const contentTheme: ThemeProperties = {
+      ...themeProps,
+      questionsColor: overlay.questionsColor ?? themeProps.questionsColor,
+      answersColor: overlay.answersColor ?? themeProps.answersColor,
+    }
+
+    return (
+      <>
+        <div
+          className="relative min-h-screen flex flex-col transition-colors duration-300"
+          style={{
+            ...getBackgroundStyle(themeProps),
+            fontFamily: themeProps.font || 'Inter',
+          }}
+        >
+          <div className={img.frameClassName} style={img.frameStyle}>
+            <img src={screenBlock.attributes.attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+          </div>
+          <div aria-hidden="true" className="absolute inset-0" style={overlay.overlayStyle} />
+
+          <div className="relative flex-1 flex flex-col">
+            {showLogo && logoPosition === 'top' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+            <div className="flex-1 flex items-center justify-center px-4 py-6 sm:p-8">
+              <div
+                ref={screenRegionRef}
+                tabIndex={-1}
+                role={isSubmitted ? 'status' : 'group'}
+                className={`max-w-xl w-full outline-none transition-all duration-300 ${
+                  isAnimating ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+                }`}
+              >
+                <WelcomeScreenContent
+                  block={screenBlock}
+                  themeProps={contentTheme}
+                  onNext={goToNext}
+                  onRestart={handleRestart}
+                  buttonBorderRadius={buttonBorderRadius}
+                  onOpenGdprNotice={() => setGdprNoticeOpen(true)}
+                />
+              </div>
+            </div>
+            {showLogo && logoPosition === 'bottom' && <LogoBar siteLogo={siteLogo!} alignment={logoAlignment} />}
+          </div>
         </div>
         <ResumeDraftPrompt
           draft={pendingDraft}
@@ -2213,32 +2272,7 @@ export function PublicFormClient({ form, theme, siteLogo, renderToken, draftScop
               role="status"
               className="max-w-xl w-full outline-none"
             >
-              {thankyouBlock?.attributes.showAttachment &&
-                (thankyouBlock.attributes.attachmentLayout || 'stack') === 'stack' &&
-                thankyouBlock.attributes.attachmentUrl && (
-                  <div className="mb-6">
-                    {thankyouBlock.attributes.attachmentType === 'video' ? (
-                      <div className="aspect-video rounded-lg overflow-hidden">
-                        <iframe
-                          src={`https://www.youtube.com/embed/${getYouTubeVideoId(thankyouBlock.attributes.attachmentUrl)}`}
-                          className="w-full h-full"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      </div>
-                    ) : (
-                      <img
-                        src={thankyouBlock.attributes.attachmentUrl}
-                        alt=""
-                        className="w-full rounded-lg object-cover"
-                        style={{
-                          maxHeight: '300px',
-                          objectPosition: `${thankyouBlock.attributes.focalPoint?.x ?? 50}% ${thankyouBlock.attributes.focalPoint?.y ?? 50}%`,
-                        }}
-                      />
-                    )}
-                  </div>
-                )}
+              {thankyouBlock && <ScreenStackMedia block={thankyouBlock} />}
 
               <h1
                 className="text-3xl md:text-4xl font-semibold leading-tight"
@@ -3026,53 +3060,6 @@ function QuestionBlock({
   const listProps = choiceListProps(choiceAllowMultiple)
   const optionProps = (i: number, selected: boolean) =>
     choiceOptionProps(choiceAllowMultiple, i, selected, choiceSelectedIndex)
-
-  // Rendu de l'attachment pour welcome-screen (layouts non-split)
-  const renderWelcomeAttachment = () => {
-    if (!block.attributes.showAttachment || !block.attributes.attachmentUrl) return null
-    
-    const attachmentType = block.attributes.attachmentType || 'image'
-    const attachmentUrl = block.attributes.attachmentUrl
-    const attachmentLayout = block.attributes.attachmentLayout || 'stack'
-    const focalPoint = block.attributes.focalPoint || { x: 50, y: 50 }
-    
-    // Les layouts split sont gérés au niveau du conteneur parent
-    if (['split-left', 'split-right'].includes(attachmentLayout)) return null
-
-    const isFloat = ['float-left', 'float-right'].includes(attachmentLayout)
-    
-    if (attachmentType === 'image') {
-      return (
-        <div className={`${isFloat ? (attachmentLayout === 'float-left' ? 'float-left mr-6 mb-4' : 'float-right ml-6 mb-4') : 'mb-6'}`}>
-          <img
-            src={attachmentUrl}
-            alt=""
-            className={`rounded-lg ${isFloat ? 'max-w-xs' : 'w-full max-h-64 object-cover'}`}
-            style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
-          />
-        </div>
-      )
-    }
-    
-    if (attachmentType === 'video') {
-      const videoId = getYouTubeVideoId(attachmentUrl)
-      if (!videoId) return null
-      return (
-        <div className={`${isFloat ? (attachmentLayout === 'float-left' ? 'float-left mr-6 mb-4' : 'float-right ml-6 mb-4') : 'mb-6'}`}>
-          <div className={`relative ${isFloat ? 'w-64' : 'w-full'} aspect-video rounded-lg overflow-hidden`}>
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              className="absolute inset-0 w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      )
-    }
-    
-    return null
-  }
 
   const renderInput = () => {
     switch (block.type) {
@@ -4125,33 +4112,7 @@ function QuestionBlock({
   const questionContent = (
     <div className={isHorizontalMedia ? 'flex-1' : ''}>
       {/* Image au-dessus du titre pour welcome-screen et thankyou-screen en layout stack */}
-      {(block.type === 'welcome-screen' || block.type === 'thankyou-screen') &&
-       block.attributes.showAttachment &&
-       block.attributes.attachmentLayout === 'stack' &&
-       block.attributes.attachmentUrl && (
-        <div className="mb-6">
-          {block.attributes.attachmentType === 'video' ? (
-            <div className="aspect-video rounded-lg overflow-hidden">
-              <iframe
-                src={`https://www.youtube.com/embed/${getYouTubeVideoId(block.attributes.attachmentUrl)}`}
-                className="w-full h-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            <img
-              src={block.attributes.attachmentUrl}
-              alt=""
-              className="w-full max-w-xl rounded-lg object-cover"
-              style={{
-                maxHeight: '300px',
-                objectPosition: `${block.attributes.focalPoint?.x || 50}% ${block.attributes.focalPoint?.y || 50}%`
-              }}
-            />
-          )}
-        </div>
-      )}
+      {(block.type === 'welcome-screen' || block.type === 'thankyou-screen') && <ScreenStackMedia block={block} />}
 
       {/* Question number */}
       {showNumber && block.type !== 'welcome-screen' && block.type !== 'statement' && !block.attributes.hideLabel && (
@@ -6964,7 +6925,38 @@ function ThankYouActions({ block, themeProps, buttonBorderRadius, onRestart, cla
   )
 }
 
-// Composant pour le contenu du welcome-screen / thankyou-screen (utilisé avec les layouts split)
+// Image ou vidéo au-dessus du titre d'un écran d'accueil / de fin en disposition empilée
+function ScreenStackMedia({ block }: { block: FormBlock }) {
+  const attrs = block.attributes
+  if (!attrs.showAttachment || !attrs.attachmentUrl || effectiveScreenLayout(attrs) !== 'stack') return null
+  const media = resolveScreenMedia(attrs)
+
+  if (attrs.attachmentType === 'video') {
+    return (
+      <div className="mb-6">
+        <div className={screenVideoFrameClass(media, 'stack')}>
+          <iframe
+            src={`https://www.youtube.com/embed/${getYouTubeVideoId(attrs.attachmentUrl)}`}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const img = screenImageProps(media, 'stack')
+  return (
+    <div className="mb-6">
+      <div className={img.frameClassName} style={img.frameStyle}>
+        <img src={attrs.attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+      </div>
+    </div>
+  )
+}
+
+// Composant pour le contenu du welcome-screen / thankyou-screen (layouts split et arrière-plan)
 interface WelcomeScreenContentProps {
   block: FormBlock
   themeProps: ThemeProperties

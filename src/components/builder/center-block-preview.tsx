@@ -5,6 +5,7 @@ import type { FormBlock, Theme } from '@/types/form'
 import { useFormBuilder } from '@/stores/form-builder'
 import { Check, ChevronRight } from 'lucide-react'
 import { getBackgroundStyle } from '@/lib/utils'
+import { effectiveScreenLayout, resolveScreenMedia, screenImageProps, screenOverlay, screenVideoFrameClass } from '@/lib/screen-media'
 import { StarRating, DEFAULT_STAR_COLOR, getStarCount } from '@/components/ui/star-rating'
 
 // Helper pour extraire l'ID de vidéo YouTube
@@ -542,68 +543,9 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
     }
   }
 
-  // Fonction pour rendre l'attachment du welcome-screen
-  const renderWelcomeAttachment = () => {
-    if (!block?.attributes.showAttachment || !block?.attributes.attachmentUrl) return null
-    
-    const attachmentType = block.attributes.attachmentType || 'image'
-    const attachmentUrl = block.attributes.attachmentUrl
-    const attachmentLayout = block.attributes.attachmentLayout || 'stack'
-    const focalPoint = block.attributes.focalPoint || { x: 50, y: 50 }
-    
-    // Les layouts split sont gérés différemment
-    if (['split-left', 'split-right'].includes(attachmentLayout)) return null
-
-    const isFloat = ['float-left', 'float-right'].includes(attachmentLayout)
-    
-    if (attachmentType === 'image') {
-      return (
-        <div className={`${isFloat ? (attachmentLayout === 'float-left' ? 'float-left mr-4 mb-2' : 'float-right ml-4 mb-2') : 'mb-4'}`}>
-          <img
-            src={attachmentUrl}
-            alt=""
-            className={`rounded-lg ${isFloat ? 'max-w-[200px]' : 'w-full max-h-48 object-cover'}`}
-            style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
-          />
-        </div>
-      )
-    }
-    
-    if (attachmentType === 'video') {
-      const videoId = getYouTubeVideoId(attachmentUrl)
-      if (!videoId) return null
-      return (
-        <div className={`${isFloat ? (attachmentLayout === 'float-left' ? 'float-left mr-4 mb-2' : 'float-right ml-4 mb-2') : 'mb-4'}`}>
-          <div className={`relative ${isFloat ? 'w-48' : 'w-full'} aspect-video rounded-lg overflow-hidden`}>
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              className="absolute inset-0 w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        </div>
-      )
-    }
-    
-    return null
-  }
-
   const renderInput = () => {
     switch (block.type) {
       case 'welcome-screen':
-        const layout = block.attributes.attachmentLayout || 'stack'
-        const isSplit = ['split-left', 'split-right'].includes(layout)
-        
-        // Pour le split, on ne rend rien ici car c'est géré au niveau du composant parent
-        if (isSplit && block.attributes.showAttachment && block.attributes.attachmentUrl) {
-          return null
-        }
-        
-        // Layout float - rendu côte à côte
-        if (['float-left', 'float-right'].includes(layout)) {
-          return null // Géré au niveau du composant parent
-        }
         
         // Layout stack - juste le bouton (image gérée au niveau parent)
         return (
@@ -1101,23 +1043,24 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
   )
 
   // Vérifier si on doit utiliser un layout split pour welcome/thankyou screen
-  const hasSplitLayout = block && 
+  const isScreenWithAttachment = !!block &&
     (block.type === 'welcome-screen' || block.type === 'thankyou-screen') &&
-    block.attributes.showAttachment &&
-    (block.attributes.attachmentLayout === 'split-left' || block.attributes.attachmentLayout === 'split-right')
+    !!block.attributes.showAttachment
+  const screenLayout = block ? effectiveScreenLayout(block.attributes) : 'stack'
+  const hasSplitLayout = isScreenWithAttachment && (screenLayout === 'split-left' || screenLayout === 'split-right')
 
   // Vérifier si on doit utiliser un layout float
-  const hasFloatLayout = block && 
-    (block.type === 'welcome-screen' || block.type === 'thankyou-screen') &&
-    block.attributes.showAttachment &&
-    (block.attributes.attachmentLayout === 'float-left' || block.attributes.attachmentLayout === 'float-right')
+  const hasFloatLayout = isScreenWithAttachment && (screenLayout === 'float-left' || screenLayout === 'float-right')
+
+  const hasBackgroundLayout = isScreenWithAttachment && screenLayout === 'background' && !!block.attributes.attachmentUrl
 
   // Rendu avec layout float
   if (hasFloatLayout) {
     const layout = block.attributes.attachmentLayout
     const attachmentUrl = block.attributes.attachmentUrl
     const attachmentType = block.attributes.attachmentType || 'image'
-    const focalPoint = block.attributes.focalPoint || { x: 50, y: 50 }
+    const media = resolveScreenMedia(block.attributes)
+    const img = screenImageProps(media, 'float')
     const isImageOnLeft = layout === 'float-left'
 
     const contentSection = (
@@ -1179,20 +1122,14 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
 
     const attachmentSection = (
       <div className={`flex-1 flex items-center p-8 ${isImageOnLeft ? 'justify-end' : 'justify-start'}`}>
-        <div className="w-full max-w-md rounded-lg overflow-hidden shadow-lg">
+        <div className="w-full max-w-md">
           {attachmentType === 'image' && attachmentUrl && (
-            <img
-              src={attachmentUrl}
-              alt=""
-              className="w-full h-auto object-cover"
-              style={{ 
-                maxHeight: '400px',
-                objectPosition: `${focalPoint.x}% ${focalPoint.y}%` 
-              }}
-            />
+            <div className={img.frameClassName} style={img.frameStyle}>
+              <img src={attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+            </div>
           )}
           {attachmentType === 'video' && attachmentUrl && (
-            <div className="aspect-video">
+            <div className={screenVideoFrameClass(media, 'float')}>
               <iframe
                 src={`https://www.youtube.com/embed/${getYouTubeVideoId(attachmentUrl)}?autoplay=0`}
                 className="w-full h-full"
@@ -1228,12 +1165,77 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
     )
   }
 
+  // Rendu avec layout arrière-plan : image plein cadre sous un voile
+  if (hasBackgroundLayout) {
+    const media = resolveScreenMedia(block.attributes)
+    const img = screenImageProps(media, 'background')
+    const overlay = screenOverlay(media, themeProps.backgroundColor)
+    const questionsColor = overlay.questionsColor ?? themeProps.questionsColor
+    const answersColor = overlay.answersColor ?? themeProps.answersColor
+
+    return (
+      <div
+        className="flex-1 relative flex flex-col transition-all duration-300"
+        style={{
+          ...backgroundStyle,
+          fontFamily: themeProps.font || 'Inter',
+        }}
+      >
+        <div className={img.frameClassName} style={img.frameStyle}>
+          <img src={block.attributes.attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+        </div>
+        <div aria-hidden="true" className="absolute inset-0" style={overlay.overlayStyle} />
+        <div className="relative flex-1 flex items-center justify-center p-8">
+          <div className="max-w-xl w-full">
+            <h1 className="text-2xl md:text-3xl font-semibold leading-tight" style={{ color: questionsColor }}>
+              {block.attributes.label || 'Question sans titre'}
+            </h1>
+            {block.attributes.description && (
+              <p className="mt-4 text-base leading-relaxed opacity-80" style={{ color: answersColor }}>
+                {block.attributes.description}
+              </p>
+            )}
+            {block.type === 'welcome-screen' && (
+              <div className="mt-8">
+                <button
+                  className="px-8 py-3 text-base font-medium transition-all hover:opacity-90 hover:scale-105 flex items-center gap-2"
+                  style={{
+                    backgroundColor: themeProps.buttonsBgColor,
+                    color: themeProps.buttonsFontColor,
+                    borderRadius: buttonBorderRadius,
+                  }}
+                >
+                  {block.attributes.buttonText || 'Commencer'}
+                  <span className="opacity-70">→</span>
+                </button>
+              </div>
+            )}
+            {block.type === 'thankyou-screen' && (
+              <div className="mt-6">
+                <div
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm"
+                  style={{
+                    backgroundColor: themeProps.buttonsBgColor + '20',
+                    color: themeProps.buttonsBgColor,
+                  }}
+                >
+                  <Check className="w-4 h-4" />
+                  Formulaire terminé
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Rendu avec layout split
   if (hasSplitLayout) {
     const layout = block.attributes.attachmentLayout
     const attachmentUrl = block.attributes.attachmentUrl
     const attachmentType = block.attributes.attachmentType || 'image'
-    const focalPoint = block.attributes.focalPoint || { x: 50, y: 50 }
+    const img = screenImageProps(resolveScreenMedia(block.attributes), 'split')
     const isImageOnLeft = layout === 'split-left'
 
     const contentSection = (
@@ -1318,12 +1320,9 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
     const attachmentSection = (
       <div className="w-1/2 h-full relative">
         {attachmentType === 'image' && attachmentUrl && (
-          <img
-            src={attachmentUrl}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
-          />
+          <div className={img.frameClassName} style={img.frameStyle}>
+            <img src={attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+          </div>
         )}
         {attachmentType === 'video' && attachmentUrl && (
           <iframe
@@ -1638,33 +1637,34 @@ export function CenterBlockPreview({ block, theme, blockIndex = 0, totalBlocks =
         ) : (
           <>
             {/* Image au-dessus du titre pour welcome-screen et thankyou-screen en layout stack */}
-            {(block.type === 'welcome-screen' || block.type === 'thankyou-screen') && 
-             block.attributes.showAttachment && 
-             block.attributes.attachmentLayout === 'stack' && 
-             block.attributes.attachmentUrl && (
-              <div className="mb-6">
-                {block.attributes.attachmentType === 'video' ? (
-                  <div className="aspect-video rounded-lg overflow-hidden max-w-xl">
-                    <iframe
-                      src={`https://www.youtube.com/embed/${getYouTubeVideoId(block.attributes.attachmentUrl)}`}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
+            {(block.type === 'welcome-screen' || block.type === 'thankyou-screen') &&
+             block.attributes.showAttachment &&
+             screenLayout === 'stack' &&
+             block.attributes.attachmentUrl && (() => {
+              const media = resolveScreenMedia(block.attributes)
+              if (block.attributes.attachmentType === 'video') {
+                return (
+                  <div className="mb-6 max-w-xl">
+                    <div className={screenVideoFrameClass(media, 'stack')}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(block.attributes.attachmentUrl)}`}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <img
-                    src={block.attributes.attachmentUrl}
-                    alt=""
-                    className="w-full max-w-xl rounded-lg object-cover"
-                    style={{ 
-                      maxHeight: '280px',
-                      objectPosition: `${block.attributes.focalPoint?.x || 50}% ${block.attributes.focalPoint?.y || 50}%` 
-                    }}
-                  />
-                )}
-              </div>
-            )}
+                )
+              }
+              const img = screenImageProps(media, 'stack')
+              return (
+                <div className="mb-6 max-w-xl">
+                  <div className={img.frameClassName} style={img.frameStyle}>
+                    <img src={block.attributes.attachmentUrl} alt={img.alt} className={img.imgClassName} style={img.imgStyle} />
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Question number */}
             {settings.showQuestionNumbers && block.type !== 'welcome-screen' && block.type !== 'thankyou-screen' && block.type !== 'statement' && !block.attributes.hideLabel && (
